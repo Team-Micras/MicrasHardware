@@ -8,18 +8,16 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
-from micras import drive, layout, mass  # noqa: E402
+from micras import drive, fan, layout, mass  # noqa: E402
 from micras.params import P  # noqa: E402
 
 TARGET_X = float(sys.argv[1]) if len(sys.argv) > 1 else 0.0
 TRAY_FLOOR = 1.0  # tray floor thickness
 CLEAR = 0.5
 WALL = 1.0
-FAN_MOTOR_TOP = P.board.top_z + 0.6 + 6.0 + 1.0 + P.motor.body_l + P.motor.rear_l  # rough, fan not designed yet
-
-printed = drive.all_parts()
+printed = {**drive.all_parts(), **{k: v for k, v in fan.parts().items() if k != "fan_motor"}}
 obstacles = []  # (x0, x1, top_z)
-for name, part in {**layout.reference(with_board=False), **printed}.items():
+for name, part in {**layout.reference(with_board=False), **printed, "fan_motor": fan.parts()["fan_motor"]}.items():
     if name.startswith("cell"):
         continue
     bb = part.bounding_box()
@@ -27,8 +25,6 @@ for name, part in {**layout.reference(with_board=False), **printed}.items():
 for b in layout.board_boxes():
     if abs(b["min"][1] + b["max"][1]) / 2 < 26:
         obstacles.append((b["min"][0], b["max"][0], b["max"][2]))
-fx = P.board.fan_hole_x
-obstacles.append((fx - P.motor.d / 2, fx + P.motor.d / 2, FAN_MOTOR_TOP))
 
 
 def floor_at(x, sx):
@@ -43,7 +39,8 @@ print(f"without battery: {base['mass']:.1f} g, CoM x={base['com'][0]:+.2f} z={ba
 print(f"target CoM x = {TARGET_X:+.1f} mm\n")
 print(f"{'arrangement':10s} {'pack x*z':>11s} {'tray x':>7s} {'floor z':>7s} {'top z':>6s} "
       f"{'CoM x':>6s} {'CoM z':>6s} {'Izz g*mm2':>10s}")
-for arr in ("pyramid", "edge", "flat", "stack"):
+results = []
+for arr in ("pyramid", "edge", "flat", "stack", "standing"):
     _, (sx, sz) = mass.battery_cells(arr, P)
     best = None
     for x in np.arange(-35, 20, 0.25):
@@ -54,5 +51,7 @@ for arr in ("pyramid", "edge", "flat", "stack"):
         if best is None or err < best[0]:
             best = (err, x, fz, s)
     err, x, fz, s = best
+    results.append((s["izz"], arr))
     print(f"{arr:10s} {sx:5.1f}x{sz:4.1f} {x:7.2f} {fz:7.1f} {fz + sz + 1:6.1f} "
           f"{s['com'][0]:+6.2f} {s['com'][2]:6.1f} {s['izz']:10.0f}" + ("  (CoM target missed)" if err > 0.5 else ""))
+print("\nby yaw inertia:", ", ".join(f"{a} {i:.0f}" for i, a in sorted(results)))

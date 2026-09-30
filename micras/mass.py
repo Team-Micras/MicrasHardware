@@ -57,16 +57,18 @@ def summarize(items):
     return {"mass": m, "com": tuple(com), "izz": izz}
 
 
-def fixed_items(p: Params = P, printed=None, fan_z=20.0):
+def fixed_items(p: Params = P, printed=None, fan_z=None):
     """Everything except the battery and its tray."""
     M = MASSES
+    if fan_z is None:
+        from .fan import heights
+        fan_z = heights(p)["motor"] + p.motor.body_l / 2
     items = [
         Item("board", M["board"], M["board_com"], box_izz(M["board"], 90, 50)),
         Item("front", M["front"], M["front_com"], box_izz(M["front"], 20, 50)),
         Item("spine", M["spine"], M["spine_com"]),
         Item("fan_motor", M["fan_motor"], (p.board.fan_hole_x, 0, fan_z)),
-        Item("impeller", M["impeller"], (p.board.fan_hole_x, 0, p.board.top_z + 4)),
-        Item("fan_housing", M["fan_housing"], (p.board.fan_hole_x, 0, p.board.top_z + 5)),
+
         Item("wires", M["wires"], (-10, 0, 15)),
     ]
     for s in (1, -1):
@@ -105,15 +107,22 @@ def battery_cells(arrangement, p: Params = P):
         return [((i - 1) * (W + g), T / 2) for i in range(3)], (3 * W + 2 * g, T)
     if arrangement == "stack":  # three flat, stacked
         return [(0, T / 2 + i * (T + g)) for i in range(3)], (W, 3 * T + 2 * g)
+    if arrangement == "standing":  # three upright (long side vertical), side by side
+        return [((i - 1) * (T + g), L / 2) for i in range(3)], (3 * T + 2 * g, L)
     raise ValueError(arrangement)
+
+
+def cell_footprint(arrangement, p: Params = P):
+    """(x, y) size of one cell seen from above."""
+    L, W, T = p.battery.cell
+    return {"edge": (T, L), "standing": (T, W)}.get(arrangement, (W, L))
 
 
 def battery_items(arrangement, x, floor_z, p: Params = P):
     L, W, T = p.battery.cell
     cells, _ = battery_cells(arrangement, p)
     items = []
+    fx, fy = cell_footprint(arrangement, p)
     for i, (cx, cz) in enumerate(cells):
-        flat = arrangement != "edge"
-        sx = W if flat else T
-        items.append(Item(f"cell{i}", MASSES["cell"], (x + cx, 0, floor_z + cz), box_izz(MASSES["cell"], sx, L)))
+        items.append(Item(f"cell{i}", MASSES["cell"], (x + cx, 0, floor_z + cz), box_izz(MASSES["cell"], fx, fy)))
     return items

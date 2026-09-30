@@ -8,13 +8,19 @@ from pathlib import Path
 
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Align, Box, Cylinder, Plane, Pos, extrude, mirror  # noqa: E402
-from micras import checks, drive, layout  # noqa: E402
+from micras import checks, drive, fan, frame, layout  # noqa: E402
 from micras.params import P  # noqa: E402
 
 t = time.time()
 parts = layout.reference(with_board=False)
 printed = drive.all_parts()
 parts.update(printed)
+fan_parts = fan.parts()
+parts.update(fan_parts)
+frame_parts = frame.parts()
+parts.update(frame_parts)
+# may touch the board outside the silkscreen zones (agreed for the fan supports)
+ZONE_EXEMPT = {"fan_mount"}
 t_parts = time.time()
 others = layout.board_keepouts()
 # the encoder daughterboards are fixed hardware, like the board
@@ -42,6 +48,9 @@ for s in "LR":
                  # running gap set by params (stack.holder_gap)
                  ("magnet_cup", "block_base"), ("magnet_cup", "block_cap")]:
         allowed.add(frozenset((f"{a}_{s}", f"{b}_{s}")))
+allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_motor")),
+            frozenset(("frame", "fan_mount")), frozenset(("frame", "block_cap_L")), frozenset(("frame", "block_cap_R"))}
+allowed |= {frozenset(("frame", f"cell{i}")) for i in range(3)}
 
 res = checks.clashes(parts, others, allowed, margin=P.layout.clearance)
 for r in res:
@@ -55,7 +64,9 @@ slab = Pos(0, 0, P.board.top_z) * Box(200, 200, 0.3, align=(Align.CENTER, Align.
 for sy in (1, -1):
     slab -= Pos(0, sy * (P.board.notch_inner_y + 20), P.board.top_z) * Box(17, 40, 1)
 slab -= Pos(P.board.fan_hole_x, 0, P.board.top_z) * Cylinder(P.board.fan_hole_d / 2, 1)
-for name, part in printed.items():
+for name, part in {**printed, **frame_parts, **{k: v for k, v in fan_parts.items() if k != "fan_motor"}}.items():
+    if name in ZONE_EXEMPT:
+        continue
     near = part & slab
     if near is None or near.volume < 1e-6:
         continue

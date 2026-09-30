@@ -35,7 +35,9 @@ class DriveParams:
     screw_l: float = 5.0
     csk_d: float = 4.0  # countersink for the M2 flat heads in the caps
     cap_screws: tuple = ((5.6, 16.0), (-5.6, 16.0))  # (x, |y|) cap screws, same for both sides
-    ring_clamp_screw: bool = True
+    frame_screw_depth: float = 3.8  # M2x5 through a 1.2 frame floor
+    frame_boss_top_left: float = 21.5  # keeps the screw hole above the left seat bore
+    tray_bottom_z: float = 28.8  # frame tray underside, sits on the right boss
 
 
 D = DriveParams()
@@ -166,6 +168,16 @@ def _cut_left_bores(body, p: Params, d: DriveParams, motor_angle):
     return body
 
 
+def frame_boss(side, p: Params = P, d: DriveParams = D):
+    """(x, |y|, top z) of the frame mounting boss on each cap."""
+    angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right
+    sx, sz = seat_axis(angle, p)
+    if side > 0:  # on top of the level motor's seat
+        return sx, 11.0, d.frame_boss_top_left
+    # behind the raised motor's ring, far enough out that the hole misses the bore
+    return sx - (seat_d(p, d) / 2 + d.insert_d / 2 + 0.6), 11.0, d.tray_bottom_z
+
+
 def block(side, p: Params = P, d: DriveParams = D):
     """(base, cap) for one side; side=+1 left, -1 right."""
     angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right
@@ -183,6 +195,15 @@ def block(side, p: Params = P, d: DriveParams = D):
         cap -= hole
         cap_top = cap.bounding_box().max.Z
         cap -= Pos(sx, sy, cap_top) * Cylinder(d.csk_d / 2, (d.csk_d - d.screw_clear_d) / 2, align=MAX)
+    # frame mounting boss with an insert, on the cap
+    fx, fy, ftop = frame_boss(side, p, d)
+    angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right
+    fz0 = seat_axis(angle, p)[1]
+    cap += Pos(fx, fy, fz0) * Cylinder(d.insert_d / 2 + d.wall, ftop - fz0, align=MIN)
+    cap -= Pos(fx, fy, ftop) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
+    cap -= Pos(fx, fy, ftop) * Cylinder(d.screw_clear_d / 2, d.frame_screw_depth, align=MAX)
+    # re-cut the seat bore in case the boss reached into it
+    cap -= along_y(seat_d(p, d) / 2, *seat_span(p, d), *seat_axis(angle, p))
     if side < 0:
         base = mirror(base, Plane.XZ)
         cap = mirror(cap, Plane.XZ)
