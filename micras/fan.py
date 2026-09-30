@@ -165,8 +165,9 @@ def mount(p: Params = P, f: FanParams = F):
         body += Rot(0, 0, ang) * _leg(r, p, f, z_foot)
     # collet: tapered, slotted top of the collar
     ct = h["collar_top"]
-    body -= Pos(0, 0, ct - f.taper_l) * (Cylinder(rc + 2, f.taper_l, align=MIN)
-                                        - Cone(rc, rc - f.taper, f.taper_l, align=MIN))
+    if f.taper > 0:
+        body -= Pos(0, 0, ct - f.taper_l) * (Cylinder(rc + 2, f.taper_l, align=MIN)
+                                            - Cone(rc, rc - f.taper, f.taper_l, align=MIN))
     for a in f.slit_angles:
         turn = Rot(0, 0, a)
         body -= turn * Pos(rc, 0, ct - f.taper_l - f.slit_below) * Box(

@@ -360,7 +360,7 @@ def block(side, p: Params = P, d: DriveParams = D):
                  (fx - rf + 0.01, ftop - 0.01, 0.01), (fx + rf - 0.01, ftop - 0.01, 0.01)], fy, wy1 - 0.02)
     cap = cap.fuse(web).clean()  # (`+` drops part of the web here)
     # ... and blended into the motor seat's ring along the boss (hull of both), from the boss's centre out
-    ring = (*seat_axis(angle, p), seat_d(p, d) / 2 + d.wall)
+    ring = (*seat_axis(angle, p), seat_d(p, d) / 2 + d.wall - 0.05)  # (inside the ring: coincident faces break it)
     sy0, sy1 = seat_span(p, d)
     cap = cap.fuse(_belt([ring, (fx - rf + 0.01, wz0, 0.01), (fx + rf - 0.01, wz0, 0.01),
                           (fx - rf + 0.01, ftop - 0.01, 0.01), (fx + rf - 0.01, ftop - 0.01, 0.01)],
@@ -372,7 +372,8 @@ def block(side, p: Params = P, d: DriveParams = D):
     cap -= Pos(fx, fy, ftop) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
     cap -= Pos(fx, fy, ftop) * Cylinder(d.screw_clear_d / 2, d.frame_screw_depth, align=MAX)
     # re-cut the seat bore in case the boss reached into it
-    cap -= along_y(seat_d(p, d) / 2, *seat_span(p, d), *seat_axis(angle, p))
+    sy0, sy1 = seat_span(p, d)
+    cap -= along_y(seat_d(p, d) / 2, sy0 - 1, sy1 + 1, *seat_axis(angle, p))  # (as the first cut: through)
     if side < 0 and p.layout.backlash_mode == "eccentric":
         cap = _ring_clamp(cap, p, d, angle)
     if side < 0:

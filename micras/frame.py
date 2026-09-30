@@ -100,14 +100,13 @@ def lid_face(p: Params = P, fr: FrameParams = FR):
     return _plan_with_bosses(p, fr)
 
 
-def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
+def floor(p: Params = P, fr: FrameParams = FR, d=drive.D):
+    """Box floor (ribs, the bands under the screws, side strips), the outline rim, and the posts onto the two
+    cap bosses with their countersunk screws."""
     z0 = d.tray_bottom_z
     z1 = z0 + fr.floor_t
-    assert abs(z1 - p.battery.floor_z) < 1e-6, "Battery.floor_z must equal tray_bottom_z + floor_t"
-    zt = box_top(p, fr, d)
     x0, x1, y0, y1 = tray_box(p, fr)
     cx = (x0 + x1) / 2
-
     # box floor: ribs running front to back (no plate, so no ceiling when printed on the nose plane);
     # the cells rest on the rib edges
     body = Pos(cx, 0, z0) * extrude(RectangleRounded(x1 - x0, y1 - y0, fr.corner_r), fr.floor_t)
@@ -120,6 +119,31 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
     for sy in (1, -1):
         body += Pos(cx, sy * (y1 - fr.wall_t), z0) * Box(x1 - x0 - fr.wall_t, fr.side_band, fr.floor_t,
                                                      align=(Align.CENTER, Align.MAX if sy > 0 else Align.MIN, Align.MIN))
+    # posts onto the two cap bosses, each on a solid floor band that spans the box (front wall to rear wall)
+    for side in (1, -1):
+        bx, by, btop = drive.frame_boss(side, p, d)
+        by *= side
+        body += Pos(cx, by, z0) * Box(x1 - x0 - fr.wall_t, fr.floor_band, fr.floor_t, align=MIN)
+        body += Pos(bx, by, z0) * Cylinder(fr.post_d / 2 + 0.6, fr.floor_t, align=MIN)
+        if btop < z0:  # post down to a lower boss, screwed through its floor
+            body += Pos(bx, by, btop) * Cylinder(fr.post_d / 2, z0 - btop, align=MIN)
+            # flared into the floor (the post's foot was the peak stress in a drop, tools/fea.py)
+            body += Pos(bx, by, z0) * Cone(fr.post_d / 2, fr.post_d / 2 + fr.post_flare, fr.post_flare, align=MAX)
+            body -= Pos(bx, by, btop + fr.floor_t) * drive.countersunk(d, depth=5, up=40)
+        else:
+            body -= Pos(bx, by, z1) * drive.countersunk(d, depth=5, up=40)
+    return body
+
+
+def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
+    z0 = d.tray_bottom_z
+    z1 = z0 + fr.floor_t
+    assert abs(z1 - p.battery.floor_z) < 1e-6, "Battery.floor_z must equal tray_bottom_z + floor_t"
+    zt = box_top(p, fr, d)
+    x0, x1, y0, y1 = tray_box(p, fr)
+    cx = (x0 + x1) / 2
+
+    body = floor(p, fr, d)
     # full-height walls on all four sides
     outer = Pos(cx, 0, z1) * extrude(RectangleRounded(x1 - x0, y1 - y0, fr.corner_r), zt - z1)
     inner = Pos(cx, 0, z1) * extrude(RectangleRounded(x1 - x0 - 2 * fr.wall_t, y1 - y0 - 2 * fr.wall_t,
@@ -149,20 +173,6 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
         body -= Pos(bx, by, zt) * Cylinder(fr.boss_d / 2 - 0.3, sink, align=MAX)
         body -= Pos(bx, by, zt - sink) * Cylinder(fr.insert_d / 2, d.insert_l, align=MAX)
         body -= Pos(bx, by, zt - sink) * Cylinder(d.screw_clear_d / 2, d.screw_l - fr.lug_t + 0.5, align=MAX)
-
-    # posts onto the two cap bosses, each on a solid floor band that spans the box (front wall to rear wall)
-    for side in (1, -1):
-        bx, by, btop = drive.frame_boss(side, p, d)
-        by *= side
-        body += Pos(cx, by, z0) * Box(x1 - x0 - fr.wall_t, fr.floor_band, fr.floor_t, align=MIN)
-        body += Pos(bx, by, z0) * Cylinder(fr.post_d / 2 + 0.6, fr.floor_t, align=MIN)
-        if btop < z0:  # post down to a lower boss, screwed through its floor
-            body += Pos(bx, by, btop) * Cylinder(fr.post_d / 2, z0 - btop, align=MIN)
-            # flared into the floor (the post's foot was the peak stress in a drop, tools/fea.py)
-            body += Pos(bx, by, z0) * Cone(fr.post_d / 2, fr.post_d / 2 + fr.post_flare, fr.post_flare, align=MAX)
-            body -= Pos(bx, by, btop + fr.floor_t) * drive.countersunk(d, depth=5, up=40)
-        else:
-            body -= Pos(bx, by, z1) * drive.countersunk(d, depth=5, up=40)
 
     # airbox tube (body.py trims it to the nose plane). Its tapered bottom slides over the fan mount's
     # slotted collar top: when the body is screwed down it holds the mount on the board and squeezes the

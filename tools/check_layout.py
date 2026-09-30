@@ -113,6 +113,11 @@ for a, b in [("wheel_hub_L", "tire_L"), ("wheel_hub_R", "tire_R")]:  # the tire 
     if v > 1e-3:
         res.append((a, b, 0.0, round(v, 3)))
         print("FIT  ", f"{a} overlaps {b} by {v:.3f} mm3")
+# every printed part must be one valid solid (a broken boolean can leave an invalid shape that still renders)
+for name, part in {**printed, **front_parts, **{k: v for k, v in fan_parts.items() if k != "fan_motor"}}.items():
+    if not part.is_valid or len(part.solids()) != 1:
+        res.append((name, "invalid shape", 0.0, len(part.solids())))
+        print("SHAPE", f"{name}: valid {part.is_valid}, {len(part.solids())} solids")
 # base and cap of each block touch at the split by design (allowed above) but must not overlap
 for sd in "LR":
     common = parts[f"block_base_{sd}"] & parts[f"block_cap_{sd}"]
