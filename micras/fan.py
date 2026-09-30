@@ -49,8 +49,8 @@ class FanParams:
     arm_w: float = 2.6  # leg width (tangential)
     leg_bend_r: float = 3.0  # outer radius where the arm turns down into the foot
     leg_knee_z: float = 9.0  # the arm's top edge slopes from the collar down to this height at the foot
-    root_w: float = 5.0  # leg width where it meets the collar
-    root_l: float = 3.0  # length of the flare
+    root_w: float = 4.5  # leg width where it meets the collar (narrows evenly to arm_w at the foot)
+    leg_inner_r: float = 0.5  # radius where the underside meets the foot (the impeller runs 0.55 inside)
     airbox_gap: float = 0.5  # the legs stay this far below the airbox that slides over the collar
     run_gap: float = 0.5  # arm underside above the impeller's backplate
     plate_t: float = 1.2
@@ -127,29 +127,28 @@ def impeller(p: Params = P, f: FanParams = F):
 
 def _leg(r, p: Params = P, f: FanParams = F):
     """One leg along +x in its radial plane (r, z). It meets the collar over the collar's full height below
-    the airbox (flared wide there), slopes down outwards over the impeller as a tapering arm, and turns down
-    through a rounded bend into the foot on the board at radius r."""
-    from build123d import Rectangle, fillet
+    the airbox and runs down outwards over the impeller, its top and underside each one straight slope,
+    into a rounded bend and the foot on the board at radius r. Seen from above it narrows evenly from the
+    collar to the foot."""
+    from build123d import fillet
     h = heights(p, f)
     z0 = p.board.top_z
-    z_arm = h["back_tip"] + f.back_t + f.run_gap  # arm underside, just above the backplate
+    z_arm = h["back_tip"] + f.back_t + f.run_gap  # underside at the rim: just above the backplate
     z_root = h["collar_top"] - f.taper_l - f.airbox_gap  # the airbox slides over the collar above this
     r_in, r_out = r - f.foot_d / 2, r + f.foot_d / 2
     rc = collar_r(p, f)
-    pts = [(0, h["plate"]), (rc, h["plate"]), (rc + (h["plate"] - z_arm), z_arm), (r_in, z_arm), (r_in, z0),
-           (r_out, z0), (r_out, f.leg_knee_z), (rc, z_root), (0, z_root)]
+    pts = [(0, h["plate"]), (rc, h["plate"]), (r_in, z_arm), (r_in, z0), (r_out, z0), (r_out, f.leg_knee_z),
+           (rc, z_root), (0, z_root)]
     face = make_face(Polyline(*pts, close=True))
-    knee = [v for v in face.vertices() if abs(v.X - r_out) < 1e-6 and abs(v.Y - f.leg_knee_z) < 1e-6]
-    try:
-        face = fillet(knee, f.leg_bend_r)
-    except Exception:  # noqa: BLE001 - keep the sharp knee if the fillet fails
-        pass
-    leg = extrude(Plane.XZ * face, f.arm_w / 2, both=True)
-    # flare the root: wider where it meets the collar
-    flare = Polyline((rc - 1, f.root_w / 2), (rc + f.root_l, f.arm_w / 2), (rc + f.root_l, -f.arm_w / 2),
-                     (rc - 1, -f.root_w / 2), close=True)
-    root = extrude(make_face(flare), 40) & extrude(Plane.XZ * face, f.root_w / 2, both=True)
-    return leg + root
+    for (vx, vz), rad in (((r_out, f.leg_knee_z), f.leg_bend_r), ((r_in, z_arm), f.leg_inner_r)):
+        try:
+            face = fillet([v for v in face.vertices() if abs(v.X - vx) < 1e-6 and abs(v.Y - vz) < 1e-6], rad)
+        except Exception:  # noqa: BLE001 - keep the corner sharp if the fillet fails
+            pass
+    side = extrude(Plane.XZ * face, f.root_w / 2, both=True)
+    plan = Polyline((0, f.root_w / 2), (rc, f.root_w / 2), (r_in, f.arm_w / 2), (r_out + 1, f.arm_w / 2),
+                    (r_out + 1, -f.arm_w / 2), (r_in, -f.arm_w / 2), (rc, -f.root_w / 2), (0, -f.root_w / 2), close=True)
+    return side & Pos(0, 0, z0 - 1) * extrude(make_face(plan), 40)
 
 
 def mount(p: Params = P, f: FanParams = F):
