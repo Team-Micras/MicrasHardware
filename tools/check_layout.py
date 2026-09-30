@@ -56,6 +56,8 @@ allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_m
 allowed |= {frozenset(("body", f"cell{i}")) for i in range(3)}
 # screwed / seated joints
 allowed |= {frozenset(("lid", "body"))}
+# the fan mount's front foot rests on the MCU
+allowed |= {frozenset(("fan_mount", k)) for k in others if k.startswith("brd:STM32")}
 # the bumper passes under the diagonal sensors; the board model's sensor box reaches down to the legs,
 # so the bumper is checked against the LED bodies in check_sensors.py instead
 allowed |= {frozenset(("bumper", k)) for k in others if k.startswith("brd:WALL_SENSOR")}
@@ -83,7 +85,9 @@ zones += Pos((x_free + x_edge) / 2, 0, P.board.top_z) * Box(x_edge - x_free, 2 *
                                                              align=(Align.CENTER, Align.CENTER, Align.MIN))
 # the fan mount's feet, on the free board spots chosen for them
 fcx, fcy = fan.centre(P)
-for ang, r in fan.F.feet:
+for ang, r, z_foot in fan.F.feet:
+    if z_foot > 0:  # rests on a part, not on the board
+        continue
     zones += Pos(fcx, fcy, P.board.top_z) * Rot(0, 0, ang) * Pos(r, 0, 0) * Box(
         fan.F.foot_d + 0.02, fan.F.arm_w + 0.02, 0.3, align=(Align.CENTER, Align.CENTER, Align.MIN))
 # only where the board exists: the real PCB outline, 0.3 mm thick on top of the board

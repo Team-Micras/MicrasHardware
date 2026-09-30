@@ -25,7 +25,7 @@ class BodyParams:
     # cowl: stations (x, half width of the top, depth below the plane), rear to front; the top plane runs
     # from the box front (flush with the rim) down at `slope`; the last station is the cut face just in
     # front of the fan airbox
-    stations: tuple = ((0.0, 16.0, 14.0), (17.5, 12.5, 10.0), (27.0, 9.7, 9.5))
+    stations: tuple = ((0.0, 13.0, 12.0), (17.5, 10.2, 9.0), (26.4, 7.0, 8.0))  # just encloses the airbox
     slope: float = 0.647  # 33 deg: the body prints lying on this plane
     skin: float = 1.2  # cowl wall thickness
     facet: float = 1.2  # chamfer between the top plane and the side facets

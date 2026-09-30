@@ -25,7 +25,7 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 | Module | Parts | Material |
 |---|---|---|
 | `drive.py` | bearing-block base + cap per side, eccentric motor sleeves, magnet cups, race spacers, wheel hubs | resin |
-| `fan.py` | closed radial impeller (Ø26.4, eye 11, 12 blades, neck into the board hole), symmetric fan mount (two legs rooted high on the collar, collet collar) | resin |
+| `fan.py` | closed radial impeller (Ø26.4, eye 11, 12 blades, neck into the board hole), symmetric fan mount (three legs rooted high on the collar, the front one resting on the MCU; collet collar) | resin |
 | `frame.py` | frame geometry: walled battery box with the lid screw boss, cap posts, fan "airbox" tube | PETG |
 | `body.py` | top body (frame + short faceted cowl over the fan motor) and the lid with gills, fin and rear wing | PETG |
 | `front.py` | four wall-sensor caps that stand on the footprint outlines and set the LEDs' aim; the press-fit front bumper | black resin; bumper TPU |
@@ -35,7 +35,7 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 
 ## Key design decisions
 
-- **Board contact.** Only the two L-shaped silkscreen zones carry the bearing blocks, with two countersunk M2 screws per side from below the board. Only a few other parts touch the board: the fan mount's two feet (outside the zones, as agreed), the sensor caps on the casing outlines their footprints draw, and the bumper on the board's front edges and a thin strip behind the front edge. `check_layout.py` enforces this.
+- **Board contact.** Only the two L-shaped silkscreen zones carry the bearing blocks, with two countersunk M2 screws per side from below the board. Only a few other parts touch the board: the fan mount's two rear feet (outside the zones, as agreed; its front foot rests on top of the MCU), the sensor caps on the casing outlines their footprints draw, and the bumper on the board's front edges and a thin strip behind the front edge. `check_layout.py` enforces this.
 - **Encoder alignment.** The axle sits 9.00 mm above the board top, so it lines up with the AS5047U. The magnet (Ø6×2) is 0.5 mm from the package face, giving about 60 mT for N35 and 66 mT for N42 at the Hall elements when centred; the chip's window is 35–70 mT, so with an N42 magnet it must stay centred (0.3 mm off-centre adds about 20 mT).
 - **Axial stack.** Along each axle: magnet cup, housing shoulder, bearing, a 0.5 mm housing ridge, bearing, housing lip, race spacer, brass gear, hub. The ridge spreads the two bearings (3.0 mm between centres) for a stiffer support of the overhung wheel. Both bearings are retained in both directions, so the magnet cannot be pushed into the chip.
 - **Backlash.** Each motor sits in an eccentric sleeve with 0.3 mm eccentricity, giving ±0.3 mm of center-distance adjustment. After adjusting, the left sleeve is clamped by its cap (the cap's split face is relieved by 0.15 mm, so tightening it squeezes the bearings and the sleeve) and the right one by the ring clamp screw. To print the fixed-bore variant instead, set `Layout.backlash_mode = "fixed"`; `Gears.center_adjust` then tunes the center distance.

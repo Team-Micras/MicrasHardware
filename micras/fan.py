@@ -44,7 +44,9 @@ class FanParams:
     nose_d: float = 6.0  # flow-turning cone under the hub
     bore_d: float = 0.9  # printed undersize, ream to 0.97-0.98
     # mount
-    feet: tuple = ((130.0, 15.5), (230.0, 15.5))  # (angle from +x, radius): symmetric, on free board spots
+    # (angle from +x, radius, height above the board top): symmetric; two feet on free board spots, the
+    # front one resting on the MCU (a 1.0 mm tall QFN rotated 45 deg: the foot sits inside its top)
+    feet: tuple = ((130.0, 15.5, 0.0), (230.0, 15.5, 0.0), (0.0, 18.0, 1.0))
     foot_d: float = 2.5
     arm_w: float = 2.6  # leg width (tangential)
     leg_bend_r: float = 3.0  # outer radius where the arm turns down into the foot
@@ -125,14 +127,14 @@ def impeller(p: Params = P, f: FanParams = F):
     return body
 
 
-def _leg(r, p: Params = P, f: FanParams = F):
+def _leg(r, p: Params = P, f: FanParams = F, z_foot=0.0):
     """One leg along +x in its radial plane (r, z). It meets the collar over the collar's full height below
     the airbox and runs down outwards over the impeller, its top and underside each one straight slope,
     into a rounded bend and the foot on the board at radius r. Seen from above it narrows evenly from the
     collar to the foot."""
     from build123d import fillet
     h = heights(p, f)
-    z0 = p.board.top_z
+    z0 = p.board.top_z + z_foot
     z_arm = h["back_tip"] + f.back_t + f.run_gap  # underside at the rim: just above the backplate
     z_root = h["collar_top"] - f.taper_l - f.airbox_gap  # the airbox slides over the collar above this
     r_in, r_out = r - f.foot_d / 2, r + f.foot_d / 2
@@ -159,8 +161,8 @@ def mount(p: Params = P, f: FanParams = F):
     # plate and collar
     body = Pos(0, 0, h["plate"]) * Cylinder(rc, f.plate_t + f.collar_h, align=MIN)
     # two legs, each one continuous profile: a deep arm over the impeller that sweeps down into its foot
-    for ang, r in f.feet:
-        body += Rot(0, 0, ang) * _leg(r, p, f)
+    for ang, r, z_foot in f.feet:
+        body += Rot(0, 0, ang) * _leg(r, p, f, z_foot)
     # collet: tapered, slotted top of the collar
     ct = h["collar_top"]
     body -= Pos(0, 0, ct - f.taper_l) * (Cylinder(rc + 2, f.taper_l, align=MIN)
