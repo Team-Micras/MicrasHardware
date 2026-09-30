@@ -1,6 +1,6 @@
 """Send the current model to the OCP CAD Viewer (VS Code: open the viewer panel first).
 
-Usage: uv run tools/show.py
+Usage: uv run tools/show.py [layout.backlash_mode=fixed ...]
 """
 import sys
 from pathlib import Path
@@ -38,8 +38,11 @@ if not viewer_running():
 
 from ocp_vscode import show  # noqa: E402
 
-from micras import drive, layout  # noqa: E402
+from micras import assembly, layout, params  # noqa: E402
 
+# optional parameter overrides, e.g. layout.backlash_mode=fixed
+for kv in sys.argv[1:]:
+    params.override(kv)
 pcb, comps = layout.board_simple()
-parts = {**layout.reference(with_board=False), **drive.all_parts()}
+parts = {**assembly.bought(), **assembly.printed()}  # every bought and printed part, fan motor included
 show(pcb, comps, *parts.values(), names=["pcb", "components", *parts.keys()])

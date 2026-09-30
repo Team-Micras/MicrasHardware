@@ -1,4 +1,4 @@
-"""Front: wall-sensor caps (black resin). The nose, front wing and skid are part of the top body (body.py).
+"""Front: wall-sensor caps (black resin) and the front bumper (TPU).
 
 Each wall sensor is a stacked pair of 5 mm THT parts with bent legs: an SFH 4550 emitter (half angle 3 deg)
 above a TPS601A receiver (10 deg). With beams that narrow, the aim matters far more than any beam shaping
@@ -18,7 +18,7 @@ It slides on from the front along the look direction; a drop of glue on the base
 
 from dataclasses import dataclass
 
-from build123d import Align, Box, Compound, Cylinder, Plane, Polyline, Pos, Rot, extrude, make_face
+from build123d import Align, Box, Compound, Cylinder, Plane, Polyline, Pos, Rectangle, Rot, extrude, make_face, offset
 
 from . import layout
 from .params import P, Params
@@ -162,9 +162,46 @@ def sensor_cap(sensor, p: Params = P, fp: FrontParams = FP):
     return body
 
 
+@dataclass(frozen=True)
+class BumperParams:
+    """Bumper: a TPU band hugging the board's front edge and the first part of both diagonal edges. The
+    board's nose widens backwards at ~27 deg, so pushing the band on wedges it tight; a lip over the free
+    strip in front of the LEDs sets its height. Crash loads go into the board edge."""
+    band: float = 2.5  # outwards from the board edge
+    x_cut: float = 47.5  # the band wraps back along the diagonal edges to here
+    bottom_z: float = 0.4  # above the floor (it also closes the skirt across the front)
+    top_z: float = 3.15  # below the diagonal caps' raised parts (3.49)
+    grip: float = 0.1  # interference on the board edge (press fit)
+    lip_w: float = 0.7  # over the board top, behind the front edge (free strip: parts end at x 52.3)
+    lip_t: float = 0.6
+    lip_y: float = 10.5  # half length of the lip
+    edge_r: float = 0.8  # rounded outer edges (plan view)
+
+
+BP = BumperParams()
+
+
+def bumper(p: Params = P, bp: BumperParams = BP):
+    board = layout.pcb_face()
+    front = Pos(bp.x_cut + 50, 0) * Rectangle(100, 200)
+    outer = offset(offset(board, bp.band), -bp.edge_r)
+    outer = offset(outer, bp.edge_r)
+    ring = (outer - board) & front
+    body = Pos(0, 0, bp.bottom_z) * extrude(ring, bp.top_z - bp.bottom_z)
+    # press fit: the band reaches grip into the board edge, over the board's thickness only
+    grip = (board - offset(board, -bp.grip)) & front
+    body += Pos(0, 0, p.board.bottom_z) * extrude(grip, p.board.thickness)
+    # lip over the board top along the straight front edge
+    x_edge = max(v.X for v in board.vertices())
+    body += Pos(x_edge - bp.lip_w / 2, 0, p.board.top_z) * Box(bp.lip_w + 0.01, 2 * bp.lip_y, bp.lip_t, align=MIN)
+    body.label, body.color = "bumper", (0.15, 0.15, 0.17)
+    return body
+
+
 def parts(p: Params = P, fp: FrontParams = FP):
     out = {}
     for s in SENSORS:
         cap = sensor_cap(s, p, fp)
         out[cap.label] = cap
+    out["bumper"] = bumper(p)
     return out

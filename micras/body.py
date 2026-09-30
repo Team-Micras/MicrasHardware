@@ -1,13 +1,10 @@
-"""Car-styled top (FDM, PETG): the top body, the front wing and the battery-box lid.
+"""Car-styled top (FDM, PETG): the top body and the battery-box lid.
 
-- Top body: the frame (battery box, cap posts, fan airbox, see frame.py) and a faceted wedge nose: one flat
-  top plane that starts flush with the lid's top and runs down to the nose tip, narrowing between the
-  diagonal sensors, with steep side facets and chamfered edges. The fan motor pokes up through the plane
-  (the airbox clamps it through the fan mount's collet). Under the tip,
-  a keel carries the rounded floor skid and a short front wing that bears on the board's front edge (crash
-  loads go into the board). The wing's top rises towards the front so the body still prints lying on the
-  nose plane without supports there.
-- Lid: four corner screws; gills, shark fin and rear wing.
+- Top body: the frame (battery box, cap posts, fan airbox, see frame.py) and a short faceted cowl: one flat
+  top plane that starts flush with the rim and the lid's top and runs down over the fan motor, ending just
+  in front of it, with steep side facets and chamfered edges. The fan motor pokes up through the plane
+  (the airbox clamps it through the fan mount's collet). The front bumper is a separate part (front.py).
+- Lid: flush in the rim, screwed at its four corner ears; gills, shark fin and rear wing.
 """
 
 from dataclasses import dataclass
@@ -24,29 +21,15 @@ MAX = (Align.CENTER, Align.CENTER, Align.MAX)
 
 @dataclass(frozen=True)
 class BodyParams:
-    # wedge nose: stations (x, half width of the top, depth below the plane), rear to tip; the top plane
-    # runs from the lid's front edge (plane_gap above the lid) down to (tip_x, tip_z)
-    stations: tuple = ((0.0, 16.0, 14.0), (17.5, 12.5, 10.0), (44.0, 4.2, 8.5), (56.0, 2.6, 2.4))
-    tip_z: float = 6.3
-    skin: float = 1.2  # wedge wall thickness
+    # cowl: stations (x, half width of the top, depth below the plane), rear to front; the top plane runs
+    # from the box front (flush with the rim) down at `slope`; the last station is the cut face just in
+    # front of the fan airbox
+    stations: tuple = ((0.0, 16.0, 14.0), (17.5, 12.5, 10.0), (27.0, 9.7, 9.5))
+    slope: float = 0.647  # 33 deg: the body prints lying on this plane
+    skin: float = 1.2  # cowl wall thickness
     facet: float = 1.2  # chamfer between the top plane and the side facets
-    led_windows: tuple = ()  # (x, y) of optional windows over the front LEDs (not used on this board)
-    led_window: float = 2.4
-    # keel / skid under the nose tip
-    edge_x: float = 53.5  # board front edge
-    keel_w: float = 3.6
-    keel_front: float = 56.0
-    skid_z: float = 0.3  # skid bottom above the floor at rest
-    skid_r: float = 1.5
-    # front wing (part of the body)
-    span: float = 24.0  # stays inside the diagonal sensor caps
-    plane_t: float = 0.85  # top of the rear edge stays just below the board top (2.04)
-    plane_z: float = 1.15  # main plane bottom (its rear edge bears on the board edge, z 1.0-2.04)
-    wing_rise: float = 12.0  # top face rises towards the front: prints lying on the nose plane
-    endplate_t: float = 0.9
-    endplate_top: float = 2.6  # below the sensor caps (z 2.74)
+    front_c: float = 1.5  # chamfer on the cut face's top edges
     # lid
-    lid_t: float = 0.9
     lid_margin: float = 1.6
     louvre: tuple = (1.6, 3.4)  # (width, pitch) of the lid gills
     fin_t: float = 0.9
@@ -57,23 +40,24 @@ class BodyParams:
     wing_z: float = 6.5  # above the lid top
     wing_angle: float = 0.0  # flat main plane: a clean bridge between the fin and the endplates
     flap_angle: float = 45.0  # steepest angle that still prints without support
-    edge_c: float = 0.6  # chamfer on the lid's top edge
+    edge_c: float = 0.3  # chamfer on the lid's top edge
 
 
 B = BodyParams()
 
 
 def nose_plane(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
-    """(x_ref, z_ref, slope): top of the wedge is z = z_ref - slope * (x - x_ref); it starts at the box
-    front, flush with the lid's top."""
+    """(x_ref, z_ref, slope): the cowl's top is flat, flush with the rim and the lid's top, from the box
+    front to x_ref, then slopes down: z = z_ref - slope * (x - x_ref). x_ref is just past the front corner
+    pillars, so nothing crosses the sloped plane and the body prints lying on it."""
     _, x1, _, _ = frame.tray_box(p, fr)
-    z_ref = frame.box_top(p, fr, d) + b.lid_t
-    return x1, z_ref, (z_ref - b.tip_z) / (b.stations[-1][0] - x1)
+    x_ref = max([x1] + [bx + fr.pillar_r + 0.2 for bx, _ in frame.lid_bosses(p, fr)])
+    return x_ref, frame.box_top(p, fr, d) + fr.lid_t, b.slope
 
 
 def plane_z(x, p: Params = P, b: BodyParams = B):
-    x1, z1, k = nose_plane(p, b)
-    return z1 - k * (x - x1)
+    x_ref, z1, k = nose_plane(p, b)
+    return z1 - k * max(0.0, x - x_ref)
 
 
 def _section(x, hw, depth, p, b, inset=0.0):
@@ -87,42 +71,38 @@ def _section(x, hw, depth, p, b, inset=0.0):
 
 
 def wedge(p: Params = P, b: BodyParams = B, d=drive.D):
-    x1, _, _ = nose_plane(p, b)
+    """The cowl: a hollow faceted wedge, open underneath, closed by its front cut face."""
+    _, x1, _, _ = frame.tray_box(p)
+    x_ref, _, _ = nose_plane(p, b)
     st = [(x1 - 0.01 if i == 0 else x, hw, dep) for i, (x, hw, dep) in enumerate(b.stations)]
+    if x_ref > st[0][0]:  # a station where the flat top turns into the slope
+        (xa, hwa, da), (xb, hwb, db) = st[0], st[1]
+        t = (x_ref - xa) / (xb - xa)
+        st.insert(1, (x_ref, hwa + t * (hwb - hwa), da + t * (db - da)))
     body = loft([_section(x, hw, dep, p, b) for x, hw, dep in st], ruled=True)
-    body -= loft([_section(x, hw, dep, p, b, inset=b.skin) for x, hw, dep in st[:-1]]
-                 + [_section(st[-1][0] - 3.0, st[-1][1] + 0.3, st[-1][2], p, b, inset=b.skin)], ruled=True)
-    # keel from the tip down to the rounded skid, in front of the board edge
-    x0 = b.edge_x
-    kz = b.skid_z + b.skid_r
-    klen = b.keel_front - x0
-    body += Pos(x0 + klen / 2, 0, kz) * Box(klen, b.keel_w, plane_z(b.keel_front, p, b) - kz - 0.2, align=MIN)
-    body += Pos(x0 + klen / 2, 0, kz) * Rot(90, 0, 0) * Cylinder(b.skid_r, b.keel_w)
-    # short front wing: flat bottom, top rising towards the front, endplates the same way
-    from math import radians, tan
-    rise = tan(radians(b.wing_rise)) * klen
-    blade = make_face(Polyline((x0, b.plane_z), (b.keel_front, b.plane_z), (b.keel_front, b.plane_z + b.plane_t + rise),
-                               (x0, b.plane_z + b.plane_t), close=True))
-    body += Pos(0, b.span / 2, 0) * (Plane.XZ * extrude(blade, b.span))
-    for sy in (1, -1):
-        plate = make_face(Polyline((x0, b.plane_z - 0.4), (b.keel_front, b.plane_z - 0.4),
-                                   (b.keel_front, b.endplate_top), (x0, b.endplate_top - rise), close=True))
-        body += Pos(0, sy * (b.span / 2 - b.endplate_t / 2) + b.endplate_t / 2, 0) * (Plane.XZ * extrude(plate, b.endplate_t))
-    # windows over the front RGB LEDs
-    for lx, ly in b.led_windows:
-        body -= Pos(lx, ly, 0) * Box(b.led_window, b.led_window, 40, align=MIN)
-    # nothing may go behind the board edge below the board top (the edge face is the contact)
-    body -= Pos(x0, 0, 0) * Box(60, 100, p.board.top_z + 0.8, align=(Align.MAX, Align.CENTER, Align.MIN))
+    xe, hwe, depe = st[-1]
+    try:  # soften the cut face's top edges (top plane and the two facets)
+        front = [fc for fc in body.faces() if abs(fc.center().X - xe) < 1e-3][0]
+        z_cut = plane_z(xe, p, b) - 2 * b.facet
+        body = chamfer([e for e in front.edges() if e.center().Z > z_cut], b.front_c)
+    except Exception:  # noqa: BLE001 - cosmetic only
+        pass
+    inner = st[:-1] + [(xe - b.skin, hwe, depe)]
+    body -= loft([_section(x, hw, dep, p, b, inset=b.skin) for x, hw, dep in inner], ruled=True)
     return body
 
 
 def top_body(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
-    x1, z1, k = nose_plane(p, b, d, fr)
+    x_ref, z1, k = nose_plane(p, b, d, fr)
+    _, x1, _, _ = frame.tray_box(p, fr)
     zt = frame.box_top(p, fr, d)
     body = frame.frame(p)
-    # everything in front of the box stops at the nose plane (trims the airbox tube)
+    # everything in front of the box and within the cowl's width stops at the nose plane (trims the airbox
+    # tube; the front corner pillars stay whole)
     fx, fy = fan.centre(p)
-    above = Pos(x1, 0, z1) * Rot(0, _deg(k), 0) * Box(200, 200, 60, align=(Align.MIN, Align.CENTER, Align.MIN))
+    w = 2 * b.stations[0][1]
+    above = Pos(x_ref, 0, z1) * Rot(0, _deg(k), 0) * Box(200, w, 60, align=(Align.MIN, Align.CENTER, Align.MIN))
+    above += Pos(x1, 0, z1) * Box(200, w, 60, align=(Align.MIN, Align.CENTER, Align.MIN))
     body -= above
     body += wedge(p, b, d)
     # airbox bore through everything (the fan motor pokes through the plane)
@@ -142,15 +122,9 @@ def lid(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
     x0, x1, y0, y1 = frame.tray_box(p, fr)
     zt = frame.box_top(p, fr, d)
     bosses = frame.lid_bosses(p, fr)
-    r = fr.boss_d / 2
-    # cover plate over the box, with tabs over the two rear screw bosses; its front edge slides under the
-    # nose plane's overhang
-    body = Pos((x0 + x1) / 2, 0, zt) * extrude(RectangleRounded(x1 - x0, y1 - y0, fr.corner_r), b.lid_t)
-    for bx, by in bosses:
-        body += Pos(bx, by, zt) * Cylinder(r, b.lid_t, align=MIN)
-        body += Pos((bx + (x0 + x1) / 2) / 2, by, zt) * Box(abs(bx - (x0 + x1) / 2), 2 * r, b.lid_t, align=MIN)
-    # faceted top edge all round (faces up when printed)
-    try:
+    # plate flush in the rim, with an ear over each corner pillar
+    body = Pos(0, 0, zt) * extrude(frame.lid_face(p, fr), fr.lid_t)
+    try:  # small chamfer on the top edge: a crisp seam against the rim
         top_face = body.faces().sort_by(Axis.Z)[-1]
         body = chamfer(top_face.outer_wire().edges(), b.edge_c)
     except Exception:  # noqa: BLE001 - cosmetic only
@@ -163,11 +137,11 @@ def lid(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
         yc = (j - (n - 1) / 2) * pitch
         if abs(yc) < b.fin_t / 2 + gw:  # solid strip under the fin
             continue
-        body -= Pos((x0 + x1) / 2 - 1.5, yc, zt) * Box(x1 - x0 - 2 * m - 5, gw, b.lid_t, align=MIN)
+        body -= Pos((x0 + x1) / 2 - 1.5, yc, zt) * Box(x1 - x0 - 2 * m - 5, gw, fr.lid_t, align=MIN)
     for bx, by in bosses:
-        body -= Pos(bx, by, zt + b.lid_t) * drive.countersunk(d, depth=5, up=10)
+        body -= Pos(bx, by, zt + fr.lid_t) * drive.countersunk(d, depth=5, up=10)
     # shark fin along the centre line, rising towards the rear wing
-    z_top = zt + b.lid_t
+    z_top = zt + fr.lid_t
     wing_x = x0 + b.wing_chord / 2 + 0.5
     xf = x1 - 1.0
     fin = make_face(Polyline((xf, 0), (xf, 0.8), (wing_x + b.wing_chord / 2, b.fin_h + b.wing_z - b.fin_h + 0.5),

@@ -8,8 +8,8 @@ with two screws into inserts in the base. The right cap also carries the clamp r
 from dataclasses import dataclass
 from math import atan2, cos, degrees, radians, sin
 
-from build123d import (Align, Box, Cone, Cylinder, Line, Plane, Pos, Rot, ThreePointArc, Wire, extrude,
-                       make_face, mirror)
+from build123d import (Align, Box, Circle, Cone, Cylinder, Line, Plane, Pos, Rot, ThreePointArc, Wire, extrude,
+                       loft, make_face, make_hull, mirror)
 
 from .params import P, Params
 
@@ -128,6 +128,27 @@ def housing_span(p=P):
 
 # ---- parts ----------------------------------------------------------------------------------
 
+def _hull_at(circles, y):
+    """Convex hull of circles (x, z, r) as a face in the plane at this y."""
+    edges = []
+    for x, z, r in circles:
+        edges += (Pos(x, z) * Circle(r)).edges()
+    face = make_hull(edges) if len(circles) > 1 else Pos(circles[0][0], circles[0][1]) * Circle(circles[0][2])
+    return Pos(0, y, 0) * (Plane.XZ * face.face())
+
+
+def _toward(a, b, t=0.01):
+    """Circle a nudged by t towards circle b: the hull of a with it has the same edges as a belt."""
+    (ax, az, ar), (bx, bz, _) = a, b
+    n = ((bx - ax) ** 2 + (bz - az) ** 2) ** 0.5
+    return ax + t * (bx - ax) / n, az + t * (bz - az) / n, ar
+
+
+def _belt(circles, y0, y1):
+    """Convex hull of circles (x, z, r) in the xz plane, extruded over y0..y1."""
+    return extrude(_hull_at(circles, y1), y1 - y0)
+
+
 def _left_block_solid(p: Params, d: DriveParams, motor_angle):
     """Unsplit left-side block (y > 0). Right side is built by mirroring with its own motor angle."""
     b = p.board
@@ -140,18 +161,16 @@ def _left_block_solid(p: Params, d: DriveParams, motor_angle):
 
     # contact plate on the silkscreen zone (the board screws go into it from below)
     body = Pos(0, 0, b.top_z) * extrude(contact_zone(p, d.pad_inset), d.pad_h)
-    # bearing housing
-    body += along_y(rh, hy0, hy1, 0, az)
+    # bearing housing and motor seat as one body: the hull of both rings where they overlap, tapering
+    # into the housing outboard and into the seat inboard
+    y0, y1 = min(hy0, sy0), max(hy1, sy1)
+    ring_h, ring_s = (0, az, rh), (mx, mz, rs)
+    body += _belt((ring_h, ring_s), hy0, sy1)
+    body += loft([_hull_at((ring_h, ring_s), sy1), _hull_at((ring_h, _toward(ring_h, ring_s)), hy1)])
+    body += loft([_hull_at((_toward(ring_s, ring_h), ring_s), sy0), _hull_at((ring_h, ring_s), hy0)])
     # web from the housing down towards the pads
     lz = b.top_z + d.lift
-    body += Pos(0, (hy0 + hy1) / 2, lz) * Box(2 * rh, hy1 - hy0, az - lz, align=MIN)
-    # motor seat and a web joining it to the housing
-    body += along_y(rs, sy0, sy1, mx, mz)
-    web_len = ((mx) ** 2 + (mz - az) ** 2) ** 0.5
-    web = Pos(0, 0, 0) * Box(web_len, sy1 - max(sy0, hy0), 2 * min(rh, rs) * 0.8,
-                             align=(Align.MIN, Align.CENTER, Align.CENTER))
-    web = Pos(0, (sy1 + max(sy0, hy0)) / 2, az) * Rot(0, -degrees(atan2(mz - az, mx)), 0) * web
-    body += web
+    body += Pos(0, (y0 + y1) / 2, lz) * Box(2 * rh, y1 - y0, az - lz, align=MIN)
     # cap screw bosses (full height from pads to cap top)
     for sx, sy in d.cap_screws:
         body += Pos(sx, sy, lz) * Cylinder(d.insert_d / 2 + d.wall, az + rh - lz, align=MIN)

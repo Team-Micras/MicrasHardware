@@ -52,12 +52,13 @@ for s in "LR":
         allowed.add(frozenset((f"{a}_{s}", f"{b}_{s}")))
 allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_motor")),
             frozenset(("body", "fan_mount")), frozenset(("body", "block_cap_L")), frozenset(("body", "block_cap_R"))}
+# the cells rest on the box floor ribs (touching); real overlaps are caught below
 allowed |= {frozenset(("body", f"cell{i}")) for i in range(3)}
 # screwed / seated joints
 allowed |= {frozenset(("lid", "body")), frozenset(("fan_motor", "body"))}
-# the wing passes under the diagonal sensors; the board model's sensor box reaches down to the legs,
-# so the wing is checked against the LED bodies in check_sensors.py instead
-allowed |= {frozenset(("body", k)) for k in others if k.startswith("brd:WALL_SENSOR")}
+# the bumper passes under the diagonal sensors; the board model's sensor box reaches down to the legs,
+# so the bumper is checked against the LED bodies in check_sensors.py instead
+allowed |= {frozenset(("bumper", k)) for k in others if k.startswith("brd:WALL_SENSOR")}
 # the caps wrap the LEDs; the board model only offers the sensor bounding box here (exact check below)
 allowed |= {frozenset((f"sensor_cap_{w}", k)) for w in ("W1", "W2", "W3", "W4") for k in others
             if k.startswith("brd:WALL_SENSOR")}
@@ -72,6 +73,10 @@ zones = zone + mirror(zone, Plane.XZ)
 # the sensor caps stand on the casing outlines the sensor footprints draw
 for w in front.SENSORS:
     zones += front.outline(w)
+# the bumper's lip rests on the free strip behind the board's front edge
+bp = front.BP
+x_edge = max(v.X for v in layout.pcb_face().vertices())
+zones += Pos(x_edge - bp.lip_w / 2, 0, P.board.top_z) * Box(bp.lip_w + 0.02, 2 * bp.lip_y + 0.02, 0.3, align=(Align.CENTER, Align.CENTER, Align.MIN))
 # only where the board exists: the real PCB outline, 0.3 mm thick on top of the board
 pcb, _ = layout.board_simple()
 slab = Pos(0, 0, P.board.thickness) * pcb
@@ -88,5 +93,12 @@ for name, part in {**printed, **front_parts,
     if v > 1e-3:
         res.append((name, "outside contact zone", 0.0, round(v, 3)))
         print("ZONE ", name, f"{v:.3f} mm3 near the board top outside the contact zone")
+# the cells must fit their box (their contact with the floor ribs is allowed above)
+for i in range(3):
+    common = parts[f"cell{i}"] & parts["body"]
+    v = common.volume if common is not None else 0.0
+    if v > 1e-3:
+        res.append((f"cell{i}", "body", 0.0, round(v, 3)))
+        print("CELLS", f"cell{i} overlaps the battery box by {v:.3f} mm3")
 print(f"{len(res)} issues | parts {t_parts - t:.1f}s, board {t_board - t_parts:.1f}s, "
       f"checks {time.time() - t_board:.1f}s")

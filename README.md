@@ -25,23 +25,24 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 | Module | Parts | Material |
 |---|---|---|
 | `drive.py` | bearing-block base + cap per side, eccentric motor sleeves, magnet cups, race spacers, wheel hubs | resin |
-| `fan.py` | closed radial impeller (Ø26.4, eye 11, 12 blades, neck into the board hole), symmetric fan mount with a collet collar | resin |
-| `frame.py` | frame geometry: walled battery box, cap posts, fan "airbox" tube, lid bosses | PETG |
-| `body.py` | top body (frame + faceted wedge nose with keel, skid and short front wing) and the lid with gills, fin and rear wing | PETG |
-| `front.py` | four wall-sensor caps that stand on the footprint outlines and set the LEDs' aim | black resin |
+| `fan.py` | closed radial impeller (Ø26.4, eye 11, 12 blades, neck into the board hole), symmetric fan mount (two continuous legs, collet collar) | resin |
+| `frame.py` | frame geometry: walled battery box with a rim for the flush lid and four corner pillars, cap posts, fan "airbox" tube | PETG |
+| `body.py` | top body (frame + short faceted cowl over the fan motor) and the flush lid with gills, fin and rear wing | PETG |
+| `front.py` | four wall-sensor caps that stand on the footprint outlines and set the LEDs' aim; the press-fit front bumper | black resin; bumper TPU |
 | `skirt.py` | skirt cutting pattern (0.05–0.1 mm PET or Kapton film) | film |
 
-`build/parts.md` lists each part's mass and print orientation. The printed parts come to about 17.5 g, and the whole robot to about 87 g.
+`build/parts.md` lists each part's mass and print orientation. The printed parts come to about 18 g, and the whole robot to about 88 g.
 
 ## Key design decisions
 
-- **Board contact.** Only the two L-shaped silkscreen zones carry the bearing blocks, with two countersunk M2 screws per side from below the board. Only a few other parts touch the board: the fan mount's three feet (outside the zones, as agreed) and the nose, which bears on the board's front edge. `check_layout.py` enforces this.
+- **Board contact.** Only the two L-shaped silkscreen zones carry the bearing blocks, with two countersunk M2 screws per side from below the board. Only a few other parts touch the board: the fan mount's two feet (outside the zones, as agreed), the sensor caps on the casing outlines their footprints draw, and the bumper on the board's front edges and a thin strip behind the front edge. `check_layout.py` enforces this.
 - **Encoder alignment.** The axle sits 9.00 mm above the board top, so it lines up with the AS5047U. The magnet (Ø6×2) is 1.0 mm from the package face, giving about 53 mT for N35 and 57 mT for N42; the chip's window is 35–70 mT.
 - **Axial stack.** Along each axle: magnet cup, housing shoulder, two bearings, housing lip, race spacer, brass gear, hub. Both bearings are retained in both directions, so the magnet cannot be pushed into the chip.
 - **Backlash.** Each motor sits in an eccentric sleeve with 0.3 mm eccentricity, giving ±0.3 mm of center-distance adjustment. After adjusting, the left sleeve is clamped by its cap and the right one by the ring clamp screw. To print the fixed-bore variant instead, set `Layout.backlash_mode = "fixed"`; `Gears.center_adjust` then tunes the center distance.
-- **Battery.** Three cells on edge, one behind the other, in a PETG box with walls on all four sides and a screwed lid, so the cells cannot fly out in a spin. The edge and pyramid arrangements have the same yaw inertia; edge is 2 mm lower (`battery_study.py`). `Battery.x` puts the center of mass over the axle (`mass_report.py`).
+- **Battery.** Three cells on edge, one behind the other, in a PETG box with walls on all four sides and a lid screwed flush into the rim, so the cells cannot fly out in a spin. The lid's screws sit in four pillars blended into the box corners, since the cells fill the box. The edge and pyramid arrangements have the same yaw inertia; edge is 2 mm lower (`battery_study.py`). `Battery.x` puts the center of mass over the axle (`mass_report.py`).
 - **Motor layout.** Both motors sit behind the axle. Moving the raised motor in front of the axle was evaluated: it lowers the pack by about 10 mm but pushes the battery 4 mm further back and raises yaw inertia by 5.5 %.
-- **Car body.** The top is a faceted wedge: one flat plane starts flush with the lid's top and runs down to the nose tip, narrowing between the diagonal sensors. The fan motor pokes through the plane. A short front wing under the tip bears on the board's front edge (crash loads go into the board). Its top rises towards the front, so the whole body prints lying on the nose plane and the visible surface comes out smooth (`tools/overhang.py body --down <slope>,0,1`); only the hidden battery-box rim and floor ribs need supports. The lid has four corner screws and carries the fin and rear wing.
+- **Car body.** The top is a short faceted cowl: flush with the rim and the lid's top, then one flat 33° plane down over the fan motor, which pokes through it; the cowl ends just in front of the motor. The body prints lying on that plane, so the visible cowl comes out smooth (`tools/overhang.py body --down 0.647,0,1`); only the battery-box rim, the lid recess and the floor ribs need supports. The lid carries the fin and rear wing.
+- **Bumper.** A TPU band hugs the board's front edge and the first 5 mm of both diagonal edges. The board's nose widens backwards at about 27°, so pushing the band on wedges it tight (0.1 mm interference); a lip over the free strip behind the front edge sets its height. Crash loads go into the board edge, and the band also closes the skirt across the front.
 - **Wall sensors.** The SFH 4550 emitter (±3°) and TPS601A receiver (±10°) are already narrow, so aiming them matters far more than shaping their beams: a 1.5° pitch error changes the reading by 10–40 % up close, while an aperture in front of the lenses only cuts the signal (a Ø3 aperture loses about 70 %). Each black-resin cap stands on the casing outline the footprint draws, and fixes the LEDs' height and pitch from the board. Crush ribs grip each LED at its flange and body, a fork around the four soldered legs sets the sideways position and yaw, and the front stays open at full lens width behind a 1 mm hood. `FrontParams.emitter_tilt` pitches the emitter towards the receiver: an optics model predicts 15–50 % more signal at 10–40 mm for 1–2°, so print 0°, 1° and 2° caps and compare on the bench. The sensors can't see a wall closer than about 8 mm from the caps whatever the cap does, because the emitter sits 6.5 mm above the receiver.
 - **Fan.** The motor runs 18k rpm with no load at 12 V, so it is speed-limited, and the fan study says the impeller should be as large as possible with a small eye. The Ø26.4 impeller is the largest that fits: a raised Ø33 would hit the encoder daughterboards and the raised drive motor. Its front shroud runs 0.3 mm above the clean Ø27 ring (the inlet seal) and a short neck dips into the board hole. The study predicts about 1 N with the skirt, not the firmware's 3 N; the skirt is what makes suction work, so seal it well and tape over the encoder slots. The body's airbox presses the fan mount down and squeezes its slotted collar onto the motor, with no screws.
 
@@ -64,6 +65,7 @@ No screw holds these; they're pressed, glued or clamped instead:
 - tires: stretched onto the hubs
 - impeller: pressed onto the shaft and glued
 - sensor caps: crush ribs on the LEDs, a drop of glue on the base
+- bumper: press fit on the board's nose
 - fan motor: held in the fan mount's collar, squeezed by the body's airbox (collet)
 
 ## Assembly
@@ -90,7 +92,8 @@ No screw holds these; they're pressed, glued or clamped instead:
 8. **Fan.** Press the impeller onto the fan motor shaft, with the bore reamed to 0.97–0.98 mm. Put the motor into the fan mount collar, with its terminal tabs pointing left and right, then stand the mount on its feet.
 9. **Sensor caps.** Slide each one onto its LED pair from the front, along the direction that sensor looks, until the fork takes the legs and the bores seat on the LED flanges. Press the base flat on the board and fix it with a drop of glue.
 10. **Body.** Lower it on. The airbox slides over the fan motor and its tapered bottom seats on the fan mount's collar. Screwing the body to both cap bosses presses the mount onto the board and clamps the motor.
-11. **Battery.** Put the cells in the box and run the wires out of the end-wall slots. Screw the lid on at its four corners.
+11. **Battery.** Put the cells in the box and run the wires out of the end-wall slots. Drop the lid into the rim and screw it at its four corner ears.
+12. **Bumper.** Push the TPU bumper straight back onto the board's nose, its lip over the board top, until it sits tight on the diagonal edges.
 
 ## Still to measure
 

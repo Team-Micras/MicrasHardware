@@ -14,14 +14,14 @@ for c in sensors:
     c.parent = None  # else moving deep-copies the whole board with each sensor
 sensors = [to_robot * c for c in sensors]
 # ribs built just short of the LEDs: anything else touching an LED or its legs shows as an overlap
-caps = {**front.parts(fp=front.FrontParams(rib_interf=-0.01)), "nose_wing": body.wedge()}
+caps = {**front.parts(fp=front.FrontParams(rib_interf=-0.01)), "bumper": front.bumper()}
 bad = 0
 for name, cap in caps.items():
-    if name == "nose_wing":
+    if name == "bumper":
         for sensor in sensors:
             for led in sorted(sensor.solids(), key=lambda s: s.volume)[:2]:
                 if cap.distance_to(led) < 0.3:
-                    print(f"nose/wing too close to an LED: {cap.distance_to(led):.3f}")
+                    print(f"bumper too close to an LED: {cap.distance_to(led):.3f}")
                     bad += 1
         continue
     # the sensor whose bounding box overlaps this cap the most

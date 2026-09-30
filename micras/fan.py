@@ -15,7 +15,7 @@ raised impeller would hit the encoder daughterboards and the raised drive motor)
 from dataclasses import dataclass
 from math import cos, radians, sin
 
-from build123d import Align, Axis, Box, Cone, Cylinder, Plane, Polyline, Pos, Rot, make_face, revolve
+from build123d import Align, Axis, Box, Cone, Cylinder, Plane, Polyline, Pos, Rot, extrude, make_face, revolve
 
 from .params import P, Params
 
@@ -46,7 +46,9 @@ class FanParams:
     # mount
     feet: tuple = ((130.0, 15.5), (230.0, 15.5))  # (angle from +x, radius): symmetric, on free board spots
     foot_d: float = 2.5
-    arm_w: float = 2.0
+    arm_w: float = 2.6  # leg width (tangential)
+    leg_bend_r: float = 4.0  # outer radius where the arm turns down into the foot
+    run_gap: float = 0.5  # arm underside above the impeller's backplate
     plate_t: float = 1.2
     plate_gap: float = 0.4  # hub top to plate
     collar_wall: float = 1.2
@@ -118,17 +120,32 @@ def impeller(p: Params = P, f: FanParams = F):
     return body
 
 
+def _leg(r, p: Params = P, f: FanParams = F):
+    """One leg along +x in its radial plane (r, z): arm from the collar over the impeller, a rounded outer
+    bend and the foot on the board at radius r."""
+    h = heights(p, f)
+    z0, z_top = p.board.top_z, h["plate"] + f.plate_t
+    z_arm = h["back_tip"] + f.back_t + f.run_gap  # arm underside, just above the backplate
+    r_in, r_out = r - f.foot_d / 2, r + f.foot_d / 2
+    rc = collar_r(p, f)
+    R = min(f.leg_bend_r, z_top - z0 - 0.5, r_out - rc)
+    arc = [(r_out - R + R * cos(radians(a)), z_top - R + R * sin(radians(a))) for a in range(0, 91, 10)]
+    pts = [(0, h["plate"]), (rc, h["plate"]), (rc + (h["plate"] - z_arm), z_arm), (r_in, z_arm), (r_in, z0),
+           (r_out, z0), *arc, (0, z_top)]
+    face = make_face(Polyline(*pts, close=True))
+    return extrude(Plane.XZ * face, f.arm_w / 2, both=True)
+
+
 def mount(p: Params = P, f: FanParams = F):
     h = heights(p, f)
     top = p.board.top_z
     cx, cy = centre(p)
     rc = collar_r(p, f)
-    # plate and collar, and two feet with arms to the plate
+    # plate and collar
     body = Pos(0, 0, h["plate"]) * Cylinder(rc, f.plate_t + f.collar_h, align=MIN)
+    # two legs, each one continuous profile: a deep arm over the impeller that sweeps down into its foot
     for ang, r in f.feet:
-        fx, fy = r * cos(radians(ang)), r * sin(radians(ang))
-        body += Pos(fx, fy, top) * Cylinder(f.foot_d / 2, h["plate"] - top + f.plate_t, align=MIN)
-        body += Pos(0, 0, h["plate"]) * Rot(0, 0, ang) * Box(r, f.arm_w, f.plate_t, align=(Align.MIN, Align.CENTER, Align.MIN))
+        body += Rot(0, 0, ang) * _leg(r, p, f)
     # collet: tapered, slotted top of the collar
     ct = h["collar_top"]
     body -= Pos(0, 0, ct - f.taper_l) * (Cylinder(rc + 2, f.taper_l, align=MIN)
@@ -139,8 +156,9 @@ def mount(p: Params = P, f: FanParams = F):
     # motor bore, boss hole
     body -= Pos(0, 0, h["motor"]) * Cylinder((p.motor.d + f.motor_fit) / 2, 30, align=MIN)
     body -= Pos(0, 0, h["plate"] - 1) * Cylinder(p.motor.boss_d / 2 + 0.3, 5, align=MIN)
-    # clearance around the spinning impeller
-    body -= Pos(0, 0, top) * Cylinder(f.d2 / 2 + 0.5, h["plate"] - top, align=MIN)
+    # clearance around the spinning impeller: its rim and backplate, and the hub boss
+    body -= Pos(0, 0, top) * Cylinder(f.d2 / 2 + 0.5, h["back_tip"] + f.back_t + f.run_gap - top, align=MIN)
+    body -= Pos(0, 0, top) * Cylinder(f.hub_d / 2 + f.plate_gap, h["plate"] - top, align=MIN)
     body = Pos(cx, cy, 0) * body
     body.label, body.color = "fan_mount", (0.9, 0.55, 0.2)
     return body

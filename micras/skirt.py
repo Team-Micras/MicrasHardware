@@ -2,12 +2,12 @@
 
 Its inner band (tape_w) is taped to the underside along the board edge; the outer margin sticks out
 past the edge and is bent down to brush the floor, closing the 1 mm gap. The margin is cut back where
-the wheel gears and the nose skid are.
+the wheel gears are and along the bumper, which closes the front itself.
 """
 
 from dataclasses import dataclass
 
-from build123d import Box, Pos, offset
+from build123d import Box, Pos, extrude, offset
 
 from .layout import board_simple
 from .params import P, Params
@@ -19,7 +19,6 @@ class SkirtParams:
     tape_w: float = 3.0  # taped band under the board
     wheel_margin: float = 0.5  # along the wheel notches
     wheel_x: float = 10.0  # |x| where the gears/tires dip low
-    nose_w: float = 10.0  # cut-out in front of the nose skid (across y)
 
 
 SK = SkirtParams()
@@ -39,7 +38,9 @@ def pattern(p: Params = P, sk: SkirtParams = SK):
     for sy in (1, -1):
         keep_y = p.board.notch_inner_y + sk.wheel_margin
         skirt -= Pos(0, sy * (keep_y + 20), 0) * Box(2 * sk.wheel_x, 40, 5)
-    skirt -= Pos(53.5 + 10, 0, 0) * Box(20, sk.nose_w, 5)
+    # the bumper wraps the board's nose: no margin there
+    from .front import BP
+    skirt -= (Pos(BP.x_cut + 50, 0, 0) * Box(100, 200, 5)) - Pos(0, 0, -2.5) * extrude(board_face, 5)
     skirt = Pos(0, 0, -skirt.bounding_box().min.Z) * skirt
     return skirt
 
