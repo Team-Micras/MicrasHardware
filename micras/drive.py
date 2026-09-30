@@ -167,11 +167,15 @@ def _left_block_solid(p: Params, d: DriveParams, motor_angle):
     # web from the housing down towards the pads (over the housing only: nothing next to the encoders)
     lz = b.top_z + d.lift
     body += Pos(0, (hy0 + hy1) / 2, lz) * Box(2 * rh, hy1 - hy0, az - lz, align=MIN)
-    # cap screw bosses (full height from pads to cap top)
+    # outer plate: one slab across the block (like the v1 bearing blocks), from the pads up to the rings,
+    # carrying the two cap screws; its section is the hull of both rings and the screw bosses
     side = 1 if motor_angle == p.layout.motor_angle_left else -1
-    for sx, sy in cap_screws(side, p, d):
-        rp = d.insert_d / 2 + d.pillar_wall
-        # start above any board part under or next to the pillar (it then hangs from the seat)
+    rp = d.insert_d / 2 + d.pillar_wall
+    screws = cap_screws(side, p, d)
+    y0, y1 = screws[0][1] - rp, hy1
+    section = [ring_h, ring_s]
+    for sx, sy in screws:
+        # start above any board part under or next to the boss (the plate then hangs from the rings)
         z0 = lz
         for bb in board_boxes():
             (bx0, by0, _), (bx1, by1, bz1) = bb["min"], bb["max"]
@@ -180,13 +184,32 @@ def _left_block_solid(p: Params, d: DriveParams, motor_angle):
             gy = max(by0 - sy, 0, sy - by1)
             if (gx * gx + gy * gy) ** 0.5 < rp + 0.3 and not bb["label"].startswith("encoder"):
                 z0 = max(z0, bz1 + 0.3)
-        # the cap part of the pillar reaches up into the seat ring when the ring is raised above it
+        # the boss reaches up into the seat ring when the ring is raised above it
         top = az + rh
-        ring_r = seat_d(p, d) / 2 + d.wall
         near = abs(sx - mx) - rp
-        if mz > top and near < ring_r:
-            top = max(top, mz - (ring_r ** 2 - near ** 2) ** 0.5 + 0.8)
-        body += Pos(sx, sy, z0) * Cylinder(rp, top - z0, align=MIN)
+        if mz > top and near < rs:
+            top = max(top, mz - (rs ** 2 - near ** 2) ** 0.5 + 0.8)
+        # square bottom corners (they sit flat above the board), round top
+        section += [(sx - rp + 0.01, z0 + 0.01, 0.01), (sx + rp - 0.01, z0 + 0.01, 0.01), (sx, top - rp, rp)]
+    # the frame boss's top joins the plate's outline when no cap screw is next to it (else it would bury
+    # that screw's head in a deep well); block() adds the boss itself
+    fx, _, ftop = frame_boss(side, p, d)
+    rf = d.insert_d / 2 + d.wall
+    if all(abs(sx - fx) >= rf + d.csk_d / 2 + 0.3 for sx, _ in screws):
+        section += [(fx - rf + 0.01, ftop - 0.01, 0.01), (fx + rf - 0.01, ftop - 0.01, 0.01)]
+    body += _belt(section, y0, y1)
+    # round ends in plan around the two screws (the front one clears the fan mount's legs)
+    for sx, sy in screws:
+        out = 1 if sx > 0 else -1
+        end = Pos(sx, sy, lz) * Box(2 * rp, 2 * rp, 40, align=(Align.MIN if out > 0 else Align.MAX, Align.CENTER, Align.MIN))
+        body -= end - Pos(sx, sy, lz) * Cylinder(rp, 40, align=MIN)
+    # clear the board parts under the plate
+    for bb in board_boxes():
+        (bx0, by0, _), (bx1, by1, bz1) = bb["min"], bb["max"]
+        by0, by1 = sorted((side * by0, side * by1))
+        if bz1 + 0.3 > lz and by1 + 0.3 > y0 and by0 - 0.3 < y1 and not bb["label"].startswith("encoder"):
+            body -= Pos(bx0 - 0.3, by0 - 0.3, b.top_z - 1) * Box(
+                bx1 - bx0 + 0.6, by1 - by0 + 0.6, bz1 + 1.3 - b.top_z, align=(Align.MIN, Align.MIN, Align.MIN))
     return body, motor_angle
 
 
@@ -303,7 +326,21 @@ def block(side, p: Params = P, d: DriveParams = D):
     fx, fy, ftop = frame_boss(side, p, d)
     angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right
     fz0 = seat_axis(angle, p)[1]
-    cap += Pos(fx, fy, fz0) * Cylinder(d.insert_d / 2 + d.wall, ftop - fz0, align=MIN)
+    rf = d.insert_d / 2 + d.wall
+    cap += Pos(fx, fy, fz0) * Cylinder(rf, ftop - fz0, align=MIN)
+    # ... joined to the outer plate by a web over its full height (one piece with the plate); the web
+    # stops short of a cap screw's head when that screw is next to the boss (screwdriver access)
+    wy1 = housing_span(p)[1]
+    for sx, sy in cap_screws(side, p, d):
+        if abs(sx - fx) < rf + d.csk_d / 2 + 0.3:
+            wy1 = min(wy1, sy - d.csk_d / 2 - 0.3)
+    wz0 = fz0 + 0.3  # (off the seat bore's seam, where the fuse fails)
+    web = _belt([(fx - rf + 0.01, wz0, 0.01), (fx + rf - 0.01, wz0, 0.01),
+                 (fx - rf + 0.01, ftop - 0.01, 0.01), (fx + rf - 0.01, ftop - 0.01, 0.01)], fy, wy1 - 0.02)
+    cap = cap.fuse(web).clean()  # (`+` drops part of the web here)
+    mx, mz = motor_axis(angle, p)
+    cap -= along_y(p.gears.tip_d(p.gears.pinion_z) / 2 + 0.4, seat_span(p, d)[1], 30, mx, mz)
+    cap -= along_y(p.gears.tip_d(p.gears.wheel_z) / 2 + 0.5, p.gear_y - p.stack.lip_gap, 40, 0, az)
     cap -= Pos(fx, fy, ftop) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
     cap -= Pos(fx, fy, ftop) * Cylinder(d.screw_clear_d / 2, d.frame_screw_depth, align=MAX)
     # re-cut the seat bore in case the boss reached into it
