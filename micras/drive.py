@@ -8,7 +8,7 @@ with two screws into inserts in the base. The right cap also carries the clamp r
 from dataclasses import dataclass
 from math import atan2, cos, degrees, radians, sin
 
-from build123d import (Align, Box, Cylinder, Line, Plane, Pos, Rot, ThreePointArc, Wire, extrude,
+from build123d import (Align, Box, Cone, Cylinder, Line, Plane, Pos, Rot, ThreePointArc, Wire, extrude,
                        make_face, mirror)
 
 from .params import P, Params
@@ -39,7 +39,7 @@ class DriveParams:
     frame_boss_top_left: float = 21.5  # keeps the screw hole above the left seat bore
     tray_bottom_z: float = 28.8  # frame tray underside, sits on the right boss
     slit: float = 0.8  # clamp slit in the raised motor's ring
-    ear: float = 2.6  # clamp ear thickness either side of the slit
+    ear: float = 2.2  # clamp ear thickness either side of the slit (M2x5 then engages 2 mm)
     notch_d: float = 1.0  # spanner notches on the sleeve rim
 
 
@@ -47,6 +47,20 @@ D = DriveParams()
 
 
 # ---- helpers --------------------------------------------------------------------------------
+
+def countersunk(d: "DriveParams" = None, depth=20.0, up=20.0):
+    """Cutter for an M2 flat-head screw: head seat at the origin, head side towards +z.
+
+    The screw's top face sits at z=0; its shank runs `depth` towards -z. A counterbore of the head
+    diameter clears everything above the seat (`up`).
+    """
+    d = d or D
+    h = (d.csk_d - d.screw_clear_d) / 2
+    cutter = Pos(0, 0, -h) * Cone(d.screw_clear_d / 2, d.csk_d / 2, h, align=MIN)
+    cutter += Cylinder(d.csk_d / 2 + 0.05, up, align=MIN)
+    cutter += Cylinder(d.screw_clear_d / 2, depth, align=MAX)
+    return cutter
+
 
 def along_y(radius, y0, y1, x=0.0, z=0.0):
     """Cylinder with its axis parallel to y, spanning y0..y1."""
@@ -195,8 +209,7 @@ def _ring_clamp(cap, p, d, angle):
     cap -= Pos(sx + rs - 0.5, ymid, sz) * Box(20, sy1 - sy0 + 2, d.slit, align=(Align.MIN, Align.CENTER, Align.CENTER))
     top = sz + ear_h / 2
     cap -= Pos(ex, ymid, sz - d.slit / 2) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
-    cap -= Pos(ex, ymid, top - d.screw_l + 0.5) * Cylinder(d.screw_clear_d / 2, 20, align=MIN)
-    cap -= Pos(ex, ymid, top) * Cylinder(d.csk_d / 2, (d.csk_d - d.screw_clear_d) / 2, align=MAX)
+    cap -= Pos(ex, ymid, top) * countersunk(d, depth=d.screw_l + 0.5)
     cap -= along_y(rs, sy0 - 1, sy1 + 1, sx, sz)
     return cap
 
@@ -212,12 +225,11 @@ def block(side, p: Params = P, d: DriveParams = D):
     cap = body & Pos(0, 0, az) * Box(big, big, big, align=MIN)
     # cap screws: countersunk through the cap, insert in the base below the split
     for sx, sy in d.cap_screws:
-        hole = Pos(sx, sy, az - d.screw_l + 3.0) * Cylinder(d.screw_clear_d / 2, 20, align=MIN)
+        # head seat chosen so the M2x5 reaches the bottom of the insert (full thread engagement)
+        seat = az + d.screw_l - d.insert_l
         base -= Pos(sx, sy, az) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
-        base -= hole
-        cap -= hole
-        cap_top = cap.bounding_box().max.Z
-        cap -= Pos(sx, sy, cap_top) * Cylinder(d.csk_d / 2, (d.csk_d - d.screw_clear_d) / 2, align=MAX)
+        base -= Pos(sx, sy, az) * Cylinder(d.screw_clear_d / 2, d.screw_l, align=MAX)
+        cap -= Pos(sx, sy, seat) * countersunk(d, depth=d.screw_l)
     # frame mounting boss with an insert, on the cap
     fx, fy, ftop = frame_boss(side, p, d)
     angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right

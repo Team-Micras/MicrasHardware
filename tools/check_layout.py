@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Align, Box, Cylinder, Plane, Pos, extrude, mirror  # noqa: E402
-from micras import checks, drive, fan, frame, front, layout  # noqa: E402
+from micras import body, checks, drive, fan, frame, front, layout  # noqa: E402
 from micras.params import P  # noqa: E402
 
 t = time.time()
@@ -19,7 +19,7 @@ fan_parts = fan.parts()
 parts.update(fan_parts)
 frame_parts = frame.parts()
 parts.update(frame_parts)
-front_parts = front.parts()
+front_parts = {**front.parts(), **body.parts()}
 parts.update(front_parts)
 # may touch the board outside the silkscreen zones (agreed for the fan supports)
 ZONE_EXEMPT = {"fan_mount"}
@@ -53,8 +53,12 @@ for s in "LR":
 allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_motor")),
             frozenset(("frame", "fan_mount")), frozenset(("frame", "block_cap_L")), frozenset(("frame", "block_cap_R"))}
 allowed |= {frozenset(("frame", f"cell{i}")) for i in range(3)}
-allowed |= {frozenset(("nose", "frame"))}
-allowed |= {frozenset((f"strap_{t}", o)) for t in "LR" for o in ["frame", "cell0", "cell1", "cell2"]}
+# screwed / seated joints
+allowed |= {frozenset(("halo", "frame")), frozenset(("front_wing", "halo")), frozenset(("lid", "frame")),
+            frozenset(("fan_motor", "frame"))}  # airbox lugs: designed 0.1 axial play
+# the wing passes under the diagonal sensors; the board model's sensor box reaches down to the legs,
+# so the wing is checked against the LED bodies in check_sensors.py instead
+allowed |= {frozenset(("front_wing", k)) for k in others if k.startswith("brd:WALL_SENSOR")}
 # the caps wrap the LEDs; the board model only offers the sensor bounding box here (exact check below)
 allowed |= {frozenset((f"sensor_cap_{w}", k)) for w in ("W1", "W2", "W3", "W4") for k in others
             if k.startswith("brd:WALL_SENSOR")}

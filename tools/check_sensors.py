@@ -5,15 +5,20 @@ from pathlib import Path
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Pos, Rot, import_step  # noqa: E402
 
-from micras import front, layout  # noqa: E402
+from micras import body, front, layout  # noqa: E402
 
 raw = import_step(layout.REF / "board.step")
 to_robot = Pos(-67.1112, 64.1608, layout.P.board.bottom_z) * Rot(0, 0, -90)
 sensors = [to_robot * c for c in raw.children if c.label.startswith("WALL_SENSOR")]
-caps = front.parts()
+caps = {**front.parts(), "front_wing": body.front_wing()}
 bad = 0
 for name, cap in caps.items():
-    if not name.startswith("sensor_cap"):
+    if name == "front_wing":
+        for sensor in sensors:
+            for led in sorted(sensor.solids(), key=lambda s: s.volume)[:2]:
+                if cap.distance_to(led) < 0.3:
+                    print(f"front_wing too close to an LED: {cap.distance_to(led):.3f}")
+                    bad += 1
         continue
     # the sensor whose bounding box overlaps this cap the most
     cb = cap.bounding_box()

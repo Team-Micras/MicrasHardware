@@ -119,7 +119,7 @@ def nose(p: Params = P, fp: FrontParams = FP):
 
 
 def parts(p: Params = P):
-    out = {"nose": nose(p)}
+    out = {}
     for s in SENSORS:
         cap = sensor_cap(s, p)
         out[cap.label] = cap

@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Compound, export_step, export_stl  # noqa: E402
 
-from micras import assembly, frame, skirt  # noqa: E402
+from micras import assembly, skirt  # noqa: E402
 from micras.mass import DENSITY  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[1] / "build"
@@ -21,14 +21,8 @@ printed = assembly.printed()
 rows = []
 for name, part in printed.items():
     mat, printer, note = assembly.material(name)
-    if name.startswith("strap_"):
-        continue  # printed flat, exported below
     export_stl(part, str(OUT / "stl" / f"{name}.stl"), tolerance=0.01, angular_tolerance=0.1)
     rows.append((name, mat, printer, part.volume, part.volume * DENSITY[mat], note))
-strap = frame.strap_flat()
-export_stl(strap, str(OUT / "stl" / "strap_print.stl"), tolerance=0.01, angular_tolerance=0.1)
-mat, printer, note = assembly.material("strap")
-rows.append(("strap_print (x2)", mat, printer, 2 * strap.volume, 2 * strap.volume * DENSITY[mat], note))
 skirt.export(OUT)
 
 bought = assembly.bought()

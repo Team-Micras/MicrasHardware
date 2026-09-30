@@ -1,8 +1,9 @@
 """Suction fan: closed centrifugal impeller and its mount.
 
 The impeller's flat front shroud runs just above the component-free Ø27 silkscreen ring around the
-board hole, which acts as the inlet seal. The mount stands on three feet on free board spots just
-outside the ring and holds the motor vertically, shaft down; the top frame presses it onto the board.
+board hole, which acts as the inlet seal. The mount is symmetric: it stands on two feet on free board
+spots behind the ring and is screwed to the frame's airbox tube by two ears, which also press it down.
+The motor sits in the collar, shaft down, captured axially by the tube's lugs.
 """
 
 from dataclasses import dataclass
@@ -34,7 +35,8 @@ class FanParams:
     nose_d: float = 7.0  # flow-turning cone under the hub
     bore_d: float = 0.9  # printed undersize, ream to 0.97-0.98
     # mount
-    feet: tuple = ((130.0, 15.5), (230.0, 15.5), (330.0, 14.8))  # (angle from +x, radius) on free spots
+    feet: tuple = ((130.0, 15.5), (230.0, 15.5))  # (angle from +x, radius): symmetric, on free board spots
+    ear_r: float = 8.8  # |y| of the two ears the frame's airbox flange screws into
     foot_d: float = 2.5
     post_d: float = 2.0
     plate_t: float = 1.2
@@ -104,8 +106,16 @@ def mount(p: Params = P, f: FanParams = F):
     top = p.board.top_z
     cx, cy = centre(p)
     rc = (p.motor.d + f.motor_fit) / 2 + f.collar_wall
-    plate_r = max(r for _, r in f.feet)
     body = Pos(0, 0, h["plate"]) * Cylinder(rc, f.plate_t + f.collar_h, align=MIN)
+    # ears for the frame screws (inserts at the collar top)
+    from .drive import D as DD
+    boss = DD.insert_d / 2 + DD.wall
+    top_z = h["plate"] + f.plate_t + f.collar_h
+    body += Pos(0, 0, h["plate"]) * Box(2 * boss, 2 * f.ear_r, f.plate_t + f.collar_h, align=MIN)
+    for sy in (1, -1):
+        body += Pos(0, sy * f.ear_r, h["plate"]) * Cylinder(boss, f.plate_t + f.collar_h, align=MIN)
+        body -= Pos(0, sy * f.ear_r, top_z) * Cylinder(DD.insert_d / 2, DD.insert_l, align=MAX)
+        body -= Pos(0, sy * f.ear_r, top_z) * Cylinder(DD.screw_clear_d / 2, 4.0, align=MAX)
     for ang, r in f.feet:
         fx, fy = r * cos(radians(ang)), r * sin(radians(ang))
         body += Pos(fx, fy, top) * Cylinder(f.foot_d / 2, h["plate"] - top + f.plate_t, align=MIN)
