@@ -14,6 +14,7 @@ uv run tools/show.py                      # send the model to the OCP CAD Viewer
 uv run tools/export.py                    # build/stl/*.stl, build/micras.step, build/skirt.dxf|svg, build/parts.md
 uv run tools/mass_report.py               # mass, centre of mass, yaw inertia, battery position for balance
 uv run tools/battery_study.py             # compare battery arrangements
+uv run tools/check_gears.py [--png f]    # printed gear pair: mesh through a tooth pitch, backlash, binding distance, tooth stress
 uv run tools/fea.py [part ...] [--png]    # structural check of the printed parts (about 13 min for all, 1-3 min per part)
 ```
 
@@ -32,6 +33,7 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 | `frame.py` | frame geometry: walled battery box with the lid screw boss, cap posts, fan "airbox" tube | PETG |
 | `body.py` | top body (frame + short faceted cowl over the fan motor) and the lid with gills and an optional fin and rear wing | PETG |
 | `leds.py` | SFH 4550 and TPS601A models from their datasheets (they replace the board model's hand-drawn LEDs) and the numbers the caps are built from | – |
+| `gears.py` | printed stand-ins for the brass gears (0.5M 7T pinion, 36T wheel gear), generated with py_gearworks | resin |
 | `front.py` | four wall-sensor caps that stand on the footprint outlines and set the LEDs' aim; the press-fit front bumper | black resin; bumper TPU |
 | `skirt.py` | skirt cutting pattern (0.05–0.1 mm PET or Kapton film) | film |
 
@@ -41,6 +43,7 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 
 - **Board contact.** Only the two L-shaped silkscreen zones carry the bearing blocks, with two countersunk M2 screws per side from below the board. Only a few other parts touch the board: the fan mount's two rear feet (outside the zones, as agreed; its front foot rests on top of the MCU), the sensor caps on the casing outlines their footprints draw, and the bumper on the board's front edges and a thin strip behind the front edge. `check_layout.py` enforces this.
 - **Encoder alignment.** The axle sits 9.00 mm above the board top, so it lines up with the AS5047U. The magnet (Ø6×2) is 0.5 mm from the package face, giving about 60 mT for N35 and 66 mT for N42 at the Hall elements when centred; the chip's window is 35–70 mT, so with an N42 magnet it must stay centred (0.3 mm off-centre adds about 20 mT).
+- **Printed gears.** Until the brass gears arrive, `gears.py` makes a printable pair with the same module, tooth counts, widths and centre distance. A standard 7-tooth pinion would be deeply undercut, so the pair is profile shifted (+0.45 pinion, −0.45 wheel: the centre distance stays 10.75) and the pinion's tip is cut back 0.2 module (0.24 mm tip land, contact ratio 1.25). They are generated with [py_gearworks](https://github.com/GarryBGoode/py_gearworks) (Apache-2.0, build123d-native: true involutes with the generated undercut, profile shift, backlash, fillets; bd_warehouse's gears have no profile shift). 0.06 mm of backlash; the eccentric sleeves can close the centre distance by about 0.09 mm before the teeth bind (`check_gears.py`). Print them in resin, axis vertical, on supports; drill the bores and glue. Use them as a pair, not mixed with a brass gear. The layout's clearances cover both the brass and the printed tips.
 - **Bearing blocks.** Each side is one solid block, like the v1 bearing blocks: an outer plate next to the gear, whose outline is the hull of the bearing housing, the motor seat, the two cap-screw bosses and (on the left) the frame boss, with the housing and the seat running inboard from it; the frame boss is blended into the motor seat's ring. Shallow pockets on the plate's hidden inboard face save a little resin without adding supports. It is split at the axle plane into base and cap.
 - **Axial stack.** Along each axle: magnet cup, housing shoulder, bearing, a 0.5 mm housing ridge, bearing, housing lip, race spacer, brass gear, hub. The ridge spreads the two bearings (3.0 mm between centres) for a stiffer support of the overhung wheel. Both bearings are retained in both directions, so the magnet cannot be pushed into the chip.
 - **Backlash.** Each motor sits in an eccentric sleeve with 0.3 mm eccentricity, giving ±0.3 mm of center-distance adjustment. After adjusting, the left sleeve is clamped by its cap (the cap's split face is relieved by 0.15 mm, so tightening it squeezes the bearings and the sleeve) and the right one by the ring clamp screw. To print the fixed-bore variant instead, set `Layout.backlash_mode = "fixed"`; `Gears.center_adjust` then tunes the center distance.

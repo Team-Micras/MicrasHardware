@@ -14,6 +14,7 @@ MATERIALS = {
     "fan_mount": ("resin", "Photon Mono 4", "collar up, supports under the feet and the flat underside of the plate; the collet fingers must flex, do not over-cure"),
     "sensor_cap": ("resin", "Photon Mono 4", "BLACK resin (IR-opaque); front face down (bores vertical, fork up), no supports"),
     "bumper": ("tpu", "Ender 3 V3 SE", "upside down, flat top on the bed (the rounded lower edge then needs no supports); 100 % infill"),
+    "gear_": ("resin", "Photon Mono 4", "stand-ins for the brass gears, print 2 of each: axis vertical, lifted on supports (on the plate the first layers flare the teeth); tough / ABS-like resin if available; drill the bore (1.0 pinion, 2.0 wheel) and glue; a pair only, don't mix with a brass gear"),
     "body": ("petg", "Ender 3 V3 SE", "lying on the nose plane (the visible face comes out smooth); tree supports under the battery-box wall tops (sand the lid seat flat after), the floor and the lid bosses; heat-set the two lid inserts"),
     "lid": ("petg", "Ender 3 V3 SE", "cover on the bed; the rear wing (optional: BodyParams.spoiler, lid_plain.stl) bridges between fin and endplates, no supports"),
 }

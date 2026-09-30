@@ -59,13 +59,19 @@ class Gears:
     pinion_bore: float = 0.98
     wheel_bore: float = 1.98
     center_adjust: float = 0.0  # added to the nominal centre distance (fixed-bore tuning)
+    # printed stand-in pair (gears.py): profile shift +shift on the pinion, -shift on the wheel (same centre
+    # distance), pinion addendum cut by tip_cut (module)
+    shift: float = 0.45
+    tip_cut: float = 0.2
 
     @property
     def center_distance(self):
         return self.module * (self.pinion_z + self.wheel_z) / 2 + self.center_adjust
 
     def tip_d(self, z):
-        return self.module * (z + 2)
+        """Tip diameter, the larger of the brass gear (unshifted) and the printed one."""
+        x, cut = (self.shift, self.tip_cut) if z == self.pinion_z else (-self.shift, 0.0)
+        return self.module * max(z + 2, z + 2 * (1 - cut + x))
 
     def pitch_d(self, z):
         return self.module * z

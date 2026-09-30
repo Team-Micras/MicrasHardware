@@ -8,6 +8,7 @@ dependencies = [
     "ocp_vscode>=2.8",
     "numpy",
     "zstandard>=0.25.0",
+    "py_gearworks>=0.0.24",  # involute gears with profile shift and generated undercut (printed stand-in gears)
 ]
 
 [dependency-groups]
