@@ -124,7 +124,9 @@ def front_wing(p: Params = P, b: BodyParams = B, d=drive.D):
     body += Pos(x0 + b.keel_len / 2, 0, kz) * Box(b.keel_len, b.keel_w * 0.6, zb - kz, align=MIN)
     body += Pos(x0 + b.keel_len / 2, 0, kz) * Rot(90, 0, 0) * Cylinder(b.skid_r, b.keel_w * 0.6)
     # screw through the cone into the nose block
-    body -= Pos(tip_x - 0.8, 0, zs) * Rot(0, 90, 0) * drive.countersunk(d, depth=tip_x - 0.8 - x0 + 2.5, up=5)
+    # head seat so the M2x5 reaches the bottom of the nose-block insert (block front face at x0 - 0.1)
+    seat = x0 - 0.1 + d.screw_l - d.insert_l
+    body -= Pos(seat, 0, zs) * Rot(0, 90, 0) * drive.countersunk(d, depth=d.screw_l, up=10)
     # nothing may go behind the board edge below the board top (the edge face is the contact)
     body -= Pos(x0, 0, 0) * Box(20, 100, p.board.top_z + 0.2, align=(Align.MAX, Align.CENTER, Align.MIN))
     body.label, body.color = "front_wing", (0.9, 0.9, 0.92)

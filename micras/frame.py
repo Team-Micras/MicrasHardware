@@ -125,7 +125,7 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
     for bx, by in lid_bosses(p, fr):
         body += Pos(bx, by, zt - 6) * Cylinder(fr.boss_d / 2, 6, align=MIN)
         body -= Pos(bx, by, zt) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
-        body -= Pos(bx, by, zt) * Cylinder(d.screw_clear_d / 2, 3.5, align=MAX)
+        body -= Pos(bx, by, zt) * Cylinder(d.screw_clear_d / 2, d.screw_l - 0.9 + 0.5, align=MAX)  # lid 0.9 thick
 
     # posts onto the two cap bosses
     for side in (1, -1):

@@ -25,9 +25,10 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 | Module | Parts | Material |
 |---|---|---|
 | `drive.py` | bearing-block base + cap per side, eccentric motor sleeves, magnet cups, race spacers, wheel hubs | resin |
-| `fan.py` | closed radial impeller (Ø26.4), fan mount on three feet | resin |
-| `frame.py` | top frame: battery tray, cap posts, fan tube, nose boss; TPU battery straps | PETG / TPU |
-| `front.py` | four slide-on sensor caps; nose bumper with the floor skid | resin / PETG |
+| `fan.py` | closed radial impeller (Ø26.4), symmetric fan mount (two feet, two ears) | resin |
+| `frame.py` | top frame: walled battery box, cap posts, fan "airbox" tube, halo and lid bosses | PETG |
+| `body.py` | F1-style halo, front wing with nose cone and skid, engine-cover lid with fin and rear wing | PETG |
+| `front.py` | four slide-on sensor caps | resin |
 | `skirt.py` | skirt cutting pattern (0.05–0.1 mm PET or Kapton film) | film |
 
 `build/parts.md` lists each part's mass and print orientation. The printed parts come to about 12 g, and the whole robot to about 82 g.
@@ -38,8 +39,34 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 - **Encoder alignment.** The axle sits 9.00 mm above the board top, so it lines up with the AS5047U. The magnet (Ø6×2) is 1.0 mm from the package face, giving about 53 mT for N35 and 57 mT for N42; the chip's window is 35–70 mT.
 - **Axial stack.** Along each axle: magnet cup, housing shoulder, two bearings, housing lip, race spacer, brass gear, hub. Both bearings are retained in both directions, so the magnet cannot be pushed into the chip.
 - **Backlash.** Each motor sits in an eccentric sleeve with 0.3 mm eccentricity, giving ±0.3 mm of center-distance adjustment. After adjusting, the left sleeve is clamped by its cap and the right one by the ring clamp screw. To print the fixed-bore variant instead, set `Layout.backlash_mode = "fixed"`; `Gears.center_adjust` then tunes the center distance.
-- **Battery.** Three cells stacked flat on a PETG tray behind the fan, held by two TPU straps. Stacking gives the lowest yaw inertia that still stays clear of tipping in turns (`battery_study.py`). `Battery.x` puts the center of mass over the axle.
+- **Battery.** Three cells on edge, one behind the other, in a PETG box with walls on all four sides and a screwed lid, so the cells cannot fly out in a spin. The edge and pyramid arrangements have the same yaw inertia; edge is 2 mm lower (`battery_study.py`). `Battery.x` puts the center of mass over the axle (`mass_report.py`).
+- **Motor layout.** Both motors sit behind the axle. Moving the raised motor in front of the axle was evaluated: it lowers the pack by about 10 mm but pushes the battery 4 mm further back and raises yaw inertia by 5.5 %.
+- **Race-car body.** The halo's central pillar holds the front wing. The wing bears on the board's front edge, so crash loads go into the board rather than through the pillar. The styled parts add about 2.5 g.
 - **Fan.** The closed impeller's front shroud runs 0.3 mm above the clean Ø27 ring, and that gap is the inlet seal. The skirt is what makes suction work: without it the 1 mm gap limits downforce to well under 1 N.
+
+## Fasteners (M2×5 countersunk + M2×2 inserts only)
+
+Every joint uses the same screw and insert: 18 of each in total. Each head seat is placed so the 5 mm screw engages the full 2 mm of its insert.
+
+| Joint | Qty | Insert in | Notes |
+|---|---|---|---|
+| board → bearing-block bases | 4 | base pads (resin, glued) | from under the board, heads in the board's countersinks |
+| caps → bases | 4 | bases (resin, glued) | heads counterbored into the cap bosses |
+| right motor ring clamp | 1 | lower clamp ear (resin, glued) | locks the right eccentric sleeve |
+| frame → caps | 2 | cap bosses (resin, glued) | left one down the post, through the box floor |
+| airbox tube → fan mount | 2 | mount ears (resin, glued) | presses the mount's feet onto the board |
+| halo → frame rails | 2 | rails (PETG, heat-set) | through the halo feet |
+| front wing → halo nose block | 1 | nose block (PETG, heat-set) | from the nose-cone tip |
+| lid → battery box | 2 | box bosses (PETG, heat-set) | |
+
+No screw holds these; they're pressed, glued or clamped instead:
+- motor pinions and brass wheel gears on their shafts: press fit
+- magnets: glued in their cups
+- hubs: glued to the gear faces
+- tires: stretched onto the hubs
+- impeller: pressed onto the shaft and glued
+- sensor caps: slide-on friction fit
+- fan motor: held in the collar and captured by the airbox lugs
 
 ## Assembly
 
@@ -62,10 +89,11 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 5. **Left motor.** Put it in its sleeve, with the pinion pressed flush with the shaft end. Lay it in the left base seat, then fit the left cap with two M2×5.
 6. **Right motor.** Put it in its sleeve and slide it into the right cap's ring. Fit the cap.
 7. **Mesh.** Turn each sleeve with tweezers in its notches until the gears mesh without play but still turn freely. Then lock it: the left sleeve with the cap screws, the right with the ring clamp screw.
-8. **Fan.** Press the impeller onto the fan motor shaft, with the bore reamed to 0.97–0.98 mm. Put the motor into the fan mount collar, then stand the mount on its feet.
-9. **Frame.** It screws to both cap bosses, and its tube presses the fan mount down. Screw the nose to the frame boss.
-10. **Sensor caps.** Slide each one onto its LED pair, along the direction that sensor looks.
-11. **Battery.** Put it on the tray and loop the two TPU straps around it.
+8. **Fan.** Press the impeller onto the fan motor shaft, with the bore reamed to 0.97–0.98 mm. Put the motor into the fan mount collar, with its terminal tabs pointing left and right, then stand the mount on its feet.
+9. **Frame.** Lower it on. The airbox tube slides over the fan motor until its lugs sit on the motor's rear face. Screw it to both cap bosses and to the two fan-mount ears.
+10. **Halo.** Screw it to the frame's spine rails. Slide the front wing over the halo's nose block and screw it in from the tip.
+11. **Sensor caps.** Slide each one onto its LED pair, along the direction that sensor looks.
+12. **Battery.** Put the cells in the box, run the wires out of the end-wall slots, and screw the lid on.
 
 ## Still to measure
 
