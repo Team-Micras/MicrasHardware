@@ -4,7 +4,8 @@
   top plane that starts flush with the rim and the lid's top and runs down over the fan motor, ending just
   in front of it, with steep side facets and chamfered edges. The fan motor pokes up through the plane
   (the airbox clamps it through the fan mount's collet). The front bumper is a separate part (front.py).
-- Lid: flush in the rim, screwed at its four corner ears; gills, shark fin and rear wing.
+- Lid: on the walls, screwed on the centre line at both ends (the front lug lies flush in a pocket in the
+  nose top); gills, shark fin and rear wing.
 """
 
 from dataclasses import dataclass
@@ -29,10 +30,7 @@ class BodyParams:
     skin: float = 1.2  # cowl wall thickness
     facet: float = 1.2  # chamfer between the top plane and the side facets
     front_c: float = 1.5  # chamfer on the cut face's top edges
-    lip_d: float = 1.5  # nose lip over the lid's front edge
-    lip_hw: float = 14.5  # its half width (inside the cowl's facets)
-    lip_t: float = 0.45
-    lip_gap: float = 0.05  # lid tongue under the lip (0.4 thick)
+    lid_gap: float = 0.1  # between the lid (and its front lug) and the body
     # lid
     lid_margin: float = 1.6
     louvre: tuple = (1.6, 3.4)  # (width, pitch) of the lid gills
@@ -52,9 +50,11 @@ B = BodyParams()
 
 def nose_plane(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
     """(x_ref, z_ref, slope): the cowl's top starts at the box front, level with the lid's top (the lid
-    sits on the walls), and slopes down: z = z_ref - slope * (x - x_ref)."""
+    sits on the walls), runs flat over the lid's front lug and then slopes down:
+    z = z_ref - slope * (x - x_ref)."""
     _, x1, _, _ = frame.tray_box(p, fr)
-    return x1, frame.box_top(p, fr, d) + fr.lid_t, b.slope
+    x_ref = max([x1] + [bx + fr.boss_d / 2 + 0.4 for bx, _ in frame.lid_bosses(p, fr) if bx > x1])
+    return x_ref, frame.box_top(p, fr, d) + fr.lid_t, b.slope
 
 
 def plane_z(x, p: Params = P, b: BodyParams = B):
@@ -72,10 +72,10 @@ def _section(x, hw, depth, p, b, inset=0.0):
     return Plane(origin=(x, 0, 0), x_dir=(0, 1, 0), z_dir=(1, 0, 0)) * make_face(Polyline(*pts, close=True))
 
 
-def wedge(p: Params = P, b: BodyParams = B, d=drive.D):
+def wedge(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
     """The cowl: a hollow faceted wedge, open underneath, closed by its front cut face."""
-    _, x1, _, _ = frame.tray_box(p)
-    x_ref, _, _ = nose_plane(p, b)
+    _, x1, _, _ = frame.tray_box(p, fr)
+    x_ref, _, _ = nose_plane(p, b, d, fr)
     st = [(x1 - 0.01 if i == 0 else x, hw, dep) for i, (x, hw, dep) in enumerate(b.stations)]
     if x_ref > st[0][0]:  # a station where the flat top turns into the slope
         (xa, hwa, da), (xb, hwb, db) = st[0], st[1]
@@ -98,7 +98,7 @@ def top_body(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
     x_ref, z1, k = nose_plane(p, b, d, fr)
     _, x1, _, _ = frame.tray_box(p, fr)
     zt = frame.box_top(p, fr, d)
-    body = frame.frame(p)
+    body = frame.frame(p, fr, d)
     # everything in front of the box and within the cowl's width stops at the nose plane (trims the airbox
     # tube)
     fx, fy = fan.centre(p)
@@ -106,13 +106,11 @@ def top_body(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
     above = Pos(x_ref, 0, z1) * Rot(0, _deg(k), 0) * Box(200, w, 60, align=(Align.MIN, Align.CENTER, Align.MIN))
     above += Pos(x1, 0, z1) * Box(200, w, 60, align=(Align.MIN, Align.CENTER, Align.MIN))
     body -= above
-    body += wedge(p, b, d)
-    # room for the lid on the walls (0.1 all round), then the lip over its front edge
-    body -= Pos(0, 0, zt) * extrude(offset(frame.lid_face(p, fr), 0.1), 10)
-    # lip over the lid's front edge: the lid tucks under it, so only one screw is needed at the rear
-    zl = zt + fr.lid_t
-    body += Pos(x1 + 0.5, 0, zl) * Box(b.lip_d + 0.5, 2 * b.lip_hw, b.lip_t, align=(Align.MAX, Align.CENTER, Align.MAX))
-    body -= above  # the lip's forward end follows the plane
+    body += wedge(p, b, d, fr)
+    # room for the lid on the walls, and a flush pocket in the nose top for its front lug
+    body -= Pos(0, 0, zt) * extrude(offset(frame.lid_face(p, fr), b.lid_gap), 10)
+    for bx, by in frame.lid_bosses(p, fr):  # the lug pockets again (the nose skin covers the front one)
+        body -= Pos(bx, by, zt) * Cylinder(fr.boss_d / 2 - 0.3, fr.lug_t - fr.lid_t, align=MAX)
     # airbox bore through everything (the fan motor pokes through the plane)
     h = fan.heights(p)
     r_in = p.motor.d / 2 + fr.tube_clear
@@ -148,13 +146,19 @@ def lid(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
         body -= Pos((x0 + x1) / 2 - 1.5, yc, zt) * Box(x1 - x0 - 2 * m - 5, gw, fr.lid_t, align=MIN)
     for bx, by in bosses:
         body -= Pos(bx, by, zt + fr.lid_t) * drive.countersunk(d, depth=5, up=10)
-    # front tongue under the nose lip
-    g = b.lip_gap
-    body -= Pos(x1 + 1, 0, zt + fr.lid_t) * Box(b.lip_d + g + 1, 2 * (b.lip_hw + 2 * g), b.lip_t + g + 1,
-                                                align=(Align.MAX, Align.CENTER, Align.MAX)).moved(Pos(0, 0, 1))
+    # thick screw lugs (they sink into the boss tops), so the countersunk heads sit on solid PETG
+    for bx, by in bosses:
+        body += Pos(bx, by, zt) * Cylinder(fr.boss_d / 2 - 0.3 - b.lid_gap, fr.lug_t - fr.lid_t, align=MAX)
+        body -= Pos(bx, by, zt + fr.lid_t) * drive.countersunk(d, depth=5, up=10)
     # shark fin along the centre line, rising towards the rear wing
     z_top = zt + fr.lid_t
     wing_x = x0 + b.wing_chord / 2 + 0.5
+    # keep the flap clear of a screwdriver (Ø2.6) on the rear lid screw
+    from math import cos, radians, sin
+    fc, ft, fa = b.wing_chord * 0.55, b.wing_t * 0.9, radians(b.flap_angle)
+    flap_back = b.wing_chord * 0.55 + (fc * cos(fa) + ft * sin(fa)) / 2  # flap's rear extent behind wing_x
+    rear_screw = min(bx for bx, _ in bosses)
+    wing_x = max(wing_x, rear_screw + 1.3 + 0.3 + flap_back)
     xf = x1 - 1.0
     fin = make_face(Polyline((xf, 0), (xf, 0.8), (wing_x + b.wing_chord / 2, b.fin_h + b.wing_z - b.fin_h + 0.5),
                              (wing_x - b.wing_chord / 2, b.wing_z + 0.5), (wing_x - b.wing_chord / 2, 0), close=True))

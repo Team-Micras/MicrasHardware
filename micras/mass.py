@@ -29,7 +29,7 @@ MASSES = {
     "fan_motor": 7.0,
     "impeller": 1.0,
     "fan_housing": 1.5,
-    "front": 4.0,  # bumper + sensor case + skid (placeholder until designed)
+    "front": 4.0,  # placeholder for early studies (placeholders=True); the real front parts are modelled
     "front_com": (45.0, 0.0, 8.0),
     "spine": 2.5,  # bridge/spine (placeholder)
     "spine_com": (5.0, 0.0, 30.0),

@@ -35,4 +35,13 @@ for name, cap in caps.items():
         d = cap.distance_to(led)
         print(f"{name}: LED z{led.bounding_box().max.Z:5.1f} overlap {v:.3f} mm3, gap {d:.3f} mm")
         bad += v > 1e-3
+    # and clear of every other sensor's LEDs
+    for other in sensors:
+        if other is sensor:
+            continue
+        for led in sorted(other.solids(), key=lambda s: s.volume)[:2]:
+            d = cap.distance_to(led)
+            if d < 0.3:
+                print(f"{name} too close to another sensor's LED: {d:.3f} mm")
+                bad += 1
 print("OK" if not bad else f"{bad} overlaps")

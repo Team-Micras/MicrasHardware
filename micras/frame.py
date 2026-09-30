@@ -2,9 +2,9 @@
 body.py adds the nose cowl to make the one-piece top body.
 
 The frame screws to the frame bosses on both caps; its airbox tube presses the fan mount down and clamps
-the fan motor. The battery box walls hold the cells on every side. The lid sits on the walls: its front
-edge tucks under a lip on the nose (body.py) and one screw at the rear holds it, in a boss behind the rear
-wall.
+the fan motor. The battery box walls hold the cells on every side. The lid sits on the walls and is
+screwed on the centre line at both ends, into bosses blended into the front and rear walls (the front one
+sits inside the nose; its lug lies flush in a pocket in the nose top).
 """
 
 from dataclasses import dataclass
@@ -25,8 +25,6 @@ class FrameParams:
     pack_clear: float = 0.3
     post_d: float = 5.6
     boss_d: float = 5.6  # around an M2 insert
-    rib: float = 1.6  # ribs left between floor windows
-    window: float = 7.0
     gill_w: float = 1.8  # vertical gill slots in the long walls
     gill_pitch: float = 3.6
     louvre_margin: float = 2.5  # solid wall kept at the top and bottom of the louvres
@@ -34,11 +32,14 @@ class FrameParams:
     tube_wall: float = 1.2
     tube_clear: float = 0.3  # around the fan motor
     collet_squeeze: float = 0.1  # radial interference between the airbox taper and the fan-mount collar
-    spine_h: float = 3.3  # rails stay 0.5 above the raised motor
     corner_r: float = 1.9  # outer corners of the box (inner 1.0: clears the cells' square corners)
     rib_pitch: float = 8.0  # floor ribs
     lid_t: float = 0.9
-    lid_boss_off: float = 1.1  # lid screw axis behind the rear wall's outer face (insert 0.4 from the cells)
+    lug_t: float = 1.5  # the lid's screw lugs are thicker (they sink into the boss tops): the countersink
+    # needs 0.9 of it
+    insert_d: float = 3.1  # heat-set insert hole in PETG (M2x2, OD 3.2)
+    lid_boss_off: float = 1.9  # lid screw axes outside the front and rear walls (0.8 PETG to the cells)
+    floor_band: float = 6.0  # solid floor band under each body screw (the rest of the floor is ribs)
     lid_boss_h: float = 5.0  # full-radius height below the box top (insert + screw tip), then a 45 deg taper
     blend_r: float = 1.5  # fillet between the boss and the wall (plan view)
     gills: bool = False  # vertical gill slots in the box walls (lighter; off for the clean faceted look)
@@ -71,10 +72,6 @@ def box_top(p: Params = P, fr: FrameParams = FR, d=drive.D):
     return D_TRAY_TOP(p, d, fr) + pack_size(p)[2] + fr.pack_clear
 
 
-def rail_y(p: Params = P, fr: FrameParams = FR):
-    return p.motor.d / 2 + fr.tube_clear + fr.tube_wall - fr.wall_t / 2
-
-
 def cavity(p: Params = P, fr: FrameParams = FR):
     """(x0, x1, y0, y1) of the inside of the box."""
     x0, x1, y0, y1 = tray_box(p, fr)
@@ -82,9 +79,9 @@ def cavity(p: Params = P, fr: FrameParams = FR):
 
 
 def lid_bosses(p: Params = P, fr: FrameParams = FR):
-    """(x, y) of the lid screw: one, on the centre line behind the rear wall."""
-    x0, _, _, _ = tray_box(p, fr)
-    return [(x0 - fr.lid_boss_off, 0.0)]
+    """(x, y) of the lid screws: on the centre line, in front of the front wall and behind the rear wall."""
+    x0, x1, _, _ = tray_box(p, fr)
+    return [(x1 + fr.lid_boss_off, 0.0), (x0 - fr.lid_boss_off, 0.0)]
 
 
 def _plan_with_bosses(p: Params = P, fr: FrameParams = FR):
@@ -104,6 +101,7 @@ def lid_face(p: Params = P, fr: FrameParams = FR):
 def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
     z0 = d.tray_bottom_z
     z1 = z0 + fr.floor_t
+    assert abs(z1 - p.battery.floor_z) < 1e-6, "Battery.floor_z must equal tray_bottom_z + floor_t"
     zt = box_top(p, fr, d)
     x0, x1, y0, y1 = tray_box(p, fr)
     cx = (x0 + x1) / 2
@@ -140,15 +138,18 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
     sw, sh = fr.wire_slot
     for y in (y0, y1):
         body -= Pos(x0 + sw / 2 + fr.wall_t + 1, y, z1) * Box(sw, 3 * fr.wall_t, sh, align=MIN)
-    # lid insert
+    # lid inserts, below a pocket for the thick lug
+    sink = fr.lug_t - fr.lid_t
     for bx, by in lid_bosses(p, fr):
-        body -= Pos(bx, by, zt) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
-        body -= Pos(bx, by, zt) * Cylinder(d.screw_clear_d / 2, d.screw_l - fr.lid_t + 0.5, align=MAX)
+        body -= Pos(bx, by, zt) * Cylinder(fr.boss_d / 2 - 0.3, sink, align=MAX)
+        body -= Pos(bx, by, zt - sink) * Cylinder(fr.insert_d / 2, d.insert_l, align=MAX)
+        body -= Pos(bx, by, zt - sink) * Cylinder(d.screw_clear_d / 2, d.screw_l - fr.lug_t + 0.5, align=MAX)
 
-    # posts onto the two cap bosses
+    # posts onto the two cap bosses, each on a solid floor band that spans the box (front wall to rear wall)
     for side in (1, -1):
         bx, by, btop = drive.frame_boss(side, p, d)
         by *= side
+        body += Pos(cx, by, z0) * Box(x1 - x0 - fr.wall_t, fr.floor_band, fr.floor_t, align=MIN)
         body += Pos(bx, by, z0) * Cylinder(fr.post_d / 2 + 0.6, fr.floor_t, align=MIN)
         if btop < z0:  # post down to a lower boss, screwed through its floor
             body += Pos(bx, by, btop) * Cylinder(fr.post_d / 2, z0 - btop, align=MIN)

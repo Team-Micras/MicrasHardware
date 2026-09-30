@@ -35,9 +35,9 @@ class Board:
 
 @dataclass(frozen=True)
 class Motor:
-    """Coreless 1020, per motor.png (components.md measured 9.61 diameter: check)."""
-    d: float = 10.0
-    body_l: float = 20.0
+    """Coreless 1020: 9.61 x 20.30 measured (components.md; motor.png's nominal is 10 x 20)."""
+    d: float = 9.61
+    body_l: float = 20.3
     shaft_d: float = 1.0
     shaft_l: float = 6.0
     rear_l: float = 2.0  # solder tabs behind the can (rear shaft is cut off; measure)
@@ -122,7 +122,7 @@ class Battery:
     cell_mass: float = 6.0
     arrangement: str = "edge"  # "pyramid" | "edge" | "flat" | "stack" (tools/battery_study.py)
     gap: float = 0.3
-    x: float = -10.49  # pack centre (tools/mass_report.py: CoM over the axle)
+    x: float = -10.66  # pack centre (tools/mass_report.py: CoM over the axle)
     floor_z: float = 30.0  # bottom of the cells (tray floor top)
 
 

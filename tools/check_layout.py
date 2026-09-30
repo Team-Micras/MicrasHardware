@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
-from build123d import Align, Box, Cylinder, Plane, Pos, extrude, mirror  # noqa: E402
+from build123d import Align, Box, Cylinder, Plane, Pos, Rot, extrude, mirror  # noqa: E402
 from micras import body, checks, drive, fan, front, layout  # noqa: E402
 from micras.params import P  # noqa: E402
 
@@ -19,8 +19,8 @@ fan_parts = fan.parts()
 parts.update(fan_parts)
 front_parts = {**front.parts(), **body.parts()}
 parts.update(front_parts)
-# may touch the board outside the silkscreen zones (agreed for the fan supports)
-ZONE_EXEMPT = {"fan_mount"}
+# every printed part obeys the zone rule; the agreed extra contact areas are added as zones below
+ZONE_EXEMPT = set()
 t_parts = time.time()
 others = layout.board_keepouts()
 # the encoder daughterboards are fixed hardware, like the board
@@ -39,7 +39,7 @@ for s in "LR":
                  ("block_cap", "bearing_inner"), ("block_cap", "bearing_outer"), ("sleeve", "block_base"),
                  ("sleeve", "block_cap"), ("sleeve", "motor"),
                  # fixed-bore variant (Layout.backlash_mode = "fixed"): the motor sits in the blocks
-                 ("motor", "block_base"), ("motor", "block_cap"),
+                 *((("motor", "block_base"), ("motor", "block_cap")) if P.layout.backlash_mode == "fixed" else ()),
                  # running gaps set by params (stack.lip_gap)
                  ("wheel_gear", "block_base"), ("wheel_gear", "block_cap"),
                  # assembled on the axle
@@ -55,13 +55,13 @@ allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_m
 # the cells rest on the box floor ribs (touching); real overlaps are caught below
 allowed |= {frozenset(("body", f"cell{i}")) for i in range(3)}
 # screwed / seated joints
-allowed |= {frozenset(("lid", "body")), frozenset(("fan_motor", "body"))}
+allowed |= {frozenset(("lid", "body"))}
 # the bumper passes under the diagonal sensors; the board model's sensor box reaches down to the legs,
 # so the bumper is checked against the LED bodies in check_sensors.py instead
 allowed |= {frozenset(("bumper", k)) for k in others if k.startswith("brd:WALL_SENSOR")}
 # the caps wrap the LEDs; the board model only offers the sensor bounding box here (exact check below)
-allowed |= {frozenset((f"sensor_cap_{w}", k)) for w in ("W1", "W2", "W3", "W4") for k in others
-            if k.startswith("brd:WALL_SENSOR")}
+# (check_sensors.py checks each cap against every sensor's LEDs exactly)
+allowed |= {frozenset((f"sensor_cap_{w}", k)) for w in front.SENSORS for k in others if k.startswith("brd:WALL_SENSOR")}
 
 res = checks.clashes(parts, others, allowed, margin=P.layout.clearance)
 for r in res:
@@ -74,9 +74,18 @@ zones = zone + mirror(zone, Plane.XZ)
 for w in front.SENSORS:
     zones += front.outline(w)
 # the bumper's lip rests on the free strip behind the board's front edge
-bp = front.BP
+# (the strip is taken from the board: from 0.2 past the last component to the straight front edge)
 x_edge = max(v.X for v in layout.pcb_face().vertices())
-zones += Pos(x_edge - bp.lip_w / 2, 0, P.board.top_z) * Box(bp.lip_w + 0.02, 2 * bp.lip_y + 0.02, 0.3, align=(Align.CENTER, Align.CENTER, Align.MIN))
+edge_y = max(abs(v.Y) for v in layout.pcb_face().vertices() if abs(v.X - x_edge) < 1e-6)
+x_free = max(b["max"][0] for b in layout.board_boxes()
+             if not b["label"].startswith("WALL_SENSOR") and abs(b["min"][1] + b["max"][1]) / 2 < edge_y) + 0.2
+zones += Pos((x_free + x_edge) / 2, 0, P.board.top_z) * Box(x_edge - x_free, 2 * (edge_y - 1.0), 0.3,
+                                                             align=(Align.CENTER, Align.CENTER, Align.MIN))
+# the fan mount's feet, on the free board spots chosen for them
+fcx, fcy = fan.centre(P)
+for ang, r in fan.F.feet:
+    zones += Pos(fcx, fcy, P.board.top_z) * Rot(0, 0, ang) * Pos(r, 0, 0) * Box(
+        fan.F.foot_d + 0.02, fan.F.arm_w + 0.02, 0.3, align=(Align.CENTER, Align.CENTER, Align.MIN))
 # only where the board exists: the real PCB outline, 0.3 mm thick on top of the board
 pcb, _ = layout.board_simple()
 slab = Pos(0, 0, P.board.thickness) * pcb
@@ -94,6 +103,12 @@ for name, part in {**printed, **front_parts,
         res.append((name, "outside contact zone", 0.0, round(v, 3)))
         print("ZONE ", name, f"{v:.3f} mm3 near the board top outside the contact zone")
 # the cells must fit their box (their contact with the floor ribs is allowed above)
+for a, b in [("wheel_hub_L", "tire_L"), ("wheel_hub_R", "tire_R")]:  # the tire sits on the hub, not in it
+    common = parts[a] & parts[b]
+    v = common.volume if common is not None else 0.0
+    if v > 1e-3:
+        res.append((a, b, 0.0, round(v, 3)))
+        print("FIT  ", f"{a} overlaps {b} by {v:.3f} mm3")
 for i in range(3):
     common = parts[f"cell{i}"] & parts["body"]
     v = common.volume if common is not None else 0.0

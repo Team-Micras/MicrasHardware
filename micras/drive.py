@@ -20,27 +20,30 @@ MAX = (Align.CENTER, Align.CENTER, Align.MAX)
 @dataclass(frozen=True)
 class DriveParams:
     wall: float = 1.2  # around bearing and sleeve bores
-    bearing_fit: float = 0.0  # diametral clearance on the bearing OD (split housing clamps it)
+    bearing_fit: float = 0.1  # diametral clearance on the bearing OD (the split closes by split_relief)
     sleeve_wall: float = 0.8  # thinnest wall of the eccentric sleeve
-    sleeve_fit: float = 0.1  # diametral clearance sleeve in seat (clamped)
+    sleeve_fit: float = 0.1  # diametral clearance sleeve in seat (the split closes by split_relief)
+    split_relief: float = 0.15  # taken off the cap's split face: tightening the cap clamps bearings and sleeve
     motor_fit: float = 0.05  # diametral clearance motor in sleeve
     sleeve_lip: float = 0.6  # front lip that stops the motor axially
     seat_min_y: float = 7.6  # seats stay outboard of the encoder daughterboards
     pad_inset: float = 0.3  # stay inside the silkscreen contact outline
     lift: float = 1.8  # everything except the pads starts this far above the board top
     pad_h: float = 3.0  # contact plate thickness
-    insert_d: float = 3.2  # threaded insert hole (resin: glue in)
+    insert_d: float = 3.35  # threaded insert hole in resin (M2x2 OD 3.2, glued in)
     insert_l: float = 2.0
     screw_clear_d: float = 2.2
     screw_l: float = 5.0
     csk_d: float = 4.0  # countersink for the M2 flat heads in the caps
-    cap_screws: tuple = ((5.6, 16.0), (-5.6, 16.0))  # (x, |y|) cap screws, same for both sides
+    cap_screw_y: float = 16.0  # |y| of the cap screws (between the motor seat and the wheel gear)
+    cap_screw_front_x: float = 5.2  # clear of the fan mount feet; the rear screw's x is found per side (cap_screws)
     frame_screw_depth: float = 3.8  # M2x5 through a 1.2 frame floor
-    frame_boss_top_left: float = 21.5  # keeps the screw hole above the left seat bore
+    frame_boss_top_left: float = 21.8  # keeps the screw tip 0.5 above the left seat bore
     tray_bottom_z: float = 28.8  # frame tray underside, sits on the right boss
     slit: float = 0.8  # clamp slit in the raised motor's ring
     ear: float = 2.2  # clamp ear thickness either side of the slit (M2x5 then engages 2 mm)
-    notch_d: float = 1.0  # spanner notches on the sleeve rim
+    notch_d: float = 1.0  # spanner notches on the sleeve rim (width)
+    notch_depth: float = 0.6  # radial, on the sleeve's thick side
 
 
 D = DriveParams()
@@ -172,7 +175,7 @@ def _left_block_solid(p: Params, d: DriveParams, motor_angle):
     lz = b.top_z + d.lift
     body += Pos(0, (y0 + y1) / 2, lz) * Box(2 * rh, y1 - y0, az - lz, align=MIN)
     # cap screw bosses (full height from pads to cap top)
-    for sx, sy in d.cap_screws:
+    for sx, sy in cap_screws(1 if motor_angle == p.layout.motor_angle_left else -1, p, d):
         body += Pos(sx, sy, lz) * Cylinder(d.insert_d / 2 + d.wall, az + rh - lz, align=MIN)
     return body, motor_angle
 
@@ -204,6 +207,29 @@ def _cut_left_bores(body, p: Params, d: DriveParams, motor_angle):
     return body
 
 
+def cap_screws(side, p: Params = P, d: DriveParams = D):
+    """(x, |y|) of the two cap screws on one side. The front one sits in front of the housing; the rear one
+    is moved back until its insert clears the motor seat bore and its screwdriver clears the pinion."""
+    angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right
+    sx, sz = seat_axis(angle, p)
+    mx, mz = motor_axis(angle, p)
+    rs = seat_d(p, d) / 2 + 0.3
+    r_ins = d.insert_d / 2
+    r_pin = p.gears.tip_d(p.gears.pinion_z) / 2 + 0.3
+    az = p.axle_z
+    x = -d.cap_screw_front_x
+    for _ in range(300):
+        # insert (az - insert_l .. az) vs the seat bore circle, in the xz plane
+        dz = max(0.0, abs(sz - (az - d.insert_l / 2)) - d.insert_l / 2)
+        clear_seat = ((x - sx) ** 2 + dz ** 2) ** 0.5 >= rs + r_ins
+        # a Ø2.6 driver straight down onto the head vs the pinion above it
+        clear_pinion = mz < az or abs(x - mx) >= r_pin + 1.3
+        if clear_seat and clear_pinion:
+            break
+        x -= 0.1
+    return ((d.cap_screw_front_x, d.cap_screw_y), (round(x, 2), d.cap_screw_y))
+
+
 def frame_boss(side, p: Params = P, d: DriveParams = D):
     """(x, |y|, top z) of the frame mounting boss on each cap."""
     angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right
@@ -225,7 +251,9 @@ def _ring_clamp(cap, p, d, angle):
     ear_h = 2 * d.ear + d.slit
     cap += Pos((sx + rs + ex + d.insert_d / 2 + d.wall) / 2, ymid, sz) * Box(
         ex + d.insert_d / 2 + d.wall - sx - rs, sy1 - sy0, ear_h)
-    cap -= Pos(sx + rs - 0.5, ymid, sz) * Box(20, sy1 - sy0 + 2, d.slit, align=(Align.MIN, Align.CENTER, Align.CENTER))
+    hy0, hy1 = housing_span(p)
+    y_lo, y_hi = min(sy0, hy0) - 1, max(sy1, hy1) + 1  # through the whole ring and its tapers
+    cap -= Pos(sx + rs - 0.5, (y_lo + y_hi) / 2, sz) * Box(20, y_hi - y_lo, d.slit, align=(Align.MIN, Align.CENTER, Align.CENTER))
     top = sz + ear_h / 2
     cap -= Pos(ex, ymid, sz - d.slit / 2) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
     cap -= Pos(ex, ymid, top) * countersunk(d, depth=d.screw_l + 0.5)
@@ -242,8 +270,10 @@ def block(side, p: Params = P, d: DriveParams = D):
     big = 200
     base = body & Pos(0, 0, az) * Box(big, big, big, align=MAX)
     cap = body & Pos(0, 0, az) * Box(big, big, big, align=MIN)
+    # the cap's split face is relieved, so tightening it clamps the bearings and the level motor's sleeve
+    cap -= Pos(0, 0, az) * Box(big, big, d.split_relief, align=MIN)
     # cap screws: countersunk through the cap, insert in the base below the split
-    for sx, sy in d.cap_screws:
+    for sx, sy in cap_screws(side, p, d):
         # head seat chosen so the M2x5 reaches the bottom of the insert (full thread engagement)
         seat = az + d.screw_l - d.insert_l
         base -= Pos(sx, sy, az) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
@@ -279,10 +309,14 @@ def sleeve(side, p: Params = P, d: DriveParams = D):
     # the bore is offset by e: turning the sleeve moves the motor by up to +-e along the centre line
     s -= along_y((p.motor.d + d.motor_fit) / 2, sy0 - 1, sy1 - d.sleeve_lip, mx, mz)
     s -= along_y(p.motor.boss_d / 2 + 0.3, sy0, sy1 + 1, mx, mz)
-    # two spanner notches in the inner rim, to turn the sleeve with tweezers
-    r_n = sleeve_od(p, d) / 2 - d.sleeve_wall / 2
-    for k in (-1, 1):
-        s -= Pos(sx + k * r_n, sy0, sz) * Box(d.notch_d, 2 * d.notch_d, d.notch_d, align=(Align.CENTER, Align.CENTER, Align.CENTER))
+    # two spanner notches in the inner rim, to turn the sleeve with tweezers: on the sleeve's thick side
+    # (away from the bore offset), 60 deg either side of it
+    r_n = sleeve_od(p, d) / 2 - d.notch_depth / 2
+    thick = degrees(atan2(-(mz - sz), -(mx - sx)))
+    for k in (-60, 60):
+        a = radians(thick + k)
+        s -= Pos(sx + r_n * cos(a), sy0, sz + r_n * sin(a)) * Rot(0, -(thick + k), 0) * Box(
+            d.notch_depth, 2 * d.notch_d, d.notch_d)
     if side < 0:
         s = mirror(s, Plane.XZ)
     s.label = f"sleeve_{'L' if side > 0 else 'R'}"
@@ -311,7 +345,8 @@ class WheelParams:
     boss_d: float = 4.0
     lip_h: float = 0.3  # small outer lip that keeps the tire from walking off
     lip_w: float = 0.5
-    axle_fit: float = -0.02  # diametral: negative = press fit on the axle
+    axle_fit: float = 0.03  # diametral clearance on the axle (magnet cup and hub are glued; the thin resin
+    # bosses would split on a press fit)
 
 
 W = WheelParams()
@@ -343,7 +378,8 @@ def wheel_hub(side, p: Params = P, w: WheelParams = W):
     y1 = p.tire_outer_y
     r = p.hub_d / 2
     hub = along_y(r, y0, y1) - along_y(r - w.rim, y0 + w.web, y1 + 1)
-    hub += along_y(r + w.lip_h, y1 - w.lip_w, y1)
+    # lip just outboard of the tire, an open ring (a solid disc would close the drum)
+    hub += along_y(r + w.lip_h, y1, y1 + w.lip_w) - along_y(r - w.rim, y1 - 1, y1 + w.lip_w + 1)
     hub += along_y(w.boss_d / 2, y0, y1)
     hub -= along_y((p.wheel.axle_d + w.axle_fit) / 2, 0, 40)
     return _side(Pos(0, 0, p.axle_z) * hub, side, "wheel_hub", (0.95, 0.95, 0.95))

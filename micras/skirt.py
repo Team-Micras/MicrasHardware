@@ -34,7 +34,7 @@ def pattern(p: Params = P, sk: SkirtParams = SK):
     outer = offset(board_face, sk.margin)
     inner = offset(board_face, -sk.tape_w)
     skirt = outer - inner
-    # cut the margin back around the wheels and at the nose skid
+    # cut the margin back around the wheels
     for sy in (1, -1):
         keep_y = p.board.notch_inner_y + sk.wheel_margin
         skirt -= Pos(0, sy * (keep_y + 20), 0) * Box(2 * sk.wheel_x, 40, 5)

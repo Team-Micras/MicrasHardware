@@ -52,14 +52,13 @@ LEG_V, LEG_W = 1.27, 0.4
 # casing outline drawn by the footprint (silkscreen and User.13), (u, v): the cap may stand on it
 OUTLINE = ((7.62, 3.429), (-2.032, 3.429), (-2.032, 2.413), (-6.731, 2.413),
            (-6.731, -2.413), (-2.032, -2.413), (-2.032, -3.429), (7.62, -3.429))
-EMITTER_H, DETECTOR_H = EMITTER.z, RECEIVER.z  # kept for older scripts
 
 
 @dataclass(frozen=True)
 class FrontParams:
     fit: float = 0.15  # radial clearance of the bores (the ribs grip)
     rib_w: float = 0.5
-    rib_interf: float = 0.05  # crush-rib interference on the LED
+    rib_interf: float = 0.1  # crush-rib interference on the LED (resin prints ~0.05 noisy: tune)
     wall: float = 0.6  # around the flange bore
     hood: float = 1.0  # beyond the receiver's lens tip (the front stays open at full lens width)
     emitter_tilt: float = 0.0  # deg, emitter pitched down towards the receiver (bench test 0, 1, 2)
@@ -68,7 +67,8 @@ class FrontParams:
     under_slot: float = 2.0  # half width of the opening under the receiver (it sits 0.3 above the board)
     fork_z: tuple = (1.35, 2.15)  # tines: clear of the parts behind, below the receiver's leg bend (2.3)
     fork_tail: float = 0.4  # behind the emitter's legs
-    slot_w: float = 0.5  # around the 0.4 mm legs
+    slot_w: float = 0.7  # around the 0.4 mm legs (bent by hand: +-0.1; resin closes slots a little)
+    slot_lead: float = 0.6  # lead-in flare at the slot mouths
 
 
 FP = FrontParams()
@@ -128,6 +128,12 @@ def sensor_cap(sensor, p: Params = P, fp: FrontParams = FP):
     for sv in (1, -1):
         fork -= Pos(u_back - 1, sv * LEG_V, z0 - 1) * Box(r.legs_u + LEG_W / 2 + 0.1 - u_back + 1, fp.slot_w, z1 - z0 + 2,
                                                          align=(Align.MIN, Align.CENTER, Align.MIN))
+        # lead-in: the slot flares at its open (rear) end
+        flare = make_face(Polyline((u_back - 0.01, sv * LEG_V - fp.slot_w / 2 - fp.slot_lead),
+                                   (u_back + fp.slot_lead * 1.5, sv * LEG_V - fp.slot_w / 2),
+                                   (u_back + fp.slot_lead * 1.5, sv * LEG_V + fp.slot_w / 2),
+                                   (u_back - 0.01, sv * LEG_V + fp.slot_w / 2 + fp.slot_lead), close=True))
+        fork -= Pos(0, 0, z0 - 1) * extrude(flare, z1 - z0 + 2)
     # side plates behind the receiver tie the fork to the base and the emitter sleeve (clear of the legs)
     for sv in (1, -1):
         fork += Pos(e.flange[0], sv * (LEG_V + LEG_W / 2 + 0.33), z0) * Box(
@@ -167,12 +173,12 @@ class BumperParams:
     """Bumper: a TPU band hugging the board's front edge and the first part of both diagonal edges. The
     board's nose widens backwards at ~27 deg, so pushing the band on wedges it tight; a lip over the free
     strip in front of the LEDs sets its height. Crash loads go into the board edge."""
-    band: float = 2.5  # outwards from the board edge
+    band: float = 3.2  # outwards from the board edge: the bumper leads the diagonal sensor caps
     x_cut: float = 47.5  # the band wraps back along the diagonal edges to here
     bottom_z: float = 0.4  # above the floor (it also closes the skirt across the front)
     top_z: float = 3.15  # below the diagonal caps' raised parts (3.49)
-    grip: float = 0.1  # interference on the board edge (press fit)
-    lip_w: float = 0.7  # over the board top, behind the front edge (free strip: parts end at x 52.3)
+    grip: float = 0.2  # interference on the board edge (press fit; TPU)
+    lip_w: float = 0.9  # over the board top, behind the front edge (free strip: parts end at x 52.3)
     lip_t: float = 0.6
     lip_y: float = 10.5  # half length of the lip
     edge_r: float = 0.8  # rounded outer edges (plan view)
@@ -198,10 +204,10 @@ def bumper(p: Params = P, bp: BumperParams = BP):
     return body
 
 
-def parts(p: Params = P, fp: FrontParams = FP):
+def parts(p: Params = P, fp: FrontParams = FP, bp: BumperParams = BP):
     out = {}
     for s in SENSORS:
         cap = sensor_cap(s, p, fp)
         out[cap.label] = cap
-    out["bumper"] = bumper(p)
+    out["bumper"] = bumper(p, bp)
     return out
