@@ -13,8 +13,7 @@ MATERIALS = {
     "impeller": ("resin", "Photon Mono 4", "axis vertical, shroud (eye) down; ream the bore to 0.97-0.98, balance"),
     "fan_mount": ("resin", "Photon Mono 4", "collar up, supports under the feet"),
     "sensor_cap": ("resin", "Photon Mono 4", "apertures up (axis vertical)"),
-    "body": ("petg", "Ender 3 V3 SE", "lying on the nose plane (the visible face comes out smooth); tree supports only under the battery-box rim and floor ribs; heat-set the lid and wing inserts"),
-    "front_wing": ("petg", "Ender 3 V3 SE", "main plane on the bed, no supports"),
+    "body": ("petg", "Ender 3 V3 SE", "lying on the nose plane (the visible face comes out smooth); tree supports only under the battery-box rim and floor ribs; heat-set the four lid inserts"),
     "lid": ("petg", "Ender 3 V3 SE", "cover on the bed; the rear wing bridges between fin and endplates, no supports"),
 }
 

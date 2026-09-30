@@ -36,7 +36,7 @@ class FrameParams:
     spine_h: float = 3.3  # rails stay 0.5 above the raised motor
     corner_r: float = 3.0  # rounded vertical corners of the battery box
     rib_pitch: float = 8.0  # floor ribs
-    lid_boss_y: float = 14.0
+    lid_boss_y: float = 20.0
     gills: bool = False  # vertical gill slots in the box walls (lighter; off for the clean faceted look)
 
 
@@ -72,10 +72,11 @@ def rail_y(p: Params = P, fr: FrameParams = FR):
 
 
 def lid_bosses(p: Params = P, fr: FrameParams = FR):
-    """(x, y) of the two lid screws: outside the rear wall (the front of the lid tucks under the nose)."""
-    x0, _, _, _ = tray_box(p, fr)
+    """(x, y) of the four lid screws: outside the front and rear walls, near the corners (the front
+    pair sits outside the nose's width)."""
+    x0, x1, _, _ = tray_box(p, fr)
     r = fr.boss_d / 2
-    return (x0 - r + 0.3, fr.lid_boss_y), (x0 - r + 0.3, -fr.lid_boss_y)
+    return [(x, sy * fr.lid_boss_y) for x in (x1 + r - 0.3, x0 - r + 0.3) for sy in (1, -1)]
 
 
 def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
