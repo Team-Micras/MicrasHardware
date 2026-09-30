@@ -1,9 +1,8 @@
 """Top frame (FDM, PETG): battery box, posts onto the bearing-block caps, the fan "airbox" tube, and
 the battery-box lid bosses. body.py adds the nose and front wing to make the one-piece top body.
 
-The frame screws to the frame bosses on both caps. The airbox tube screws to the fan mount's two ears
-and its lugs sit on the fan motor's rear face, so the motor is captured between the mount plate and
-the tube. The battery box walls hold the cells on every side; the lid holds them down.
+The frame screws to the frame bosses on both caps, and the airbox tube screws to the fan mount's two
+ears. The battery box walls hold the cells on every side; the lid holds them down.
 """
 
 from dataclasses import dataclass
@@ -34,12 +33,11 @@ class FrameParams:
     tube_wall: float = 1.2
     tube_clear: float = 0.3  # around the fan motor
     flange_t: float = 1.5  # tube flange screwed to the fan mount ears
-    lug_t: float = 1.0  # lugs on the motor's rear face
-    lug_w: float = 3.0
-    lug_gap: float = 0.1  # axial play of the fan motor
     spine_h: float = 3.3  # rails stay 0.5 above the raised motor
     corner_r: float = 3.0  # rounded vertical corners of the battery box
-    floor_edge_r: float = 0.8
+    rib_pitch: float = 8.0  # floor ribs
+    lid_boss_y: float = 14.0
+    gills: bool = False  # vertical gill slots in the box walls (lighter; off for the clean faceted look)
 
 
 FR = FrameParams()
@@ -74,25 +72,10 @@ def rail_y(p: Params = P, fr: FrameParams = FR):
 
 
 def lid_bosses(p: Params = P, fr: FrameParams = FR):
-    """(x, y) of the two lid screws: outside the middle of the front and rear walls."""
-    x0, x1, _, _ = tray_box(p, fr)
+    """(x, y) of the two lid screws: outside the rear wall (the front of the lid tucks under the nose)."""
+    x0, _, _, _ = tray_box(p, fr)
     r = fr.boss_d / 2
-    return (x1 + r - 0.3, 0.0), (x0 - r + 0.3, 0.0)
-
-
-def lugs(p: Params = P, fr: FrameParams = FR, f=fan.F):
-    """Two lugs inside the airbox tube that sit on the fan motor's rear face, 90 deg from its terminal
-    tabs (the tabs lie along y)."""
-    h = fan.heights(p, f)
-    fx, fy = fan.centre(p)
-    r_in = p.motor.d / 2 + fr.tube_clear
-    motor_rear = h["motor"] + p.motor.body_l + fr.lug_gap
-    out = None
-    for sx in (1, -1):
-        lug = Pos(fx + sx * (r_in - fr.lug_w / 2 + fr.tube_wall / 2), fy, motor_rear) * Box(
-            fr.lug_w + fr.tube_wall, fr.lug_w, fr.lug_t, align=MIN)
-        out = lug if out is None else out + lug
-    return out
+    return (x0 - r + 0.3, fr.lid_boss_y), (x0 - r + 0.3, -fr.lid_boss_y)
 
 
 def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
@@ -102,20 +85,15 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
     x0, x1, y0, y1 = tray_box(p, fr)
     cx = (x0 + x1) / 2
 
-    # box floor with windows (rounded corners, like the walls)
+    # box floor: ribs running front to back (no plate, so no ceiling when printed on the nose plane);
+    # the cells rest on the rib edges
     body = Pos(cx, 0, z0) * extrude(RectangleRounded(x1 - x0, y1 - y0, fr.corner_r), fr.floor_t)
-    try:  # soft bottom edge (it is on top when the body prints upside down)
-        body = fillet(body.faces().sort_by(Axis.Z)[0].outer_wire().edges(), fr.floor_edge_r)
-    except Exception:  # noqa: BLE001 - cosmetic only
-        pass
-    nx = max(1, int((x1 - x0 - fr.rib) // (fr.window + fr.rib)))
-    ny = max(1, int((y1 - y0 - fr.rib) // (fr.window + fr.rib)))
-    wx = (x1 - x0 - fr.rib) / nx - fr.rib
-    wy = (y1 - y0 - fr.rib) / ny - fr.rib
-    for i in range(nx):
-        for j in range(ny):
-            body -= Pos(x0 + fr.rib + wx / 2 + i * (wx + fr.rib), y0 + fr.rib + wy / 2 + j * (wy + fr.rib), z0) * Box(
-                wx, wy, fr.floor_t, align=MIN)
+    body -= Pos(cx, 0, z0) * extrude(RectangleRounded(x1 - x0 - 2 * fr.wall_t, y1 - y0 - 2 * fr.wall_t,
+                                                      fr.corner_r - fr.wall_t), fr.floor_t)
+    n_rib = int((y1 - y0) // fr.rib_pitch)
+    for i in range(n_rib):
+        yc = (i - (n_rib - 1) / 2) * fr.rib_pitch
+        body += Pos(cx, yc, z0) * Box(x1 - x0 - fr.wall_t, fr.wall_t, fr.floor_t, align=MIN)
     # full-height walls on all four sides
     outer = Pos(cx, 0, z1) * extrude(RectangleRounded(x1 - x0, y1 - y0, fr.corner_r), zt - z1)
     inner = Pos(cx, 0, z1) * extrude(RectangleRounded(x1 - x0 - 2 * fr.wall_t, y1 - y0 - 2 * fr.wall_t,
@@ -123,10 +101,10 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
     body += outer - inner
     # gills in the front and rear walls (lighter, and the race-car look)
     lh = zt - z1 - 2 * fr.louvre_margin
-    n = int((y1 - y0 - 6) // fr.gill_pitch)
+    n = int((y1 - y0 - 6) // fr.gill_pitch) if fr.gills else 0
     for i in range(n):
         yc = (i - (n - 1) / 2) * fr.gill_pitch
-        if abs(yc) < fr.boss_d / 2 + fr.gill_w:  # keep the wall solid behind the lid bosses
+        if min(abs(yc - by) for _, by in lid_bosses(p, fr)) < fr.boss_d / 2 + fr.gill_w:  # solid behind the lid bosses
             continue
         for x in (x0, x1):
             body -= Pos(x, yc, z1 + fr.louvre_margin) * Box(3 * fr.wall_t, fr.gill_w, lh, align=MIN)
@@ -151,12 +129,10 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
         else:
             body -= Pos(bx, by, z1) * drive.countersunk(d, depth=5, up=40)
 
-    # airbox tube up to the box-top plane (the flat print base), flange screwed to the fan mount ears,
-    # lugs on the motor's rear face
+    # airbox tube (body.py trims it to the nose plane), flange screwed to the fan mount ears
     h = fan.heights(p, f)
     fx, fy = fan.centre(p)
     collar_top = h["plate"] + f.plate_t + f.collar_h
-    motor_rear = h["motor"] + p.motor.body_l + fr.lug_gap
     r_in = p.motor.d / 2 + fr.tube_clear
     r_out = r_in + fr.tube_wall
     body += Pos(fx, fy, collar_top) * Cylinder(r_out, zt - collar_top, align=MIN)
@@ -172,14 +148,7 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
         body -= Pos(fx, sy * er, zf) * drive.countersunk(d, depth=5, up=30)
     body -= Pos(fx, fy, collar_top - 1) * Cylinder(r_in, 40, align=MIN)
     # the fan motor's wires leave through the open airbox top
-    body += lugs(p, fr, f)
 
-    # spine from the box front to the tube: two rails and a floor bridge
-    ry = rail_y(p, fr)
-    for sy in (1, -1):
-        body += Pos((x1 + fx) / 2, sy * ry, z1 - fr.spine_h) * Box(fx - x1, fr.wall_t, fr.spine_h, align=MIN)
-    body += Pos((x1 + fx) / 2, 0, z0) * Box(fx - x1, 2 * r_out, fr.floor_t, align=MIN)
-    body -= Pos(fx, fy, z0 - 1) * Cylinder(r_in, fr.floor_t + 2, align=MIN)
     body.label, body.color = "frame", (0.25, 0.25, 0.28)
     return body
 
