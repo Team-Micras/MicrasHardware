@@ -38,6 +38,8 @@ for s in "LR":
     for a, b in [("block_base", "block_cap"), ("block_base", "bearing_inner"), ("block_base", "bearing_outer"),
                  ("block_cap", "bearing_inner"), ("block_cap", "bearing_outer"), ("sleeve", "block_base"),
                  ("sleeve", "block_cap"), ("sleeve", "motor"),
+                 # fixed-bore variant (Layout.backlash_mode = "fixed"): the motor sits in the blocks
+                 ("motor", "block_base"), ("motor", "block_cap"),
                  # running gaps set by params (stack.lip_gap)
                  ("wheel_gear", "block_base"), ("wheel_gear", "block_cap"),
                  # assembled on the axle

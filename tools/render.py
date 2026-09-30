@@ -1,6 +1,6 @@
 """Render the layout to a PNG with six views (for quick visual checks without a viewer).
 
-Usage: uv run tools/render.py out.png [--no-board] [--hide label1,label2]
+Usage: uv run tools/render.py out.png [--no-board] [--hide label1,label2] [--set layout.backlash_mode=fixed]
 """
 import argparse
 import colorsys
@@ -11,7 +11,7 @@ import numpy as np
 import pyvista as pv
 
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
-from micras import layout  # noqa: E402
+from micras import layout, params  # noqa: E402
 
 VIEWS = {
     "iso": ((1, 1, 1), (0, 0, 1)), "top": ((0, 0, 1), (1, 0, 0)), "side (left)": ((0, 1, 0), (0, 0, 1)),
@@ -46,8 +46,12 @@ def main():
     ap.add_argument("--hide", default="")
     ap.add_argument("--extra", default="", help="module:function returning {label: shape}")
     ap.add_argument("--view", default="", help="render one large view instead of six: " + ", ".join(VIEWS))
+    ap.add_argument("--set", action="append", default=[], help="override a parameter, e.g. layout.backlash_mode=fixed")
     args = ap.parse_args()
-    parts = layout.reference(with_board=False)
+    for kv in args.set:
+        params.override(kv)
+    from micras import assembly
+    parts = assembly.bought()  # bought parts, including the fan motor
     if args.extra:
         mod, fn = args.extra.split(":")
         parts.update(getattr(__import__(mod, fromlist=[fn]), fn)())

@@ -235,3 +235,19 @@ class Params:
 
 
 P = Params()
+
+
+def override(assignment: str, p: Params = P):
+    """Change a parameter of the shared P in place, e.g. "layout.backlash_mode=fixed", for what-if renders
+    and checks (the part functions take P as their default). Values are parsed as numbers when possible."""
+    path, value = assignment.split("=", 1)
+    *parents, name = path.split(".")
+    obj = p
+    for a in parents:
+        obj = getattr(obj, a)
+    old = getattr(obj, name)
+    try:
+        value = type(old)(value) if not isinstance(old, str) else value
+    except (TypeError, ValueError):
+        pass
+    object.__setattr__(obj, name, value)
