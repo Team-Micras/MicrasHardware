@@ -45,6 +45,7 @@ def main():
     ap.add_argument("--no-board", action="store_true")
     ap.add_argument("--hide", default="")
     ap.add_argument("--extra", default="", help="module:function returning {label: shape}")
+    ap.add_argument("--view", default="", help="render one large view instead of six: " + ", ".join(VIEWS))
     args = ap.parse_args()
     parts = layout.reference(with_board=False)
     if args.extra:
@@ -56,10 +57,15 @@ def main():
     if not args.no_board:
         meshes.append(("brd:board", board_mesh(), None))
     pv.OFF_SCREEN = True
-    pl = pv.Plotter(off_screen=True, shape=(2, 3), window_size=(1800, 1100))
-    for i, (name, (d, up)) in enumerate(VIEWS.items()):
-        pl.subplot(i // 3, i % 3)
-        pl.add_text(name, font_size=10)
+    views = {args.view: VIEWS[args.view]} if args.view else VIEWS
+    single = len(views) == 1
+    pl = pv.Plotter(off_screen=True, shape=(1, 1) if single else (2, 3), window_size=(1600, 1200) if single else (1800, 1100))
+    if single:
+        pl.enable_anti_aliasing("ssaa")
+    for i, (name, (d, up)) in enumerate(views.items()):
+        if not single:
+            pl.subplot(i // 3, i % 3)
+            pl.add_text(name, font_size=10)
         for j, (k, m, c) in enumerate(meshes):
             if m is None:
                 continue
@@ -67,7 +73,7 @@ def main():
                 col = (0.45, 0.62, 0.48)
             else:
                 col = tuple(c) [:3] if c is not None else colorsys.hsv_to_rgb((j * 0.137) % 1, 0.55, 0.95)
-            pl.add_mesh(m, color=col)
+            pl.add_mesh(m, color=col, smooth_shading=single, specular=0.3 if single else 0.0)
         pl.camera.focal_point = (0, 0, 10)
         pl.camera.position = tuple(np.array((0, 0, 10)) + np.array(d) * 300)
         pl.camera.up = up
