@@ -82,7 +82,8 @@ class Bearing:
 class Magnet:
     d: float = 6.0
     t: float = 2.0
-    gap: float = 1.0  # package top to magnet face (magpylib: ~53 mT N35 / ~57 mT N42, window 35-70)
+    gap: float = 0.5  # package top to magnet face (magpylib, Bz on the Hall circle: ~60 mT N35 / ~66 mT N42
+    # centred, window 35-70; keep it centred). Closer than 1.0 to make room for the bearing ridge
 
 
 @dataclass(frozen=True)
@@ -113,6 +114,7 @@ class AxialStack:
     shoulder_id: float = 3.6  # clears the inner race
     boss_d: float = 2.7  # bosses that touch only the inner races (MR52 inner race OD ~2.9: measure)
     lip: float = 0.3  # housing lip outside the outer bearing
+    bearing_ridge: float = 0.5  # housing ridge between the two bearings (spreads them for support)
     lip_gap: float = 0.25  # lip to wheel gear
 
 
@@ -122,7 +124,7 @@ class Battery:
     cell_mass: float = 6.0
     arrangement: str = "edge"  # "pyramid" | "edge" | "flat" | "stack" (tools/battery_study.py)
     gap: float = 0.3
-    x: float = -10.66  # pack centre (tools/mass_report.py: CoM over the axle)
+    x: float = -10.68  # pack centre (tools/mass_report.py: CoM over the axle)
     floor_z: float = 30.0  # bottom of the cells (tray floor top)
 
 
@@ -197,7 +199,7 @@ class Params:
     @property
     def bearing_outer_y(self):
         """Outer face of the outer bearing."""
-        return self.bearing_inner_y + 2 * self.bearing.w
+        return self.bearing_inner_y + 2 * self.bearing.w + self.stack.bearing_ridge
 
     @property
     def gear_y(self):

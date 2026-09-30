@@ -74,7 +74,7 @@ def drive_side(side, p: Params = P):
 
     at(p.magnet_y + p.magnet.t, pp.magnet(p.magnet), "magnet")
     at(p.bearing_outer_y, pp.bearing(p.bearing), "bearing_outer")
-    at(p.bearing_outer_y - p.bearing.w, pp.bearing(p.bearing), "bearing_inner")
+    at(p.bearing_inner_y + p.bearing.w, pp.bearing(p.bearing), "bearing_inner")
     at(p.gear_y + p.gears.wheel_w, pp.wheel_gear(p.gears), "wheel_gear")
     at(p.tire_outer_y, pp.tire(p.hub_d, p.tire_w, p.wheel), "tire")
     axle_in = p.magnet_y + p.magnet.t

@@ -189,7 +189,10 @@ def _cut_left_bores(body, p: Params, d: DriveParams, motor_angle):
     mx, mz = motor_axis(motor_angle, p)
     st = p.stack
     # bearing bore, shoulder and lip bores
-    body -= along_y((p.bearing.od + d.bearing_fit) / 2, p.bearing_inner_y, p.bearing_outer_y, 0, az)
+    # two bearing bores with a ridge between them (its bore clears the inner races, like the shoulder)
+    rb = (p.bearing.od + d.bearing_fit) / 2
+    body -= along_y(rb, p.bearing_inner_y, p.bearing_inner_y + p.bearing.w, 0, az)
+    body -= along_y(rb, p.bearing_outer_y - p.bearing.w, p.bearing_outer_y, 0, az)
     body -= along_y(st.shoulder_id / 2, hy0 - 1, hy1 + 1, 0, az)
     # room for the magnet cup (rotating)
     body -= along_y(p.magnet.d / 2 + st.holder_wall + st.holder_gap, 0, hy0, 0, az)
