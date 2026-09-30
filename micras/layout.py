@@ -145,9 +145,10 @@ def summary(p: Params = P):
     }
 
 
-def board_simple(p: Params = P):
-    """Light board stand-in for the viewer: real PCB outline with holes, plus one box per component."""
-    from build123d import Circle, Line, ThreePointArc, Wire, extrude, make_face
+@lru_cache(maxsize=1)
+def pcb_face():
+    """The PCB outline (with its cut-outs and holes) as a face at z = 0, in the robot frame."""
+    from build123d import Circle, Line, ThreePointArc, Wire, make_face
 
     mech = json.loads((REF / "board_mech.json").read_text())
     edges = []
@@ -164,6 +165,14 @@ def board_simple(p: Params = P):
             face -= make_face(w)
     for h in mech["holes"]:
         face -= Pos(*h["pos"]) * Circle(h["drill"] / 2)
+    return face
+
+
+def board_simple(p: Params = P):
+    """Light board stand-in for the viewer: real PCB outline with holes, plus one box per component."""
+    from build123d import extrude
+
+    face = pcb_face()
     pcb = Pos(0, 0, p.board.bottom_z) * extrude(face, p.board.thickness)
     pcb.label, pcb.color = "pcb", (0.2, 0.5, 0.3)
     comps = Compound(children=list(board_keepouts().values()), label="components")

@@ -13,7 +13,8 @@ sensors = [c for c in list(raw.children) if c.label.startswith("WALL_SENSOR")]
 for c in sensors:
     c.parent = None  # else moving deep-copies the whole board with each sensor
 sensors = [to_robot * c for c in sensors]
-caps = {**front.parts(), "nose_wing": body.wedge()}
+# ribs built just short of the LEDs: anything else touching an LED or its legs shows as an overlap
+caps = {**front.parts(fp=front.FrontParams(rib_interf=-0.01)), "nose_wing": body.wedge()}
 bad = 0
 for name, cap in caps.items():
     if name == "nose_wing":
@@ -27,7 +28,7 @@ for name, cap in caps.items():
     cb = cap.bounding_box()
     sensor = max(sensors, key=lambda s: -abs(s.bounding_box().center().X - cb.center().X)
                  - abs(s.bounding_box().center().Y - cb.center().Y))
-    leds = sorted(sensor.solids(), key=lambda s: s.volume)[:2]  # the two LEDs (the housing is the largest)
+    leds = sorted(sensor.solids(), key=lambda s: s.volume)[:2]  # the two LEDs, with their legs
     for led in leds:
         common = cap & led
         v = common.volume if common is not None else 0.0

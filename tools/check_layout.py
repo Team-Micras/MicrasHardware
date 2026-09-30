@@ -67,6 +67,9 @@ for r in res:
 # board contact: printed material within 0.3 mm of the board top must lie inside the contact zones
 zone = Pos(0, 0, P.board.top_z) * extrude(drive.contact_zone(P, 0.0), 0.3)
 zones = zone + mirror(zone, Plane.XZ)
+# the sensor caps stand on the casing outlines the sensor footprints draw
+for w in front.SENSORS:
+    zones += front.outline(w)
 # only where the board exists: the real PCB outline, 0.3 mm thick on top of the board
 pcb, _ = layout.board_simple()
 slab = Pos(0, 0, P.board.thickness) * pcb
