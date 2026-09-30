@@ -25,9 +25,9 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 | Module | Parts | Material |
 |---|---|---|
 | `drive.py` | bearing-block base + cap per side, eccentric motor sleeves, magnet cups, race spacers, wheel hubs | resin |
-| `fan.py` | closed radial impeller (Ø26.4, eye 11, 12 blades, neck into the board hole), symmetric fan mount (two continuous legs, collet collar) | resin |
-| `frame.py` | frame geometry: walled battery box with a rim for the flush lid and four corner pillars, cap posts, fan "airbox" tube | PETG |
-| `body.py` | top body (frame + short faceted cowl over the fan motor) and the flush lid with gills, fin and rear wing | PETG |
+| `fan.py` | closed radial impeller (Ø26.4, eye 11, 12 blades, neck into the board hole), symmetric fan mount (two legs rooted high on the collar, collet collar) | resin |
+| `frame.py` | frame geometry: walled battery box with the lid screw boss, cap posts, fan "airbox" tube | PETG |
+| `body.py` | top body (frame + short faceted cowl over the fan motor) and the lid with gills, fin and rear wing | PETG |
 | `front.py` | four wall-sensor caps that stand on the footprint outlines and set the LEDs' aim; the press-fit front bumper | black resin; bumper TPU |
 | `skirt.py` | skirt cutting pattern (0.05–0.1 mm PET or Kapton film) | film |
 
@@ -39,16 +39,16 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 - **Encoder alignment.** The axle sits 9.00 mm above the board top, so it lines up with the AS5047U. The magnet (Ø6×2) is 1.0 mm from the package face, giving about 53 mT for N35 and 57 mT for N42; the chip's window is 35–70 mT.
 - **Axial stack.** Along each axle: magnet cup, housing shoulder, two bearings, housing lip, race spacer, brass gear, hub. Both bearings are retained in both directions, so the magnet cannot be pushed into the chip.
 - **Backlash.** Each motor sits in an eccentric sleeve with 0.3 mm eccentricity, giving ±0.3 mm of center-distance adjustment. After adjusting, the left sleeve is clamped by its cap and the right one by the ring clamp screw. To print the fixed-bore variant instead, set `Layout.backlash_mode = "fixed"`; `Gears.center_adjust` then tunes the center distance.
-- **Battery.** Three cells on edge, one behind the other, in a PETG box with walls on all four sides and a lid screwed flush into the rim, so the cells cannot fly out in a spin. The lid's screws sit in four pillars blended into the box corners, since the cells fill the box. The edge and pyramid arrangements have the same yaw inertia; edge is 2 mm lower (`battery_study.py`). `Battery.x` puts the center of mass over the axle (`mass_report.py`).
+- **Battery.** Three cells on edge, one behind the other, in a PETG box with walls on all four sides and a lid, so the cells cannot fly out in a spin. The walls hold the cells sideways, so the lid only has to stop them lifting: its front edge tucks under a lip on the nose and one screw holds its rear, in a boss behind the rear wall. The edge and pyramid arrangements have the same yaw inertia; edge is 2 mm lower (`battery_study.py`). `Battery.x` puts the center of mass over the axle (`mass_report.py`).
 - **Motor layout.** Both motors sit behind the axle. Moving the raised motor in front of the axle was evaluated: it lowers the pack by about 10 mm but pushes the battery 4 mm further back and raises yaw inertia by 5.5 %.
-- **Car body.** The top is a short faceted cowl: flush with the rim and the lid's top, then one flat 33° plane down over the fan motor, which pokes through it; the cowl ends just in front of the motor. The body prints lying on that plane, so the visible cowl comes out smooth (`tools/overhang.py body --down 0.647,0,1`); only the battery-box rim, the lid recess and the floor ribs need supports. The lid carries the fin and rear wing.
+- **Car body.** The top is a short faceted cowl: level with the lid's top where they meet (the lid sits on the walls), then one flat 33° plane down over the fan motor, which pokes through it; the cowl ends just in front of the motor. The body prints lying on that plane, so the visible cowl comes out smooth (`tools/overhang.py body --down 0.647,0,1`); only the battery-box wall tops (under the lid), the lid lip and the floor ribs need supports. The lid carries the fin and rear wing.
 - **Bumper.** A TPU band hugs the board's front edge and the first 5 mm of both diagonal edges. The board's nose widens backwards at about 27°, so pushing the band on wedges it tight (0.1 mm interference); a lip over the free strip behind the front edge sets its height. Crash loads go into the board edge, and the band also closes the skirt across the front.
 - **Wall sensors.** The SFH 4550 emitter (±3°) and TPS601A receiver (±10°) are already narrow, so aiming them matters far more than shaping their beams: a 1.5° pitch error changes the reading by 10–40 % up close, while an aperture in front of the lenses only cuts the signal (a Ø3 aperture loses about 70 %). Each black-resin cap stands on the casing outline the footprint draws, and fixes the LEDs' height and pitch from the board. Crush ribs grip each LED at its flange and body, a fork around the four soldered legs sets the sideways position and yaw, and the front stays open at full lens width behind a 1 mm hood. `FrontParams.emitter_tilt` pitches the emitter towards the receiver: an optics model predicts 15–50 % more signal at 10–40 mm for 1–2°, so print 0°, 1° and 2° caps and compare on the bench. The sensors can't see a wall closer than about 8 mm from the caps whatever the cap does, because the emitter sits 6.5 mm above the receiver.
 - **Fan.** The motor runs 18k rpm with no load at 12 V, so it is speed-limited, and the fan study says the impeller should be as large as possible with a small eye. The Ø26.4 impeller is the largest that fits: a raised Ø33 would hit the encoder daughterboards and the raised drive motor. Its front shroud runs 0.3 mm above the clean Ø27 ring (the inlet seal) and a short neck dips into the board hole. The study predicts about 1 N with the skirt, not the firmware's 3 N; the skirt is what makes suction work, so seal it well and tape over the encoder slots. The body's airbox presses the fan mount down and squeezes its slotted collar onto the motor, with no screws.
 
 ## Fasteners (M2×5 countersunk + M2×2 inserts only)
 
-Every joint uses the same screw and insert: 15 of each in total. Each head seat is placed so the 5 mm screw engages the full 2 mm of its insert.
+Every joint uses the same screw and insert: 12 of each in total. Each head seat is placed so the 5 mm screw engages the full 2 mm of its insert.
 
 | Joint | Qty | Insert in | Notes |
 |---|---|---|---|
@@ -56,7 +56,7 @@ Every joint uses the same screw and insert: 15 of each in total. Each head seat 
 | caps → bases | 4 | bases (resin, glued) | heads counterbored into the cap bosses |
 | right motor ring clamp | 1 | lower clamp ear (resin, glued) | locks the right eccentric sleeve |
 | frame → caps | 2 | cap bosses (resin, glued) | left one down the post, through the box floor |
-| lid → body | 4 | corner bosses on the battery box (PETG, heat-set) | |
+| lid → body | 1 | boss behind the battery box's rear wall (PETG, heat-set) | the lid's front edge tucks under the nose lip |
 
 No screw holds these; they're pressed, glued or clamped instead:
 - motor pinions and brass wheel gears on their shafts: press fit
@@ -74,7 +74,7 @@ No screw holds these; they're pressed, glued or clamped instead:
 2. **Inserts.** Glue M2 inserts into the resin parts with CA or epoxy. Heat-setting does not work in resin. The inserts go in:
    - the bases: board and cap screws
    - the caps: frame boss and right ring clamp
-   - the frame's nose boss (PETG, so this one can be heat-set)
+   - the body's lid boss (PETG, so this one can be heat-set)
 3. **Bases.** Screw each base to the board from below with M2×5 countersunk screws through the countersunk holes.
 4. **Wheel cartridges** (build on the bench):
    1. magnet in its cup
@@ -92,7 +92,7 @@ No screw holds these; they're pressed, glued or clamped instead:
 8. **Fan.** Press the impeller onto the fan motor shaft, with the bore reamed to 0.97–0.98 mm. Put the motor into the fan mount collar, with its terminal tabs pointing left and right, then stand the mount on its feet.
 9. **Sensor caps.** Slide each one onto its LED pair from the front, along the direction that sensor looks, until the fork takes the legs and the bores seat on the LED flanges. Press the base flat on the board and fix it with a drop of glue.
 10. **Body.** Lower it on. The airbox slides over the fan motor and its tapered bottom seats on the fan mount's collar. Screwing the body to both cap bosses presses the mount onto the board and clamps the motor.
-11. **Battery.** Put the cells in the box and run the wires out of the end-wall slots. Drop the lid into the rim and screw it at its four corner ears.
+11. **Battery.** Put the cells in the box and run the wires out of the end-wall slots. Slide the lid's front edge under the nose lip, lay it on the walls and screw its rear lug.
 12. **Bumper.** Push the TPU bumper straight back onto the board's nose, its lip over the board top, until it sits tight on the diagonal edges.
 
 ## Still to measure

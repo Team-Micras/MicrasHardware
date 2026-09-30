@@ -10,7 +10,7 @@
 from dataclasses import dataclass
 
 from build123d import (Align, Axis, Box, Cylinder, Plane, Polyline, Pos, RectangleRounded, Rot, chamfer, extrude,
-                       loft, make_face)
+                       loft, make_face, offset)
 
 from . import drive, fan, frame
 from .params import P, Params
@@ -29,6 +29,10 @@ class BodyParams:
     skin: float = 1.2  # cowl wall thickness
     facet: float = 1.2  # chamfer between the top plane and the side facets
     front_c: float = 1.5  # chamfer on the cut face's top edges
+    lip_d: float = 1.5  # nose lip over the lid's front edge
+    lip_hw: float = 14.5  # its half width (inside the cowl's facets)
+    lip_t: float = 0.45
+    lip_gap: float = 0.05  # lid tongue under the lip (0.4 thick)
     # lid
     lid_margin: float = 1.6
     louvre: tuple = (1.6, 3.4)  # (width, pitch) of the lid gills
@@ -47,12 +51,10 @@ B = BodyParams()
 
 
 def nose_plane(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
-    """(x_ref, z_ref, slope): the cowl's top is flat, flush with the rim and the lid's top, from the box
-    front to x_ref, then slopes down: z = z_ref - slope * (x - x_ref). x_ref is just past the front corner
-    pillars, so nothing crosses the sloped plane and the body prints lying on it."""
+    """(x_ref, z_ref, slope): the cowl's top starts at the box front, level with the lid's top (the lid
+    sits on the walls), and slopes down: z = z_ref - slope * (x - x_ref)."""
     _, x1, _, _ = frame.tray_box(p, fr)
-    x_ref = max([x1] + [bx + fr.pillar_r + 0.2 for bx, _ in frame.lid_bosses(p, fr)])
-    return x_ref, frame.box_top(p, fr, d) + fr.lid_t, b.slope
+    return x1, frame.box_top(p, fr, d) + fr.lid_t, b.slope
 
 
 def plane_z(x, p: Params = P, b: BodyParams = B):
@@ -98,13 +100,19 @@ def top_body(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
     zt = frame.box_top(p, fr, d)
     body = frame.frame(p)
     # everything in front of the box and within the cowl's width stops at the nose plane (trims the airbox
-    # tube; the front corner pillars stay whole)
+    # tube)
     fx, fy = fan.centre(p)
     w = 2 * b.stations[0][1]
     above = Pos(x_ref, 0, z1) * Rot(0, _deg(k), 0) * Box(200, w, 60, align=(Align.MIN, Align.CENTER, Align.MIN))
     above += Pos(x1, 0, z1) * Box(200, w, 60, align=(Align.MIN, Align.CENTER, Align.MIN))
     body -= above
     body += wedge(p, b, d)
+    # room for the lid on the walls (0.1 all round), then the lip over its front edge
+    body -= Pos(0, 0, zt) * extrude(offset(frame.lid_face(p, fr), 0.1), 10)
+    # lip over the lid's front edge: the lid tucks under it, so only one screw is needed at the rear
+    zl = zt + fr.lid_t
+    body += Pos(x1 + 0.5, 0, zl) * Box(b.lip_d + 0.5, 2 * b.lip_hw, b.lip_t, align=(Align.MAX, Align.CENTER, Align.MAX))
+    body -= above  # the lip's forward end follows the plane
     # airbox bore through everything (the fan motor pokes through the plane)
     h = fan.heights(p)
     r_in = p.motor.d / 2 + fr.tube_clear
@@ -122,9 +130,9 @@ def lid(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
     x0, x1, y0, y1 = frame.tray_box(p, fr)
     zt = frame.box_top(p, fr, d)
     bosses = frame.lid_bosses(p, fr)
-    # plate flush in the rim, with an ear over each corner pillar
+    # plate on the walls, with a lug over the rear screw boss
     body = Pos(0, 0, zt) * extrude(frame.lid_face(p, fr), fr.lid_t)
-    try:  # small chamfer on the top edge: a crisp seam against the rim
+    try:  # small chamfer on the top edge
         top_face = body.faces().sort_by(Axis.Z)[-1]
         body = chamfer(top_face.outer_wire().edges(), b.edge_c)
     except Exception:  # noqa: BLE001 - cosmetic only
@@ -140,6 +148,10 @@ def lid(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
         body -= Pos((x0 + x1) / 2 - 1.5, yc, zt) * Box(x1 - x0 - 2 * m - 5, gw, fr.lid_t, align=MIN)
     for bx, by in bosses:
         body -= Pos(bx, by, zt + fr.lid_t) * drive.countersunk(d, depth=5, up=10)
+    # front tongue under the nose lip
+    g = b.lip_gap
+    body -= Pos(x1 + 1, 0, zt + fr.lid_t) * Box(b.lip_d + g + 1, 2 * (b.lip_hw + 2 * g), b.lip_t + g + 1,
+                                                align=(Align.MAX, Align.CENTER, Align.MAX)).moved(Pos(0, 0, 1))
     # shark fin along the centre line, rising towards the rear wing
     z_top = zt + fr.lid_t
     wing_x = x0 + b.wing_chord / 2 + 0.5

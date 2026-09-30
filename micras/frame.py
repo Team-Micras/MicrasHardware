@@ -2,8 +2,9 @@
 body.py adds the nose cowl to make the one-piece top body.
 
 The frame screws to the frame bosses on both caps; its airbox tube presses the fan mount down and clamps
-the fan motor. The battery box walls hold the cells on every side. The lid sits flush inside the walls'
-rim; it is screwed at its corners into four pillars blended into the box corners.
+the fan motor. The battery box walls hold the cells on every side. The lid sits on the walls: its front
+edge tucks under a lip on the nose (body.py) and one screw at the rear holds it, in a boss behind the rear
+wall.
 """
 
 from dataclasses import dataclass
@@ -36,13 +37,10 @@ class FrameParams:
     spine_h: float = 3.3  # rails stay 0.5 above the raised motor
     corner_r: float = 1.9  # outer corners of the box (inner 1.0: clears the cells' square corners)
     rib_pitch: float = 8.0  # floor ribs
-    lid_t: float = 0.9  # lid thickness = rim height above the box top
-    lid_clear: float = 0.15  # lid in its recess
-    pillar_r: float = 3.3  # corner pillars around the lid inserts
-    pillar_out: float = 1.2  # pillar axis outside the cavity corner (diagonally): 0.5 mm between insert and cells
-    pillar_h: float = 5.0  # full-radius height below the box top (insert + screw tip), then a 45 deg taper
-    blend_r: float = 1.5  # fillet between pillar and wall (plan view)
-    ear_r: float = 2.6  # lid ears over the pillars (a ring around the countersunk head)
+    lid_t: float = 0.9
+    lid_boss_off: float = 1.1  # lid screw axis behind the rear wall's outer face (insert 0.4 from the cells)
+    lid_boss_h: float = 5.0  # full-radius height below the box top (insert + screw tip), then a 45 deg taper
+    blend_r: float = 1.5  # fillet between the boss and the wall (plan view)
     gills: bool = False  # vertical gill slots in the box walls (lighter; off for the clean faceted look)
 
 
@@ -84,25 +82,23 @@ def cavity(p: Params = P, fr: FrameParams = FR):
 
 
 def lid_bosses(p: Params = P, fr: FrameParams = FR):
-    """(x, y) of the four lid screws: in the corner pillars, just outside the cavity corners."""
-    cx0, cx1, cy0, cy1 = cavity(p, fr)
-    o = fr.pillar_out
-    return [(x, y) for x in (cx1 + o, cx0 - o) for y in (cy1 + o, cy0 - o)]
+    """(x, y) of the lid screw: one, on the centre line behind the rear wall."""
+    x0, _, _, _ = tray_box(p, fr)
+    return [(x0 - fr.lid_boss_off, 0.0)]
 
 
-def _rect(x0, x1, y0, y1, r):
-    return Pos((x0 + x1) / 2, (y0 + y1) / 2) * RectangleRounded(x1 - x0, y1 - y0, r)
-
-
-def lid_face(p: Params = P, fr: FrameParams = FR, clear=None):
-    """Plan of the lid (the cavity plus four corner ears), shrunk by clear (default lid_clear)."""
-    clear = fr.lid_clear if clear is None else clear
-    cx0, cx1, cy0, cy1 = cavity(p, fr)
-    face = _rect(cx0, cx1, cy0, cy1, fr.corner_r - fr.wall_t)
+def _plan_with_bosses(p: Params = P, fr: FrameParams = FR):
+    """Box outline with the lid boss blended in (plan fillets)."""
+    x0, x1, y0, y1 = tray_box(p, fr)
+    plan = Pos((x0 + x1) / 2, 0) * RectangleRounded(x1 - x0, y1 - y0, fr.corner_r)
     for bx, by in lid_bosses(p, fr):
-        face += Pos(bx, by) * Circle(fr.ear_r)
-    face = offset(offset(face, 1.0), -1.0)  # round the necks between the ears and the plate
-    return offset(face, -clear) if clear else face
+        plan += Pos(bx, by) * Circle(fr.boss_d / 2)
+    return offset(offset(plan, fr.blend_r), -fr.blend_r)
+
+
+def lid_face(p: Params = P, fr: FrameParams = FR):
+    """Plan of the lid: the box outline with a lug over the screw boss."""
+    return _plan_with_bosses(p, fr)
 
 
 def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
@@ -121,23 +117,16 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
     for i in range(n_rib):
         yc = (i - (n_rib - 1) / 2) * fr.rib_pitch
         body += Pos(cx, yc, z0) * Box(x1 - x0 - fr.wall_t, fr.wall_t, fr.floor_t, align=MIN)
-    # full-height walls on all four sides, up to the rim around the flush lid
-    zr = zt + fr.lid_t
-    outer = Pos(cx, 0, z1) * extrude(RectangleRounded(x1 - x0, y1 - y0, fr.corner_r), zr - z1)
+    # full-height walls on all four sides
+    outer = Pos(cx, 0, z1) * extrude(RectangleRounded(x1 - x0, y1 - y0, fr.corner_r), zt - z1)
     inner = Pos(cx, 0, z1) * extrude(RectangleRounded(x1 - x0 - 2 * fr.wall_t, y1 - y0 - 2 * fr.wall_t,
-                                                      fr.corner_r - fr.wall_t), zr - z1)
+                                                      fr.corner_r - fr.wall_t), zt - z1)
     body += outer - inner
-    # corner pillars blended into the walls (plan fillets), tapering into the walls below
-    plan = Pos(cx, 0) * RectangleRounded(x1 - x0, y1 - y0, fr.corner_r)
+    # lid screw boss blended into the rear wall, tapering into it below
+    zp = zt - fr.lid_boss_h
+    body += Pos(0, 0, zp) * extrude(_plan_with_bosses(p, fr), zt - zp) - inner
     for bx, by in lid_bosses(p, fr):
-        plan += Pos(bx, by) * Circle(fr.pillar_r)
-    plan = offset(offset(plan, fr.blend_r), -fr.blend_r)
-    zp = zt - fr.pillar_h
-    body += Pos(0, 0, zp) * extrude(plan, zr - zp) - inner
-    for bx, by in lid_bosses(p, fr):
-        body += Pos(bx, by, zp) * Cone(0.01, fr.pillar_r, fr.pillar_r, align=MAX) - inner
-    # recess for the lid and its ears
-    body -= Pos(0, 0, zt) * extrude(lid_face(p, fr, clear=-fr.lid_clear), fr.lid_t + 1)
+        body += (Pos(bx, by, zp) * Cone(0.01, fr.boss_d / 2, fr.boss_d / 2, align=MAX)) - inner
     # gills in the front and rear walls (lighter, and the race-car look)
     lh = zt - z1 - 2 * fr.louvre_margin
     n = int((y1 - y0 - 6) // fr.gill_pitch) if fr.gills else 0
@@ -151,7 +140,7 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
     sw, sh = fr.wire_slot
     for y in (y0, y1):
         body -= Pos(x0 + sw / 2 + fr.wall_t + 1, y, z1) * Box(sw, 3 * fr.wall_t, sh, align=MIN)
-    # lid inserts in the pillars, below the ears
+    # lid insert
     for bx, by in lid_bosses(p, fr):
         body -= Pos(bx, by, zt) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
         body -= Pos(bx, by, zt) * Cylinder(d.screw_clear_d / 2, d.screw_l - fr.lid_t + 0.5, align=MAX)

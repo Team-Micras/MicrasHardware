@@ -47,7 +47,11 @@ class FanParams:
     feet: tuple = ((130.0, 15.5), (230.0, 15.5))  # (angle from +x, radius): symmetric, on free board spots
     foot_d: float = 2.5
     arm_w: float = 2.6  # leg width (tangential)
-    leg_bend_r: float = 4.0  # outer radius where the arm turns down into the foot
+    leg_bend_r: float = 3.0  # outer radius where the arm turns down into the foot
+    leg_knee_z: float = 9.0  # the arm's top edge slopes from the collar down to this height at the foot
+    root_w: float = 5.0  # leg width where it meets the collar
+    root_l: float = 3.0  # length of the flare
+    airbox_gap: float = 0.5  # the legs stay this far below the airbox that slides over the collar
     run_gap: float = 0.5  # arm underside above the impeller's backplate
     plate_t: float = 1.2
     plate_gap: float = 0.4  # hub top to plate
@@ -55,6 +59,7 @@ class FanParams:
     collar_h: float = 7.0
     motor_fit: float = 0.05
     collet_slits: int = 3
+    slit_phase: float = 180.0  # slits at 180/300/60 deg: clear of the legs' roots (130/230)
     slit_w: float = 0.6
     taper_l: float = 4.0  # tapered length at the collar top (the body's airbox squeezes it)
     taper: float = 0.35  # radial reduction over taper_l
@@ -121,19 +126,30 @@ def impeller(p: Params = P, f: FanParams = F):
 
 
 def _leg(r, p: Params = P, f: FanParams = F):
-    """One leg along +x in its radial plane (r, z): arm from the collar over the impeller, a rounded outer
-    bend and the foot on the board at radius r."""
+    """One leg along +x in its radial plane (r, z). It meets the collar over the collar's full height below
+    the airbox (flared wide there), slopes down outwards over the impeller as a tapering arm, and turns down
+    through a rounded bend into the foot on the board at radius r."""
+    from build123d import Rectangle, fillet
     h = heights(p, f)
-    z0, z_top = p.board.top_z, h["plate"] + f.plate_t
+    z0 = p.board.top_z
     z_arm = h["back_tip"] + f.back_t + f.run_gap  # arm underside, just above the backplate
+    z_root = h["collar_top"] - f.taper_l - f.airbox_gap  # the airbox slides over the collar above this
     r_in, r_out = r - f.foot_d / 2, r + f.foot_d / 2
     rc = collar_r(p, f)
-    R = min(f.leg_bend_r, z_top - z0 - 0.5, r_out - rc)
-    arc = [(r_out - R + R * cos(radians(a)), z_top - R + R * sin(radians(a))) for a in range(0, 91, 10)]
     pts = [(0, h["plate"]), (rc, h["plate"]), (rc + (h["plate"] - z_arm), z_arm), (r_in, z_arm), (r_in, z0),
-           (r_out, z0), *arc, (0, z_top)]
+           (r_out, z0), (r_out, f.leg_knee_z), (rc, z_root), (0, z_root)]
     face = make_face(Polyline(*pts, close=True))
-    return extrude(Plane.XZ * face, f.arm_w / 2, both=True)
+    knee = [v for v in face.vertices() if abs(v.X - r_out) < 1e-6 and abs(v.Y - f.leg_knee_z) < 1e-6]
+    try:
+        face = fillet(knee, f.leg_bend_r)
+    except Exception:  # noqa: BLE001 - keep the sharp knee if the fillet fails
+        pass
+    leg = extrude(Plane.XZ * face, f.arm_w / 2, both=True)
+    # flare the root: wider where it meets the collar
+    flare = Polyline((rc - 1, f.root_w / 2), (rc + f.root_l, f.arm_w / 2), (rc + f.root_l, -f.arm_w / 2),
+                     (rc - 1, -f.root_w / 2), close=True)
+    root = extrude(make_face(flare), 40) & extrude(Plane.XZ * face, f.root_w / 2, both=True)
+    return leg + root
 
 
 def mount(p: Params = P, f: FanParams = F):
@@ -151,7 +167,7 @@ def mount(p: Params = P, f: FanParams = F):
     body -= Pos(0, 0, ct - f.taper_l) * (Cylinder(rc + 2, f.taper_l, align=MIN)
                                         - Cone(rc, rc - f.taper, f.taper_l, align=MIN))
     for i in range(f.collet_slits):
-        body -= Rot(0, 0, 90 + 360 * i / f.collet_slits) * Pos(rc, 0, ct - f.taper_l - 1.0) * Box(
+        body -= Rot(0, 0, f.slit_phase + 360 * i / f.collet_slits) * Pos(rc, 0, ct - f.taper_l - 1.0) * Box(
             2 * rc, f.slit_w, f.taper_l + 1.0 + 0.01, align=MIN)
     # motor bore, boss hole
     body -= Pos(0, 0, h["motor"]) * Cylinder((p.motor.d + f.motor_fit) / 2, 30, align=MIN)
