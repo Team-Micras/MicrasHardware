@@ -9,8 +9,9 @@ from dataclasses import dataclass
 from math import atan2, cos, degrees, radians, sin
 
 from build123d import (Align, Box, Circle, Cone, Cylinder, Line, Plane, Pos, Rot, ThreePointArc, Wire, extrude,
-                       loft, make_face, make_hull, mirror)
+                       make_face, make_hull, mirror)
 
+from .layout import board_boxes
 from .params import P, Params
 
 MIN = (Align.CENTER, Align.CENTER, Align.MIN)
@@ -23,6 +24,7 @@ class DriveParams:
     bearing_fit: float = 0.1  # diametral clearance on the bearing OD (the split closes by split_relief)
     sleeve_wall: float = 0.8  # thinnest wall of the eccentric sleeve
     sleeve_fit: float = 0.1  # diametral clearance sleeve in seat (the split closes by split_relief)
+    pillar_wall: float = 1.0  # around the glued cap-screw inserts
     split_relief: float = 0.15  # taken off the cap's split face: tightening the cap clamps bearings and sleeve
     motor_fit: float = 0.05  # diametral clearance motor in sleeve
     sleeve_lip: float = 0.6  # front lip that stops the motor axially
@@ -35,7 +37,7 @@ class DriveParams:
     screw_clear_d: float = 2.2
     screw_l: float = 5.0
     csk_d: float = 4.0  # countersink for the M2 flat heads in the caps
-    cap_screw_y: float = 16.0  # |y| of the cap screws (between the motor seat and the wheel gear)
+    cap_screw_y: float = 16.0  # |y| of the cap screws, at most (the head stays 0.3 clear of the gear cut-out)
     cap_screw_front_x: float = 5.2  # clear of the fan mount feet; the rear screw's x is found per side (cap_screws)
     frame_screw_depth: float = 3.8  # M2x5 through a 1.2 frame floor
     frame_boss_top_left: float = 21.8  # keeps the screw tip 0.5 above the left seat bore
@@ -140,13 +142,6 @@ def _hull_at(circles, y):
     return Pos(0, y, 0) * (Plane.XZ * face.face())
 
 
-def _toward(a, b, t=0.01):
-    """Circle a nudged by t towards circle b: the hull of a with it has the same edges as a belt."""
-    (ax, az, ar), (bx, bz, _) = a, b
-    n = ((bx - ax) ** 2 + (bz - az) ** 2) ** 0.5
-    return ax + t * (bx - ax) / n, az + t * (bz - az) / n, ar
-
-
 def _belt(circles, y0, y1):
     """Convex hull of circles (x, z, r) in the xz plane, extruded over y0..y1."""
     return extrude(_hull_at(circles, y1), y1 - y0)
@@ -164,19 +159,34 @@ def _left_block_solid(p: Params, d: DriveParams, motor_angle):
 
     # contact plate on the silkscreen zone (the board screws go into it from below)
     body = Pos(0, 0, b.top_z) * extrude(contact_zone(p, d.pad_inset), d.pad_h)
-    # bearing housing and motor seat as one body: the hull of both rings where they overlap, tapering
-    # into the housing outboard and into the seat inboard
-    y0, y1 = min(hy0, sy0), max(hy1, sy1)
+    # bearing housing and motor seat as one body: the hull of both rings over the length where they
+    # overlap; beyond it each continues as its own ring, with flat, solid end faces
     ring_h, ring_s = (0, az, rh), (mx, mz, rs)
-    body += _belt((ring_h, ring_s), hy0, sy1)
-    body += loft([_hull_at((ring_h, ring_s), sy1), _hull_at((ring_h, _toward(ring_h, ring_s)), hy1)])
-    body += loft([_hull_at((_toward(ring_s, ring_h), ring_s), sy0), _hull_at((ring_h, ring_s), hy0)])
-    # web from the housing down towards the pads
+    body += along_y(rh, hy0, hy1, 0, az) + along_y(rs, sy0, sy1, mx, mz)
+    body += _belt((ring_h, ring_s), max(hy0, sy0), min(hy1, sy1))
+    # web from the housing down towards the pads (over the housing only: nothing next to the encoders)
     lz = b.top_z + d.lift
-    body += Pos(0, (y0 + y1) / 2, lz) * Box(2 * rh, y1 - y0, az - lz, align=MIN)
+    body += Pos(0, (hy0 + hy1) / 2, lz) * Box(2 * rh, hy1 - hy0, az - lz, align=MIN)
     # cap screw bosses (full height from pads to cap top)
-    for sx, sy in cap_screws(1 if motor_angle == p.layout.motor_angle_left else -1, p, d):
-        body += Pos(sx, sy, lz) * Cylinder(d.insert_d / 2 + d.wall, az + rh - lz, align=MIN)
+    side = 1 if motor_angle == p.layout.motor_angle_left else -1
+    for sx, sy in cap_screws(side, p, d):
+        rp = d.insert_d / 2 + d.pillar_wall
+        # start above any board part under or next to the pillar (it then hangs from the seat)
+        z0 = lz
+        for bb in board_boxes():
+            (bx0, by0, _), (bx1, by1, bz1) = bb["min"], bb["max"]
+            by0, by1 = sorted((side * by0, side * by1))
+            gx = max(bx0 - sx, 0, sx - bx1)
+            gy = max(by0 - sy, 0, sy - by1)
+            if (gx * gx + gy * gy) ** 0.5 < rp + 0.3 and not bb["label"].startswith("encoder"):
+                z0 = max(z0, bz1 + 0.3)
+        # the cap part of the pillar reaches up into the seat ring when the ring is raised above it
+        top = az + rh
+        ring_r = seat_d(p, d) / 2 + d.wall
+        near = abs(sx - mx) - rp
+        if mz > top and near < ring_r:
+            top = max(top, mz - (ring_r ** 2 - near ** 2) ** 0.5 + 0.8)
+        body += Pos(sx, sy, z0) * Cylinder(rp, top - z0, align=MIN)
     return body, motor_angle
 
 
@@ -227,10 +237,15 @@ def cap_screws(side, p: Params = P, d: DriveParams = D):
         clear_seat = ((x - sx) ** 2 + dz ** 2) ** 0.5 >= rs + r_ins
         # a Ø2.6 driver straight down onto the head vs the pinion above it
         clear_pinion = mz < az or abs(x - mx) >= r_pin + 1.3
-        if clear_seat and clear_pinion:
+        # ... and vs the seat ring (for z above the head), where the ring reaches over the screw's y
+        z_head = az + d.screw_l - d.insert_l
+        ring_r = seat_d(p, d) / 2 + d.wall
+        clear_ring = ((x - sx) ** 2 + (max(z_head, sz) - sz) ** 2) ** 0.5 >= ring_r + 1.5
+        if clear_seat and clear_pinion and clear_ring:
             break
         x -= 0.1
-    return ((d.cap_screw_front_x, d.cap_screw_y), (round(x, 2), d.cap_screw_y))
+    y = min(d.cap_screw_y, p.gear_y - p.stack.lip_gap - d.csk_d / 2 - 0.3)  # head clear of the gear cut-out
+    return ((d.cap_screw_front_x, y), (round(x, 2), y))
 
 
 def frame_boss(side, p: Params = P, d: DriveParams = D):
@@ -249,11 +264,13 @@ def _ring_clamp(cap, p, d, angle):
     sy0, sy1 = seat_span(p, d)
     rs = seat_d(p, d) / 2
     ro = rs + d.wall
-    ymid = (sy0 + sy1) / 2
+    # the ear stops short of the front cap screw, so a screwdriver reaches that screw past it
+    ey1 = min(sy1, cap_screws(-1, p, d)[0][1] - 1.5)
+    ymid = (sy0 + ey1) / 2
     ex = sx + ro + d.insert_d / 2  # screw axis, just outside the ring
     ear_h = 2 * d.ear + d.slit
     cap += Pos((sx + rs + ex + d.insert_d / 2 + d.wall) / 2, ymid, sz) * Box(
-        ex + d.insert_d / 2 + d.wall - sx - rs, sy1 - sy0, ear_h)
+        ex + d.insert_d / 2 + d.wall - sx - rs, ey1 - sy0, ear_h)
     hy0, hy1 = housing_span(p)
     y_lo, y_hi = min(sy0, hy0) - 1, max(sy1, hy1) + 1  # through the whole ring and its tapers
     cap -= Pos(sx + rs - 0.5, (y_lo + y_hi) / 2, sz) * Box(20, y_hi - y_lo, d.slit, align=(Align.MIN, Align.CENTER, Align.CENTER))
