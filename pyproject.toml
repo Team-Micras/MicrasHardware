@@ -7,6 +7,7 @@ dependencies = [
     "build123d>=0.13",
     "ocp_vscode>=2.8",
     "numpy",
+    "zstandard>=0.25.0",
 ]
 
 [dependency-groups]

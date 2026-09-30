@@ -8,7 +8,7 @@ The old SolidWorks files in the repository root belong to the previous design an
 
 ```sh
 uv sync                                   # Python 3.12 environment
-uv run tools/export_board.py              # re-import the board after it changes in ../hw_debug (needs Windows KiCad)
+uv run tools/export_board.py              # re-import the board after it changes in ../hw_debug (needs Windows KiCad); drops the old sensor casing (--keep-casing keeps it)
 uv run pytest -q                          # design rules: clashes, board contact zones, LED fit, CoM over the axle
 uv run tools/show.py                      # send the model to the OCP CAD Viewer (open the viewer panel in VS Code first)
 uv run tools/export.py                    # build/stl/*.stl, build/micras.step, build/skirt.dxf|svg, build/parts.md

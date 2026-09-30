@@ -19,7 +19,8 @@ def board():
     # kicad-cli --grid-origin: KiCad (x, y) = (X + 84.3403, 180.6148 - Y); STEP Z=0 is the board bottom.
     to_robot = Pos(-67.1112, 64.1608, P.board.bottom_z) * Rot(0, 0, -90)
     children = []
-    for c in raw.children:
+    for c in list(raw.children):
+        c.parent = None  # moving deep-copies the shape, and with a parent it would copy the whole board each time
         moved = to_robot * c
         moved.label = c.label
         children.append(moved)

@@ -9,7 +9,10 @@ from micras import body, front, layout  # noqa: E402
 
 raw = import_step(layout.REF / "board.step")
 to_robot = Pos(-67.1112, 64.1608, layout.P.board.bottom_z) * Rot(0, 0, -90)
-sensors = [to_robot * c for c in raw.children if c.label.startswith("WALL_SENSOR")]
+sensors = [c for c in list(raw.children) if c.label.startswith("WALL_SENSOR")]
+for c in sensors:
+    c.parent = None  # else moving deep-copies the whole board with each sensor
+sensors = [to_robot * c for c in sensors]
 caps = {**front.parts(), "nose_wing": body.wedge()}
 bad = 0
 for name, cap in caps.items():
