@@ -1,15 +1,16 @@
 """Regenerate the board reference files from the KiCad project.
 
 Produces, in ref/:
-  board.step       populated board from kicad-cli (component models are embedded in the .kicad_pcb), without
-                   the old wall-sensor casing (the chassis has its own sensor caps; --keep-casing keeps it)
+  board.step       populated board from kicad-cli (component models are embedded in the .kicad_pcb); the wall
+                   sensors get the datasheet models of micras/leds.py instead of their embedded model (hand-drawn
+                   LEDs plus the old casing; --original-sensors keeps it)
   board.stl        same, as a mesh for rendering
   board_mech.json  outline, holes, slots and chassis contact zones, in the robot frame
 
 Robot frame (same as the firmware): origin on the floor under the wheel-axle midpoint,
 x forward, y left, z up, millimetres.
 
-Usage: uv run tools/export_board.py [path/to/MicrasMainBoard.kicad_pcb] [--keep-casing]
+Usage: uv run tools/export_board.py [path/to/MicrasMainBoard.kicad_pcb] [--original-sensors]
 """
 
 import base64
@@ -24,7 +25,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
-KEEP_CASING = "--keep-casing" in sys.argv
+KEEP_ORIGINAL = "--original-sensors" in sys.argv
 PCB = Path(ARGS[0] if ARGS else ROOT.parent / "hw_debug/kicad/MicrasMainBoard.kicad_pcb")
 KICAD_CLI = Path(os.environ.get("KICAD_CLI", "/mnt/c/Users/cosme/AppData/Local/Programs/KiCad/10.0/bin/kicad-cli.exe"))
 WIN_TMP = Path(os.environ.get("KICAD_TMP", "/mnt/c/Users/cosme/AppData/Local/Temp/micras_board"))
@@ -112,7 +113,6 @@ def mounting_holes(tree):
 
 
 SENSOR_MODEL = "WALL_SENSOR_STACKED.STEP"
-CASING = "CasingStacked"  # solid in the sensor model: the previous chassis' sensor housing
 
 
 def embedded_file(text, name):
@@ -123,16 +123,15 @@ def embedded_file(text, name):
     return zstandard.ZstdDecompressor().decompress(raw, max_output_size=100_000_000)
 
 
-def strip_casing(text):
-    """Point the wall sensors at a copy of their model without the old casing (LEDs only)."""
-    from build123d import Compound, export_step, import_step
-    src, out = WIN_TMP / "models/sensor_src.step", WIN_TMP / "models" / SENSOR_MODEL
+def replace_sensor_model(text):
+    """Point the wall sensors at the datasheet models of their LEDs (micras/leds.py) instead of the embedded
+    model, whose LED bodies were drawn by hand and which also carries the previous chassis' casing."""
+    sys.path.insert(0, ROOT.as_posix())
+    from build123d import export_step
+    from micras import leds
+    out = WIN_TMP / "models" / SENSOR_MODEL
     out.parent.mkdir(exist_ok=True)
-    src.write_bytes(embedded_file(text, SENSOR_MODEL))
-    model = import_step(src)
-    leds = [c for c in model.children if c.label != CASING]
-    assert len(leds) == len(model.children) - 1, [c.label for c in model.children]
-    export_step(Compound(children=leds, label=model.label), out)
+    export_step(leds.sensor_model(), out)
     return text.replace(f"kicad-embed://{SENSOR_MODEL}", f"${{KIPRJMOD}}/models/{SENSOR_MODEL}")
 
 
@@ -140,7 +139,7 @@ def export_step():
     WIN_TMP.mkdir(parents=True, exist_ok=True)
     shutil.copy(PCB.with_suffix(".kicad_pro"), WIN_TMP / PCB.with_suffix(".kicad_pro").name)
     text = PCB.read_text()
-    (WIN_TMP / PCB.name).write_text(text if KEEP_CASING else strip_casing(text))
+    (WIN_TMP / PCB.name).write_text(text if KEEP_ORIGINAL else replace_sensor_model(text))
     subprocess.run(
         [str(KICAD_CLI), "pcb", "export", "step", "--subst-models", "--grid-origin", "-f",
          "-o", "board.step", PCB.name],

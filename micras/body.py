@@ -36,6 +36,7 @@ class BodyParams:
     louvre: tuple = (1.6, 3.4)  # (width, pitch) of the lid gills
     fin_t: float = 0.9
     fin_h: float = 6.0
+    spoiler: bool = True  # shark fin + rear wing on the lid; False gives a plain lid (export.py writes both)
     wing_span: float = 40.0
     wing_chord: float = 5.5
     wing_t: float = 0.9
@@ -150,29 +151,30 @@ def lid(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
     for bx, by in bosses:
         body += Pos(bx, by, zt) * Cylinder(fr.boss_d / 2 - 0.3 - b.lid_gap, fr.lug_t - fr.lid_t, align=MAX)
         body -= Pos(bx, by, zt + fr.lid_t) * drive.countersunk(d, depth=5, up=10)
-    # shark fin along the centre line, rising towards the rear wing
-    z_top = zt + fr.lid_t
-    wing_x = x0 + b.wing_chord / 2 + 0.5
-    # keep the flap clear of a screwdriver (Ø2.6) on the rear lid screw
-    from math import cos, radians, sin
-    fc, ft, fa = b.wing_chord * 0.55, b.wing_t * 0.9, radians(b.flap_angle)
-    flap_back = b.wing_chord * 0.55 + (fc * cos(fa) + ft * sin(fa)) / 2  # flap's rear extent behind wing_x
-    rear_screw = min(bx for bx, _ in bosses)
-    wing_x = max(wing_x, rear_screw + 1.3 + 0.3 + flap_back)
-    xf = x1 - 1.0
-    fin = make_face(Polyline((xf, 0), (xf, 0.8), (wing_x + b.wing_chord / 2, b.fin_h + b.wing_z - b.fin_h + 0.5),
-                             (wing_x - b.wing_chord / 2, b.wing_z + 0.5), (wing_x - b.wing_chord / 2, 0), close=True))
-    body += Pos(0, b.fin_t / 2, z_top) * (Plane.XZ * extrude(fin, b.fin_t))
-    # rear wing on the fin and two endplates
-    wing = Rot(0, b.wing_angle, 0) * Box(b.wing_chord, b.wing_span, b.wing_t)
-    body += Pos(wing_x, 0, z_top + b.wing_z) * wing
-    flap = Rot(0, b.flap_angle, 0) * Box(b.wing_chord * 0.55, b.wing_span, b.wing_t * 0.9)
-    body += Pos(wing_x - b.wing_chord * 0.55, 0, z_top + b.wing_z + 1.6) * flap
-    for sy in (1, -1):
-        plate = make_face(Polyline((wing_x + b.wing_chord / 2 + 1.0, 0), (wing_x + b.wing_chord / 2 + 1.0, b.wing_z + 1.0),
-                                   (wing_x - b.wing_chord * 0.3, b.wing_z + 3.8), (wing_x - b.wing_chord - 0.6, b.wing_z + 3.8),
-                                   (wing_x - b.wing_chord - 0.6, 0), close=True))
-        body += Pos(0, sy * (b.wing_span / 2 - b.wing_t / 2) + b.wing_t / 2, z_top) * (Plane.XZ * extrude(plate, b.wing_t))
+    if b.spoiler:
+        # shark fin along the centre line, rising towards the rear wing
+        z_top = zt + fr.lid_t
+        wing_x = x0 + b.wing_chord / 2 + 0.5
+        # keep the flap clear of a screwdriver (Ø2.6) on the rear lid screw
+        from math import cos, radians, sin
+        fc, ft, fa = b.wing_chord * 0.55, b.wing_t * 0.9, radians(b.flap_angle)
+        flap_back = b.wing_chord * 0.55 + (fc * cos(fa) + ft * sin(fa)) / 2  # flap's rear extent behind wing_x
+        rear_screw = min(bx for bx, _ in bosses)
+        wing_x = max(wing_x, rear_screw + 1.3 + 0.3 + flap_back)
+        xf = x1 - 1.0
+        fin = make_face(Polyline((xf, 0), (xf, 0.8), (wing_x + b.wing_chord / 2, b.fin_h + b.wing_z - b.fin_h + 0.5),
+                                 (wing_x - b.wing_chord / 2, b.wing_z + 0.5), (wing_x - b.wing_chord / 2, 0), close=True))
+        body += Pos(0, b.fin_t / 2, z_top) * (Plane.XZ * extrude(fin, b.fin_t))
+        # rear wing on the fin and two endplates
+        wing = Rot(0, b.wing_angle, 0) * Box(b.wing_chord, b.wing_span, b.wing_t)
+        body += Pos(wing_x, 0, z_top + b.wing_z) * wing
+        flap = Rot(0, b.flap_angle, 0) * Box(b.wing_chord * 0.55, b.wing_span, b.wing_t * 0.9)
+        body += Pos(wing_x - b.wing_chord * 0.55, 0, z_top + b.wing_z + 1.6) * flap
+        for sy in (1, -1):
+            plate = make_face(Polyline((wing_x + b.wing_chord / 2 + 1.0, 0), (wing_x + b.wing_chord / 2 + 1.0, b.wing_z + 1.0),
+                                       (wing_x - b.wing_chord * 0.3, b.wing_z + 3.8), (wing_x - b.wing_chord - 0.6, b.wing_z + 3.8),
+                                       (wing_x - b.wing_chord - 0.6, 0), close=True))
+            body += Pos(0, sy * (b.wing_span / 2 - b.wing_t / 2) + b.wing_t / 2, z_top) * (Plane.XZ * extrude(plate, b.wing_t))
     body.label, body.color = "lid", (0.15, 0.15, 0.17)
     return body
 
