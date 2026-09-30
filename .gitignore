@@ -1,0 +1,7 @@
+build/
+*.pyc
+__pycache__/
+ref/board.step
+ref/board.stl
+ref/*.pkl
+.venv/

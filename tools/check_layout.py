@@ -1,0 +1,68 @@
+"""Print interferences in the reference layout, including against every board component.
+
+Board components are checked as their bounding boxes (conservative), from the ref/board_boxes.json cache.
+"""
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
+from build123d import Align, Box, Cylinder, Plane, Pos, extrude, mirror  # noqa: E402
+from micras import checks, drive, layout  # noqa: E402
+from micras.params import P  # noqa: E402
+
+t = time.time()
+parts = layout.reference(with_board=False)
+printed = drive.all_parts()
+parts.update(printed)
+t_parts = time.time()
+others = layout.board_keepouts()
+# the encoder daughterboards are fixed hardware, like the board
+others.update({k: parts.pop(k) for k in list(parts) if k.startswith("encoder_")})
+t_board = time.time()
+
+# fits that are meant to touch
+allowed = set()
+for s in "LR":
+    for a, b in [("axle", "bearing_inner"), ("axle", "bearing_outer"), ("axle", "wheel_gear"),
+                 ("bearing_inner", "bearing_outer"), ("axle", "tire"), ("wheel_gear", "tire"),
+                 ("encoder_pcb", "encoder_chip"), ("wheel_gear", "pinion"), ("motor", "pinion")]:
+        allowed.add(frozenset((f"{a}_{s}", f"{b}_{s}")))
+    # parts that seat in each other by design
+    for a, b in [("block_base", "block_cap"), ("block_base", "bearing_inner"), ("block_base", "bearing_outer"),
+                 ("block_cap", "bearing_inner"), ("block_cap", "bearing_outer"), ("sleeve", "block_base"),
+                 ("sleeve", "block_cap"), ("sleeve", "motor"),
+                 # running gaps set by params (stack.lip_gap)
+                 ("wheel_gear", "block_base"), ("wheel_gear", "block_cap"),
+                 # assembled on the axle
+                 ("magnet_cup", "magnet"), ("magnet_cup", "axle"), ("magnet_cup", "bearing_inner"),
+                 ("race_spacer", "axle"), ("race_spacer", "bearing_outer"), ("race_spacer", "wheel_gear"),
+                 ("wheel_hub", "axle"), ("wheel_hub", "wheel_gear"), ("wheel_hub", "tire"),
+                 ("magnet", "axle"),
+                 # running gap set by params (stack.holder_gap)
+                 ("magnet_cup", "block_base"), ("magnet_cup", "block_cap")]:
+        allowed.add(frozenset((f"{a}_{s}", f"{b}_{s}")))
+
+res = checks.clashes(parts, others, allowed, margin=P.layout.clearance)
+for r in res:
+    print("CLASH" if r[3] > 0 else "close", r)
+
+# board contact: printed material within 0.3 mm of the board top must lie inside the contact zones
+zone = Pos(0, 0, P.board.top_z) * extrude(drive.contact_zone(P, 0.0), 0.3)
+zones = zone + mirror(zone, Plane.XZ)
+slab = Pos(0, 0, P.board.top_z) * Box(200, 200, 0.3, align=(Align.CENTER, Align.CENTER, Align.MIN))
+# only where the board exists: remove the wheel notches and the fan hole
+for sy in (1, -1):
+    slab -= Pos(0, sy * (P.board.notch_inner_y + 20), P.board.top_z) * Box(17, 40, 1)
+slab -= Pos(P.board.fan_hole_x, 0, P.board.top_z) * Cylinder(P.board.fan_hole_d / 2, 1)
+for name, part in printed.items():
+    near = part & slab
+    if near is None or near.volume < 1e-6:
+        continue
+    outside = near - zones
+    v = outside.volume if outside is not None else 0.0
+    if v > 1e-3:
+        res.append((name, "outside contact zone", 0.0, round(v, 3)))
+        print("ZONE ", name, f"{v:.3f} mm3 near the board top outside the contact zone")
+print(f"{len(res)} issues | parts {t_parts - t:.1f}s, board {t_board - t_parts:.1f}s, "
+      f"checks {time.time() - t_board:.1f}s")

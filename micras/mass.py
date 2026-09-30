@@ -1,0 +1,119 @@
+"""Mass model: centre of mass and yaw inertia of the robot.
+
+Printed parts use their real volumes; bought parts use estimated masses until weighed (see MASSES).
+Positions are in the robot frame (mm), masses in grams.
+"""
+
+from dataclasses import dataclass
+
+import numpy as np
+
+from .params import P, Params
+
+DENSITY = {"resin": 1.15e-3, "petg": 1.27e-3, "tpu": 1.21e-3}  # g/mm^3
+
+# Estimates, replace with weighed values.
+MASSES = {
+    "board": 15.0,  # populated main board (FR4 ~9 g + parts): weigh it
+    "board_com": (6.0, 0.0, 1.5),
+    "motor": 7.0,  # 1020 coreless, weighed
+    "wheel_gear": 4.3,  # brass 36T 0.5M x 2 mm (estimated from volume)
+    "pinion": 0.55,  # brass 7T x 5 mm
+    "tire": 0.5,
+    "bearing": 0.2,
+    "axle": 0.32,  # 2 mm steel, 13 mm
+    "magnet": 0.42,  # 6x2 NdFeB
+    "encoder_board": 0.3,
+    "cell": 6.0,
+    "wires": 2.0,
+    "fan_motor": 7.0,
+    "impeller": 1.0,
+    "fan_housing": 1.5,
+    "front": 4.0,  # bumper + sensor case + skid (placeholder until designed)
+    "front_com": (45.0, 0.0, 8.0),
+    "spine": 2.5,  # bridge/spine (placeholder)
+    "spine_com": (5.0, 0.0, 30.0),
+    "tray": 2.0,  # battery tray + lid (placeholder)
+}
+
+
+@dataclass
+class Item:
+    name: str
+    mass: float
+    com: tuple
+    izz: float = 0.0  # about its own vertical axis through its com, g*mm^2
+
+
+def box_izz(m, sx, sy):
+    return m * (sx**2 + sy**2) / 12
+
+
+def summarize(items):
+    m = sum(i.mass for i in items)
+    com = sum(np.array(i.com) * i.mass for i in items) / m
+    # yaw inertia about the vertical axis through the axle midpoint (the robot's turning axis)
+    izz = sum(i.izz + i.mass * (i.com[0] ** 2 + i.com[1] ** 2) for i in items)
+    return {"mass": m, "com": tuple(com), "izz": izz}
+
+
+def fixed_items(p: Params = P, printed=None, fan_z=20.0):
+    """Everything except the battery and its tray."""
+    M = MASSES
+    items = [
+        Item("board", M["board"], M["board_com"], box_izz(M["board"], 90, 50)),
+        Item("front", M["front"], M["front_com"], box_izz(M["front"], 20, 50)),
+        Item("spine", M["spine"], M["spine_com"]),
+        Item("fan_motor", M["fan_motor"], (p.board.fan_hole_x, 0, fan_z)),
+        Item("impeller", M["impeller"], (p.board.fan_hole_x, 0, p.board.top_z + 4)),
+        Item("fan_housing", M["fan_housing"], (p.board.fan_hole_x, 0, p.board.top_z + 5)),
+        Item("wires", M["wires"], (-10, 0, 15)),
+    ]
+    for s in (1, -1):
+        tag = "L" if s > 0 else "R"
+        mx, mz = p.motor_axis(s)
+        motor_cy = s * (p.motor_front_y - p.motor.body_l / 2)
+        items += [
+            Item(f"motor_{tag}", M["motor"], (mx, motor_cy, mz), box_izz(M["motor"], p.motor.d, p.motor.body_l)),
+            Item(f"pinion_{tag}", M["pinion"], (mx, s * (p.pinion_y - 2.5), mz)),
+            Item(f"wheel_{tag}", M["wheel_gear"] + M["tire"] + M["axle"],
+                 (0, s * (p.gear_y + 3), p.axle_z)),
+            Item(f"bearings_{tag}", 2 * M["bearing"] + M["magnet"], (0, s * 13, p.axle_z)),
+            Item(f"encoder_{tag}", M["encoder_board"], (0, s * p.board.encoder_slot_y, p.board.top_z + 6)),
+        ]
+    for name, part in (printed or {}).items():
+        c = part.center()
+        items.append(Item(name, part.volume * DENSITY["resin"], (c.X, c.Y, c.Z)))
+    return items
+
+
+# ---- battery arrangements --------------------------------------------------------------------
+
+def battery_cells(arrangement, p: Params = P):
+    """Cell centres and footprint for an arrangement, relative to the pack's bottom-centre.
+
+    Returns (list of (x, z) cell centres, pack size (x, z)); cells run along y.
+    """
+    L, W, T = p.battery.cell
+    g = p.battery.gap
+    if arrangement == "pyramid":  # two flat, one flat on top in the middle
+        cells = [(-(W + g) / 2, T / 2), ((W + g) / 2, T / 2), (0, T + g + T / 2)]
+        return cells, (2 * W + g, 2 * T + g)
+    if arrangement == "edge":  # three on edge, side by side
+        return [((i - 1) * (T + g), W / 2) for i in range(3)], (3 * T + 2 * g, W)
+    if arrangement == "flat":  # three flat, side by side
+        return [((i - 1) * (W + g), T / 2) for i in range(3)], (3 * W + 2 * g, T)
+    if arrangement == "stack":  # three flat, stacked
+        return [(0, T / 2 + i * (T + g)) for i in range(3)], (W, 3 * T + 2 * g)
+    raise ValueError(arrangement)
+
+
+def battery_items(arrangement, x, floor_z, p: Params = P):
+    L, W, T = p.battery.cell
+    cells, _ = battery_cells(arrangement, p)
+    items = []
+    for i, (cx, cz) in enumerate(cells):
+        flat = arrangement != "edge"
+        sx = W if flat else T
+        items.append(Item(f"cell{i}", MASSES["cell"], (x + cx, 0, floor_z + cz), box_izz(MASSES["cell"], sx, L)))
+    return items
