@@ -292,8 +292,9 @@ def sensor_cap_cases(name):
 
 
 def basket_cases():
-    """On its two posts (their feet on the cap bosses); the cells load the walls and floor. The straps hold
-    the cells down, so an upside-down landing loads the straps, not the basket."""
+    """On its two posts (their feet on the cap bosses) and its saddle ribs, which rest on the caps' top edges:
+    only the ribs that the load presses down count (a rib lifting off supports nothing). The cells load the
+    walls and floor; the straps hold them down, so an upside-down landing loads the straps, not the basket."""
     x0, x1, y0, y1 = frame.cavity()
     tray = frame.D_TRAY_TOP()
     posts = []
@@ -301,16 +302,26 @@ def basket_cases():
         bx, by, bz = drive.frame_boss(s)
         posts.append(lambda c, n, bx=bx, by=s * by, bz=bz: (np.hypot(c[0] - bx, c[1] - by) < 3.0)
                      & (np.abs(c[2] - bz) < 0.1) & (n[2] < -0.9))
-    fixed = any_of(*posts)
+    rp = drive.D.insert_d / 2 + drive.D.pillar_wall
+    y_rib = (drive.cap_screws(1)[0][1] - rp + drive.housing_span()[1]) / 2
+    x_post = np.mean([drive.frame_boss(s)[0] for s in (1, -1)])
+
+    def ribs(sides=(1, -1), x_min=-99.0):
+        return lambda c, n: (np.any([np.abs(c[1] - s * y_rib) < frame.FR.saddle_w / 2 + 0.05 for s in sides], axis=0)
+                             & (c[2] < drive.D.tray_bottom_z - 0.05) & (n[2] < -0.2) & (c[0] > x_min))
     inside = lambda c: (c[0] > x0 - 0.1) & (c[0] < x1 + 0.1) & (c[1] > y0 - 0.1) & (c[1] < y1 + 0.1)
     front_wall = lambda c, n: inside(c) & (np.abs(c[0] - x1) < 0.1) & (n[0] < -0.9)
     side_wall = lambda c, n: inside(c) & (np.abs(c[1] - y1) < 0.1) & (n[1] < -0.9)
     floor = lambda c, n: inside(c) & (c[2] < tray + 2.0) & (n[2] > 0.9)
     cells = 18e-3
     return "petg", [
-        Case("crash, cells on the front wall", fixed, [(front_wall, (cells * CRASH, 0, 0))], (-CRASH, 0, 0)),
-        Case("side crash, cells on the side wall", fixed, [(side_wall, (0, cells * CRASH, 0))], (0, -CRASH, 0)),
-        Case("drop, cells on the floor", fixed, [(floor, (0, 0, -cells * DROP))], (0, 0, DROP)),
+        # it tips forward: the ribs in front of the posts bear
+        Case("crash, cells on the front wall", any_of(*posts, ribs(x_min=x_post)), [(front_wall, (cells * CRASH, 0, 0))],
+             (-CRASH, 0, 0)),
+        # it rolls towards +y: that side's rib bears
+        Case("side crash, cells on the side wall", any_of(*posts, ribs((1,))), [(side_wall, (0, cells * CRASH, 0))],
+             (0, -CRASH, 0)),
+        Case("drop, cells on the floor", any_of(*posts, ribs()), [(floor, (0, 0, -cells * DROP))], (0, 0, DROP)),
     ]
 
 
@@ -341,7 +352,7 @@ def analyses(names):
     out += [("fan_mount", parts["fan_mount"], 1.0, fan_mount_cases), ("impeller", parts["impeller"], 1.0, impeller_cases),
             ("sensor_cap_W1", parts["sensor_cap_W1"], 1.0, sensor_cap_cases("sensor_cap_W1")),
             ("sensor_cap_W2", parts["sensor_cap_W2"], 1.0, sensor_cap_cases("sensor_cap_W2")),
-            ("basket", parts["basket"], 1.0, basket_cases()),
+            ("basket", parts["basket"], 1.2, basket_cases()),
             ("bumper", parts["bumper"], 1.0, bumper_cases), ("wheel_hub_L", parts["wheel_hub_L"], 1.0, wheel_hub_cases("wheel_hub_L"))]
     return [a for a in out if not names or any(a[0].startswith(n) for n in names)]
 

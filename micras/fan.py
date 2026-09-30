@@ -178,7 +178,11 @@ def mount(p: Params = P, f: FanParams = F, d=None):
         dx, dy = tx - cx, s * ty - cy
         ln = (dx * dx + dy * dy) ** 0.5
         x0, y0 = (rc - 0.5) * dx / ln, (rc - 0.5) * dy / ln  # (collar frame: centred on the fan)
-        side = Polygon((0, f.arm_z0), (ln - (rc - 0.5), zt), (ln - (rc - 0.5), zt + f.tab_t), (0, zt + f.tab_t),
+        # the underside stays low until just short of the tab (the cap's ear is under the tab only), so the
+        # arm is deep where it meets the tab
+        la = ln - (rc - 0.5)
+        lk = la - d.fan_ear_r - 0.3
+        side = Polygon((0, f.arm_z0), (lk, f.arm_z0 + 1.0), (lk, zt), (la, zt), (la, zt + f.tab_t), (0, zt + f.tab_t),
                        align=None)
         plane = Plane(origin=(x0, y0, 0), x_dir=(dx, dy, 0), z_dir=(dy, -dx, 0))
         body += extrude(plane * side, f.arm_t / 2, both=True)
