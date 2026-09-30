@@ -52,7 +52,7 @@ allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_m
             frozenset(("body", "fan_mount")), frozenset(("body", "block_cap_L")), frozenset(("body", "block_cap_R"))}
 allowed |= {frozenset(("body", f"cell{i}")) for i in range(3)}
 # screwed / seated joints
-allowed |= {frozenset(("lid", "body")), frozenset(("fan_motor", "body"))}  # the motor lug: designed 0.1 axial play
+allowed |= {frozenset(("lid", "body")), frozenset(("fan_motor", "body"))}
 # the wing passes under the diagonal sensors; the board model's sensor box reaches down to the legs,
 # so the wing is checked against the LED bodies in check_sensors.py instead
 allowed |= {frozenset(("body", k)) for k in others if k.startswith("brd:WALL_SENSOR")}

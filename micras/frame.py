@@ -1,13 +1,12 @@
 """Top frame (FDM, PETG): battery box, posts onto the bearing-block caps, the fan "airbox" tube, and
 the battery-box lid bosses. body.py adds the nose and front wing to make the one-piece top body.
 
-The frame screws to the frame bosses on both caps, and the airbox tube screws to the fan mount's two
-ears. The battery box walls hold the cells on every side; the lid holds them down.
+The frame screws to the frame bosses on both caps; its airbox tube presses the fan mount down and clamps
+the fan motor. The battery box walls hold the cells on every side; the lid holds them down.
 """
 
 from dataclasses import dataclass
-from build123d import (Align, Axis, Box, Cylinder, Plane, Polyline, Pos, RectangleRounded, extrude, fillet,
-                       make_face)
+from build123d import Align, Box, Cone, Cylinder, Pos, RectangleRounded, extrude
 
 from . import drive, fan
 from .mass import battery_cells
@@ -32,7 +31,7 @@ class FrameParams:
     wire_slot: tuple = (6.0, 5.0)  # (width, height) at the bottom of each end wall
     tube_wall: float = 1.2
     tube_clear: float = 0.3  # around the fan motor
-    flange_t: float = 1.5  # tube flange screwed to the fan mount ears
+    collet_squeeze: float = 0.1  # radial interference between the airbox taper and the fan-mount collar
     spine_h: float = 3.3  # rails stay 0.5 above the raised motor
     corner_r: float = 3.0  # rounded vertical corners of the battery box
     rib_pitch: float = 8.0  # floor ribs
@@ -130,24 +129,19 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
         else:
             body -= Pos(bx, by, z1) * drive.countersunk(d, depth=5, up=40)
 
-    # airbox tube (body.py trims it to the nose plane), flange screwed to the fan mount ears
+    # airbox tube (body.py trims it to the nose plane). Its tapered bottom slides over the fan mount's
+    # slotted collar top: when the body is screwed down it holds the mount on the board and squeezes the
+    # collar onto the motor (a collet), so neither needs screws.
     h = fan.heights(p, f)
     fx, fy = fan.centre(p)
-    collar_top = h["plate"] + f.plate_t + f.collar_h
+    rc = fan.collar_r(p, f)
+    ct = h["collar_top"]
+    zb = ct - f.taper_l
     r_in = p.motor.d / 2 + fr.tube_clear
-    r_out = r_in + fr.tube_wall
-    body += Pos(fx, fy, collar_top) * Cylinder(r_out, zt - collar_top, align=MIN)
-    er = f.ear_r
-    body += Pos(fx, fy, collar_top) * Box(fr.boss_d, 2 * er + fr.boss_d, fr.flange_t, align=MIN)
-    reach = er + fr.boss_d / 2
-    for sy in (1, -1):
-        body += Pos(fx, sy * er, collar_top) * Cylinder(fr.boss_d / 2, fr.flange_t, align=MIN)
-        # 45 deg corbel on top of the flange: prints without support when the body is upside down
-        zf = collar_top + fr.flange_t
-        tri = make_face(Polyline((sy * (r_in + 0.5), zf), (sy * reach, zf), (sy * (r_in + 0.5), zf + reach - r_in - 0.5), close=True))
-        body += Pos(fx - fr.boss_d / 2, 0, 0) * (Plane.YZ * extrude(tri, fr.boss_d))
-        body -= Pos(fx, sy * er, zf) * drive.countersunk(d, depth=5, up=30)
-    body -= Pos(fx, fy, collar_top - 1) * Cylinder(r_in, 40, align=MIN)
+    r_out = rc + fr.tube_wall
+    body += Pos(fx, fy, zb) * Cylinder(r_out, zt - zb, align=MIN)
+    body -= Pos(fx, fy, zb) * Cone(rc - fr.collet_squeeze, rc - f.taper - fr.collet_squeeze, f.taper_l, align=MIN)
+    body -= Pos(fx, fy, zb - 1) * Cylinder(r_in, 60, align=MIN)
     # the fan motor's wires leave through the open airbox top
 
     body.label, body.color = "frame", (0.25, 0.25, 0.28)

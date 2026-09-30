@@ -2,8 +2,8 @@
 
 - Top body: the frame (battery box, cap posts, fan airbox, see frame.py) and a faceted wedge nose: one flat
   top plane that starts flush with the lid's top and runs down to the nose tip, narrowing between the
-  diagonal sensors, with steep side facets and chamfered edges. The fan motor pokes up through the plane;
-  a lug under the plane captures it. Windows over the front LEDs let them shine through. Under the tip,
+  diagonal sensors, with steep side facets and chamfered edges. The fan motor pokes up through the plane
+  (the airbox clamps it through the fan mount's collet). Under the tip,
   a keel carries the rounded floor skid and a short front wing that bears on the board's front edge (crash
   loads go into the board). The wing's top rises towards the front so the body still prints lying on the
   nose plane without supports there.
@@ -30,9 +30,7 @@ class BodyParams:
     tip_z: float = 6.3
     skin: float = 1.2  # wedge wall thickness
     facet: float = 1.2  # chamfer between the top plane and the side facets
-    lug_w: float = 3.0  # the lug under the plane that holds the fan motor down
-    lug_gap: float = 0.1
-    led_windows: tuple = ((51.3, 2.2), (51.3, -1.4))  # (x, y) of windows over the front RGB LEDs
+    led_windows: tuple = ()  # (x, y) of optional windows over the front LEDs (not used on this board)
     led_window: float = 2.4
     # keel / skid under the nose tip
     edge_x: float = 53.5  # board front edge
@@ -131,12 +129,6 @@ def top_body(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
     h = fan.heights(p)
     r_in = p.motor.d / 2 + fr.tube_clear
     body -= Pos(fx, fy, h["plate"]) * Cylinder(r_in, 60, align=MIN)
-    # one lug under the plane, behind the motor, on its rear face (between the terminal tabs)
-    motor_rear = h["motor"] + p.motor.body_l + b.lug_gap
-    lx = fx - r_in + b.lug_w / 2
-    top = plane_z(fx - r_in, p, b) - 0.01
-    lug = Pos(lx, fy, motor_rear) * Box(b.lug_w, b.lug_w, top - motor_rear, align=MIN)
-    body += (lug & Pos(fx, fy, 0) * Cylinder(r_in + 0.5, 60, align=MIN)) - above
     body.label, body.color = "body", (0.85, 0.12, 0.12)
     return body
 

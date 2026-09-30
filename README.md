@@ -25,7 +25,7 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 | Module | Parts | Material |
 |---|---|---|
 | `drive.py` | bearing-block base + cap per side, eccentric motor sleeves, magnet cups, race spacers, wheel hubs | resin |
-| `fan.py` | closed radial impeller (Ø26.4), symmetric fan mount (two feet, two ears) | resin |
+| `fan.py` | closed radial impeller (Ø26.4, eye 11, 12 blades, neck into the board hole), symmetric fan mount with a collet collar | resin |
 | `frame.py` | frame geometry: walled battery box, cap posts, fan "airbox" tube, lid bosses | PETG |
 | `body.py` | top body (frame + faceted wedge nose with keel, skid, short front wing and LED windows) and the lid with gills, fin and rear wing | PETG |
 | `front.py` | four slide-on sensor caps | resin |
@@ -42,11 +42,11 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 - **Battery.** Three cells on edge, one behind the other, in a PETG box with walls on all four sides and a screwed lid, so the cells cannot fly out in a spin. The edge and pyramid arrangements have the same yaw inertia; edge is 2 mm lower (`battery_study.py`). `Battery.x` puts the center of mass over the axle (`mass_report.py`).
 - **Motor layout.** Both motors sit behind the axle. Moving the raised motor in front of the axle was evaluated: it lowers the pack by about 10 mm but pushes the battery 4 mm further back and raises yaw inertia by 5.5 %.
 - **Car body.** The top is a faceted wedge: one flat plane starts flush with the lid's top and runs down to the nose tip, narrowing between the diagonal sensors. The fan motor pokes through the plane, and windows over the front RGB LEDs let them shine through. A short front wing under the tip bears on the board's front edge (crash loads go into the board). Its top rises towards the front, so the whole body prints lying on the nose plane and the visible surface comes out smooth (`tools/overhang.py body --down <slope>,0,1`); only the hidden battery-box rim and floor ribs need supports. The lid has four corner screws and carries the fin and rear wing.
-- **Fan.** The closed impeller's front shroud runs 0.3 mm above the clean Ø27 ring, and that gap is the inlet seal. The skirt is what makes suction work: without it the 1 mm gap limits downforce to well under 1 N.
+- **Fan.** The motor runs 18k rpm with no load at 12 V, so it is speed-limited, and the fan study says the impeller should be as large as possible with a small eye. The Ø26.4 impeller is the largest that fits: a raised Ø33 would hit the encoder daughterboards and the raised drive motor. Its front shroud runs 0.3 mm above the clean Ø27 ring (the inlet seal) and a short neck dips into the board hole. The study predicts about 1 N with the skirt, not the firmware's 3 N; the skirt is what makes suction work, so seal it well and tape over the encoder slots. The body's airbox presses the fan mount down and squeezes its slotted collar onto the motor, with no screws.
 
 ## Fasteners (M2×5 countersunk + M2×2 inserts only)
 
-Every joint uses the same screw and insert: 17 of each in total. Each head seat is placed so the 5 mm screw engages the full 2 mm of its insert.
+Every joint uses the same screw and insert: 15 of each in total. Each head seat is placed so the 5 mm screw engages the full 2 mm of its insert.
 
 | Joint | Qty | Insert in | Notes |
 |---|---|---|---|
@@ -54,7 +54,6 @@ Every joint uses the same screw and insert: 17 of each in total. Each head seat 
 | caps → bases | 4 | bases (resin, glued) | heads counterbored into the cap bosses |
 | right motor ring clamp | 1 | lower clamp ear (resin, glued) | locks the right eccentric sleeve |
 | frame → caps | 2 | cap bosses (resin, glued) | left one down the post, through the box floor |
-| airbox tube → fan mount | 2 | mount ears (resin, glued) | presses the mount's feet onto the board |
 | lid → body | 4 | corner bosses on the battery box (PETG, heat-set) | |
 
 No screw holds these; they're pressed, glued or clamped instead:
@@ -64,7 +63,7 @@ No screw holds these; they're pressed, glued or clamped instead:
 - tires: stretched onto the hubs
 - impeller: pressed onto the shaft and glued
 - sensor caps: slide-on friction fit
-- fan motor: held in the collar and captured by a lug under the nose plane
+- fan motor: held in the fan mount's collar, squeezed by the body's airbox (collet)
 
 ## Assembly
 
@@ -89,7 +88,7 @@ No screw holds these; they're pressed, glued or clamped instead:
 7. **Mesh.** Turn each sleeve with tweezers in its notches until the gears mesh without play but still turn freely. Then lock it: the left sleeve with the cap screws, the right with the ring clamp screw.
 8. **Fan.** Press the impeller onto the fan motor shaft, with the bore reamed to 0.97–0.98 mm. Put the motor into the fan mount collar, with its terminal tabs pointing left and right, then stand the mount on its feet.
 9. **Sensor caps.** Slide each one onto its LED pair, along the direction that sensor looks.
-10. **Body.** Lower it on. The airbox slides over the fan motor until the lug under the nose plane sits on the motor's rear face, with the motor's terminal tabs pointing left and right. Screw it to both cap bosses and to the two fan-mount ears.
+10. **Body.** Lower it on. The airbox slides over the fan motor and its tapered bottom seats on the fan mount's collar. Screwing the body to both cap bosses presses the mount onto the board and clamps the motor.
 11. **Battery.** Put the cells in the box and run the wires out of the end-wall slots. Screw the lid on at its four corners.
 
 ## Still to measure
