@@ -6,7 +6,7 @@ its feet. The front bumper hangs from the fan tube (see front.py).
 
 from dataclasses import dataclass
 
-from build123d import Align, Box, Cylinder, Pos
+from build123d import Align, Box, Cylinder, Pos, Rot
 
 from . import drive, fan
 from .mass import battery_cells
@@ -31,9 +31,15 @@ class FrameParams:
     tube_clear: float = 0.3  # around the fan motor
     spine_w: float = 6.0
     spine_h: float = 4.0
+    nose_boss: tuple = (3.0, 6.0, 7.0)  # (x depth, y width, z height) on the tube front, for the nose screw
 
 
 FR = FrameParams()
+
+
+def D_TRAY_TOP(p: Params = P, d=drive.D, fr: "FrameParams" = None):
+    """Top of the tray floor (= top of the fan tube)."""
+    return d.tray_bottom_z + (fr or FR).floor_t
 
 
 def pack_size(p: Params = P):
@@ -102,8 +108,23 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
         body += rail
     body += Pos((x1 + fx) / 2, 0, z0) * Box(fx - x1, 2 * r_out, fr.floor_t, align=MIN)
     body -= Pos(fx, fy, z0 - 1) * Cylinder(r_in, 40, align=MIN)
+    # nose mounting boss on the tube front, horizontal insert facing forward
+    bx, bw, bh = fr.nose_boss
+    face = fx + r_out - 0.6
+    body += Pos(face, fy, z1 - bh) * Box(bx + 0.6, bw, bh, align=(Align.MIN, Align.CENTER, Align.MIN))
+    zc = z1 - bh / 2
+    body -= Pos(face + bx + 0.6, fy, zc) * Rot(0, -90, 0) * Cylinder(d.insert_d / 2, d.insert_l, align=MIN)
+    body -= Pos(face + bx + 0.6, fy, zc) * Rot(0, -90, 0) * Cylinder(d.screw_clear_d / 2, d.screw_l, align=MIN)
+    body -= Pos(fx, fy, z0 - 1) * Cylinder(r_in, 40, align=MIN)
     body.label, body.color = "frame", (0.3, 0.8, 0.5)
     return body
+
+
+def nose_mount(p: Params = P, fr: FrameParams = FR):
+    """(x of the boss front face, z of the screw axis) for the nose."""
+    fx, _ = fan.centre(p)
+    r_out = p.motor.d / 2 + fr.tube_clear + fr.tube_wall
+    return fx + r_out + fr.nose_boss[0], D_TRAY_TOP(p) - fr.nose_boss[2] / 2
 
 
 def parts(p: Params = P):

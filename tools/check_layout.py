@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Align, Box, Cylinder, Plane, Pos, extrude, mirror  # noqa: E402
-from micras import checks, drive, fan, frame, layout  # noqa: E402
+from micras import checks, drive, fan, frame, front, layout  # noqa: E402
 from micras.params import P  # noqa: E402
 
 t = time.time()
@@ -19,6 +19,8 @@ fan_parts = fan.parts()
 parts.update(fan_parts)
 frame_parts = frame.parts()
 parts.update(frame_parts)
+front_parts = front.parts()
+parts.update(front_parts)
 # may touch the board outside the silkscreen zones (agreed for the fan supports)
 ZONE_EXEMPT = {"fan_mount"}
 t_parts = time.time()
@@ -51,6 +53,10 @@ for s in "LR":
 allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_motor")),
             frozenset(("frame", "fan_mount")), frozenset(("frame", "block_cap_L")), frozenset(("frame", "block_cap_R"))}
 allowed |= {frozenset(("frame", f"cell{i}")) for i in range(3)}
+allowed |= {frozenset(("nose", "frame"))}
+# the caps wrap the LEDs; the board model only offers the sensor bounding box here (exact check below)
+allowed |= {frozenset((f"sensor_cap_{w}", k)) for w in ("W1", "W2", "W3", "W4") for k in others
+            if k.startswith("brd:WALL_SENSOR")}
 
 res = checks.clashes(parts, others, allowed, margin=P.layout.clearance)
 for r in res:
@@ -59,12 +65,12 @@ for r in res:
 # board contact: printed material within 0.3 mm of the board top must lie inside the contact zones
 zone = Pos(0, 0, P.board.top_z) * extrude(drive.contact_zone(P, 0.0), 0.3)
 zones = zone + mirror(zone, Plane.XZ)
-slab = Pos(0, 0, P.board.top_z) * Box(200, 200, 0.3, align=(Align.CENTER, Align.CENTER, Align.MIN))
-# only where the board exists: remove the wheel notches and the fan hole
-for sy in (1, -1):
-    slab -= Pos(0, sy * (P.board.notch_inner_y + 20), P.board.top_z) * Box(17, 40, 1)
-slab -= Pos(P.board.fan_hole_x, 0, P.board.top_z) * Cylinder(P.board.fan_hole_d / 2, 1)
-for name, part in {**printed, **frame_parts, **{k: v for k, v in fan_parts.items() if k != "fan_motor"}}.items():
+# only where the board exists: the real PCB outline, 0.3 mm thick on top of the board
+pcb, _ = layout.board_simple()
+slab = Pos(0, 0, P.board.thickness) * pcb
+slab = slab & Pos(0, 0, P.board.top_z) * Box(200, 200, 0.3, align=(Align.CENTER, Align.CENTER, Align.MIN))
+for name, part in {**printed, **frame_parts, **front_parts,
+                   **{k: v for k, v in fan_parts.items() if k != "fan_motor"}}.items():
     if name in ZONE_EXEMPT:
         continue
     near = part & slab
