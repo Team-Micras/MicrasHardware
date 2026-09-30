@@ -15,7 +15,7 @@ MATERIALS = {
     "sensor_cap": ("resin", "Photon Mono 4", "apertures up (axis vertical)"),
     "body": ("petg", "Ender 3 V3 SE", "lying on the nose plane (the visible face comes out smooth); tree supports only under the battery-box rim and floor ribs; heat-set the lid and wing inserts"),
     "front_wing": ("petg", "Ender 3 V3 SE", "main plane on the bed, no supports"),
-    "lid": ("petg", "Ender 3 V3 SE", "cover on the bed, supports under the rear wing"),
+    "lid": ("petg", "Ender 3 V3 SE", "cover on the bed; the rear wing bridges between fin and endplates, no supports"),
 }
 
 
