@@ -10,14 +10,14 @@ from micras import body, front, layout  # noqa: E402
 raw = import_step(layout.REF / "board.step")
 to_robot = Pos(-67.1112, 64.1608, layout.P.board.bottom_z) * Rot(0, 0, -90)
 sensors = [to_robot * c for c in raw.children if c.label.startswith("WALL_SENSOR")]
-caps = {**front.parts(), "front_wing": body.front_wing()}
+caps = {**front.parts(), "nose_wing": body.nose_wing()}
 bad = 0
 for name, cap in caps.items():
-    if name == "front_wing":
+    if name == "nose_wing":
         for sensor in sensors:
             for led in sorted(sensor.solids(), key=lambda s: s.volume)[:2]:
                 if cap.distance_to(led) < 0.3:
-                    print(f"front_wing too close to an LED: {cap.distance_to(led):.3f}")
+                    print(f"nose/wing too close to an LED: {cap.distance_to(led):.3f}")
                     bad += 1
         continue
     # the sensor whose bounding box overlaps this cap the most

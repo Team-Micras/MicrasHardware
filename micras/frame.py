@@ -1,5 +1,5 @@
 """Top frame (FDM, PETG): battery box, posts onto the bearing-block caps, the fan "airbox" tube, and
-the mounts for the halo and the battery-box lid (see body.py).
+the battery-box lid bosses. body.py adds the nose and front wing to make the one-piece top body.
 
 The frame screws to the frame bosses on both caps. The airbox tube screws to the fan mount's two ears
 and its lugs sit on the fan motor's rear face, so the motor is captured between the mount plate and
@@ -7,8 +7,6 @@ the tube. The battery box walls hold the cells on every side; the lid holds them
 """
 
 from dataclasses import dataclass
-from math import sqrt
-
 from build123d import Align, Box, Cylinder, Pos
 
 from . import drive, fan
@@ -39,7 +37,6 @@ class FrameParams:
     lug_w: float = 3.0
     lug_gap: float = 0.1  # axial play of the fan motor
     spine_h: float = 3.3  # rails stay 0.5 above the raised motor
-    halo_r: float = 11.0  # halo hoop radius around the fan axis (feet sit on the spine rails)
 
 
 FR = FrameParams()
@@ -71,13 +68,6 @@ def box_top(p: Params = P, fr: FrameParams = FR, d=drive.D):
 
 def rail_y(p: Params = P, fr: FrameParams = FR):
     return p.motor.d / 2 + fr.tube_clear + fr.tube_wall - fr.wall_t / 2
-
-
-def halo_feet(p: Params = P, fr: FrameParams = FR):
-    """(x, |y|) of the two halo feet: where the hoop crosses the spine rails."""
-    fx, _ = fan.centre(p)
-    ry = rail_y(p, fr)
-    return fx - sqrt(fr.halo_r**2 - ry**2), ry
 
 
 def lid_bosses(p: Params = P, fr: FrameParams = FR):
@@ -162,12 +152,6 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
     for sy in (1, -1):
         body += Pos((x1 + fx) / 2, sy * ry, z1 - fr.spine_h) * Box(fx - x1, fr.wall_t, fr.spine_h, align=MIN)
     body += Pos((x1 + fx) / 2, 0, z0) * Box(fx - x1, 2 * r_out, fr.floor_t, align=MIN)
-    # halo feet: bosses on the rails with inserts
-    hx, hy = halo_feet(p, fr)
-    for sy in (1, -1):
-        body += Pos(hx, sy * hy, z1 - fr.spine_h) * Cylinder(fr.boss_d / 2, fr.spine_h, align=MIN)
-        body -= Pos(hx, sy * hy, z1) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
-        body -= Pos(hx, sy * hy, z1) * Cylinder(d.screw_clear_d / 2, fr.spine_h, align=MAX)
     body -= Pos(fx, fy, z0 - 1) * Cylinder(r_in, fr.floor_t + 2, align=MIN)
     body.label, body.color = "frame", (0.25, 0.25, 0.28)
     return body

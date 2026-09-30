@@ -1,17 +1,14 @@
-"""Front: sensor caps (resin) and the nose bumper with the floor skid (PETG).
+"""Front: sensor caps (resin). The nose, front wing and skid are part of the top body (body.py).
 
 Each sensor cap slides onto its emitter/detector pair along the sensor's look direction, keeps both
 LEDs parallel, separates them optically and narrows their beams with a front aperture. The caps do not
-touch the board. The nose bumper hangs from the frame's fan tube, bears on the board's front edge and
-carries the skid that meets the floor when the fan pulls the nose down.
+touch the board.
 """
 
 from dataclasses import dataclass
-from math import atan2, degrees, hypot
 
-from build123d import Align, Box, Cylinder, Pos, Rot, Solid
+from build123d import Align, Box, Cylinder, Pos, Rot
 
-from . import fan, frame
 from .params import P, Params
 
 MIN = (Align.CENTER, Align.CENTER, Align.MIN)
@@ -39,18 +36,6 @@ class FrontParams:
     aperture_d: float = 3.0
     board_gap: float = 0.7  # clears the 0402 parts next to the sensors
     tube_wall: float = 0.6
-    # nose bumper
-    nose_w: float = 9.0  # across y
-    nose_t: float = 2.0  # along x, in front of the board edge
-    nose_top_h: float = 8.0  # above the board top
-    skid_z: float = 0.3  # skid bottom above the floor at rest
-    skid_r: float = 1.0  # rounded skid edge
-    edge_x: float = 53.5  # board front edge
-    arm_w: float = 5.0
-    arm_t: float = 1.2
-    arm_h: float = 7.0  # web height (stiffness)
-    plate_t: float = 1.6  # mounting plate against the frame boss
-
 
 FP = FrontParams()
 
@@ -85,36 +70,6 @@ def sensor_cap(sensor, p: Params = P, fp: FrontParams = FP):
     body -= Pos(0, 0, z0) * Box(100, 100, 20, align=(Align.CENTER, Align.CENTER, Align.MAX))
     body = _local(body, sensor)
     body.label, body.color = f"sensor_cap_{sensor}", (0.95, 0.85, 0.3)
-    return body
-
-
-def nose(p: Params = P, fp: FrontParams = FP):
-    top = p.board.top_z
-    # nose bar in front of the board edge, down to the skid
-    x0 = fp.edge_x
-    bar = Pos(x0 + fp.nose_t / 2, 0, fp.skid_z) * Box(fp.nose_t, fp.nose_w, top + fp.nose_top_h - fp.skid_z, align=MIN)
-    # rounded skid: a cylinder along y at the bottom front
-    bar += Pos(x0 + fp.nose_t / 2, 0, fp.skid_z + fp.skid_r) * Rot(90, 0, 0) * Cylinder(fp.skid_r, fp.nose_w)
-    # arm from the frame's nose boss to the top of the nose bar
-    mx, mz = frame.nose_mount(p)
-    plate_h = frame.FR.nose_boss[2]
-    plate = Pos(mx, 0, mz) * Box(fp.plate_t, fp.arm_w + 1.0, plate_h, align=(Align.MIN, Align.CENTER, Align.CENTER))
-    plate -= Pos(mx, 0, mz) * Rot(0, 90, 0) * Cylinder(1.1, fp.plate_t, align=MIN)
-    plate -= Pos(mx + fp.plate_t, 0, mz) * Rot(0, -90, 0) * Cylinder(2.0, (4.0 - 2.2) / 2, align=MIN)
-    a0 = (mx + fp.plate_t, mz + plate_h / 2)
-    a1 = (x0 + fp.nose_t / 2, top + fp.nose_top_h)
-    length = hypot(a1[0] - a0[0], a1[1] - a0[1])
-    ang = degrees(atan2(a1[1] - a0[1], a1[0] - a0[0]))
-    # T-section: flange (arm_w x arm_t) on top of a web (arm_t x arm_h)
-    arm = Box(length, fp.arm_w, fp.arm_t, align=(Align.MIN, Align.CENTER, Align.MAX))
-    arm += Box(length, fp.arm_t, fp.arm_h, align=(Align.MIN, Align.CENTER, Align.MAX))
-    arm = Pos(a0[0], 0, a0[1]) * Rot(0, -ang, 0) * arm
-    arm -= Pos(mx, 0, 0) * Box(50, 50, 100, align=(Align.MAX, Align.CENTER, Align.MIN))
-    arm += plate
-    body = bar + arm
-    # keep clear of the board: nothing below the board top behind the edge
-    body -= Pos(x0, 0, 0) * Box(100, 100, top + 0.3, align=(Align.MAX, Align.CENTER, Align.MIN))
-    body.label, body.color = "nose", (0.3, 0.8, 0.5)
     return body
 
 

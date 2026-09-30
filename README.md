@@ -26,8 +26,8 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 |---|---|---|
 | `drive.py` | bearing-block base + cap per side, eccentric motor sleeves, magnet cups, race spacers, wheel hubs | resin |
 | `fan.py` | closed radial impeller (Ø26.4), symmetric fan mount (two feet, two ears) | resin |
-| `frame.py` | top frame: walled battery box, cap posts, fan "airbox" tube, halo and lid bosses | PETG |
-| `body.py` | F1-style halo, front wing with nose cone and skid, engine-cover lid with fin and rear wing | PETG |
+| `frame.py` | frame geometry: walled battery box, cap posts, fan "airbox" tube, lid bosses | PETG |
+| `body.py` | one-piece top body (frame + engine-cover fairing + nose cone + front wing with skid) and the lid with gills, fin and rear wing | PETG |
 | `front.py` | four slide-on sensor caps | resin |
 | `skirt.py` | skirt cutting pattern (0.05–0.1 mm PET or Kapton film) | film |
 
@@ -41,12 +41,12 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 - **Backlash.** Each motor sits in an eccentric sleeve with 0.3 mm eccentricity, giving ±0.3 mm of center-distance adjustment. After adjusting, the left sleeve is clamped by its cap and the right one by the ring clamp screw. To print the fixed-bore variant instead, set `Layout.backlash_mode = "fixed"`; `Gears.center_adjust` then tunes the center distance.
 - **Battery.** Three cells on edge, one behind the other, in a PETG box with walls on all four sides and a screwed lid, so the cells cannot fly out in a spin. The edge and pyramid arrangements have the same yaw inertia; edge is 2 mm lower (`battery_study.py`). `Battery.x` puts the center of mass over the axle (`mass_report.py`).
 - **Motor layout.** Both motors sit behind the axle. Moving the raised motor in front of the axle was evaluated: it lowers the pack by about 10 mm but pushes the battery 4 mm further back and raises yaw inertia by 5.5 %.
-- **Race-car body.** The halo's central pillar holds the front wing. The wing bears on the board's front edge, so crash loads go into the board rather than through the pillar. The styled parts add about 2.5 g.
+- **Car body.** The top is one PETG part: frame, battery box, a fairing down to the fan airbox, and a hollow nose cone ending in the front wing and skid. The only other top part is the lid, which carries the fin and rear wing. The wing bears on the board's front edge, so crash loads go into the board.
 - **Fan.** The closed impeller's front shroud runs 0.3 mm above the clean Ø27 ring, and that gap is the inlet seal. The skirt is what makes suction work: without it the 1 mm gap limits downforce to well under 1 N.
 
 ## Fasteners (M2×5 countersunk + M2×2 inserts only)
 
-Every joint uses the same screw and insert: 18 of each in total. Each head seat is placed so the 5 mm screw engages the full 2 mm of its insert.
+Every joint uses the same screw and insert: 15 of each in total. Each head seat is placed so the 5 mm screw engages the full 2 mm of its insert.
 
 | Joint | Qty | Insert in | Notes |
 |---|---|---|---|
@@ -55,9 +55,7 @@ Every joint uses the same screw and insert: 18 of each in total. Each head seat 
 | right motor ring clamp | 1 | lower clamp ear (resin, glued) | locks the right eccentric sleeve |
 | frame → caps | 2 | cap bosses (resin, glued) | left one down the post, through the box floor |
 | airbox tube → fan mount | 2 | mount ears (resin, glued) | presses the mount's feet onto the board |
-| halo → frame rails | 2 | rails (PETG, heat-set) | through the halo feet |
-| front wing → halo nose block | 1 | nose block (PETG, heat-set) | from the nose-cone tip |
-| lid → battery box | 2 | box bosses (PETG, heat-set) | |
+| lid → body | 2 | body bosses (PETG, heat-set) | |
 
 No screw holds these; they're pressed, glued or clamped instead:
 - motor pinions and brass wheel gears on their shafts: press fit
@@ -90,10 +88,9 @@ No screw holds these; they're pressed, glued or clamped instead:
 6. **Right motor.** Put it in its sleeve and slide it into the right cap's ring. Fit the cap.
 7. **Mesh.** Turn each sleeve with tweezers in its notches until the gears mesh without play but still turn freely. Then lock it: the left sleeve with the cap screws, the right with the ring clamp screw.
 8. **Fan.** Press the impeller onto the fan motor shaft, with the bore reamed to 0.97–0.98 mm. Put the motor into the fan mount collar, with its terminal tabs pointing left and right, then stand the mount on its feet.
-9. **Frame.** Lower it on. The airbox tube slides over the fan motor until its lugs sit on the motor's rear face. Screw it to both cap bosses and to the two fan-mount ears.
-10. **Halo.** Screw it to the frame's spine rails. Slide the front wing over the halo's nose block and screw it in from the tip.
-11. **Sensor caps.** Slide each one onto its LED pair, along the direction that sensor looks.
-12. **Battery.** Put the cells in the box, run the wires out of the end-wall slots, and screw the lid on.
+9. **Sensor caps.** Slide each one onto its LED pair, along the direction that sensor looks.
+10. **Body.** Lower it on. The airbox tube slides over the fan motor until its lugs sit on the motor's rear face, and the front wing comes to rest against the board's front edge. Screw it to both cap bosses and to the two fan-mount ears.
+11. **Battery.** Put the cells in the box, run the wires out of the end-wall slots, and screw the lid on.
 
 ## Still to measure
 

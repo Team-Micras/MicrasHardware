@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Align, Box, Cylinder, Plane, Pos, extrude, mirror  # noqa: E402
-from micras import body, checks, drive, fan, frame, front, layout  # noqa: E402
+from micras import body, checks, drive, fan, front, layout  # noqa: E402
 from micras.params import P  # noqa: E402
 
 t = time.time()
@@ -17,8 +17,6 @@ printed = drive.all_parts()
 parts.update(printed)
 fan_parts = fan.parts()
 parts.update(fan_parts)
-frame_parts = frame.parts()
-parts.update(frame_parts)
 front_parts = {**front.parts(), **body.parts()}
 parts.update(front_parts)
 # may touch the board outside the silkscreen zones (agreed for the fan supports)
@@ -51,14 +49,13 @@ for s in "LR":
                  ("magnet_cup", "block_base"), ("magnet_cup", "block_cap")]:
         allowed.add(frozenset((f"{a}_{s}", f"{b}_{s}")))
 allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_motor")),
-            frozenset(("frame", "fan_mount")), frozenset(("frame", "block_cap_L")), frozenset(("frame", "block_cap_R"))}
-allowed |= {frozenset(("frame", f"cell{i}")) for i in range(3)}
+            frozenset(("body", "fan_mount")), frozenset(("body", "block_cap_L")), frozenset(("body", "block_cap_R"))}
+allowed |= {frozenset(("body", f"cell{i}")) for i in range(3)}
 # screwed / seated joints
-allowed |= {frozenset(("halo", "frame")), frozenset(("front_wing", "halo")), frozenset(("lid", "frame")),
-            frozenset(("fan_motor", "frame"))}  # airbox lugs: designed 0.1 axial play
+allowed |= {frozenset(("lid", "body")), frozenset(("fan_motor", "body"))}  # airbox lugs: designed 0.1 axial play
 # the wing passes under the diagonal sensors; the board model's sensor box reaches down to the legs,
 # so the wing is checked against the LED bodies in check_sensors.py instead
-allowed |= {frozenset(("front_wing", k)) for k in others if k.startswith("brd:WALL_SENSOR")}
+allowed |= {frozenset(("body", k)) for k in others if k.startswith("brd:WALL_SENSOR")}
 # the caps wrap the LEDs; the board model only offers the sensor bounding box here (exact check below)
 allowed |= {frozenset((f"sensor_cap_{w}", k)) for w in ("W1", "W2", "W3", "W4") for k in others
             if k.startswith("brd:WALL_SENSOR")}
@@ -74,7 +71,7 @@ zones = zone + mirror(zone, Plane.XZ)
 pcb, _ = layout.board_simple()
 slab = Pos(0, 0, P.board.thickness) * pcb
 slab = slab & Pos(0, 0, P.board.top_z) * Box(200, 200, 0.3, align=(Align.CENTER, Align.CENTER, Align.MIN))
-for name, part in {**printed, **frame_parts, **front_parts,
+for name, part in {**printed, **front_parts,
                    **{k: v for k, v in fan_parts.items() if k != "fan_motor"}}.items():
     if name in ZONE_EXEMPT:
         continue

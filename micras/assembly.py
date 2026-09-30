@@ -1,6 +1,6 @@
 """Every designed part, with its material and print notes, for rendering, viewing and export."""
 
-from . import body, drive, fan, frame, front
+from . import body, drive, fan, front
 
 # part-name prefix -> (material, printer, orientation / notes)
 MATERIALS = {
@@ -13,9 +13,7 @@ MATERIALS = {
     "impeller": ("resin", "Photon Mono 4", "axis vertical, shroud (eye) down; ream the bore to 0.97-0.98, balance"),
     "fan_mount": ("resin", "Photon Mono 4", "collar up, supports under the feet"),
     "sensor_cap": ("resin", "Photon Mono 4", "apertures up (axis vertical)"),
-    "frame": ("petg", "Ender 3 V3 SE", "box floor on the bed, tree supports under the spine and airbox flange; heat-set the lid and halo inserts"),
-    "halo": ("petg", "Ender 3 V3 SE", "hoop flat on the bed (upside down), supports under the pillar; heat-set the nose-block insert"),
-    "front_wing": ("petg", "Ender 3 V3 SE", "main plane on the bed; keep the skid surface smooth"),
+    "body": ("petg", "Ender 3 V3 SE", "box floor on the bed, tree supports under the nose, spine and airbox; heat-set the two lid inserts"),
     "lid": ("petg", "Ender 3 V3 SE", "cover on the bed, supports under the rear wing"),
 }
 
@@ -29,7 +27,7 @@ def material(name):
 
 def printed():
     fan_parts = {k: v for k, v in fan.parts().items() if k != "fan_motor"}
-    return {**drive.all_parts(), **fan_parts, **frame.parts(), **front.parts(), **body.parts()}
+    return {**drive.all_parts(), **fan_parts, **front.parts(), **body.parts()}
 
 
 def bought():
