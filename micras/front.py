@@ -134,10 +134,12 @@ def sensor_cap(sensor, p: Params = P, fp: FrontParams = FP):
                                    (u_back + fp.slot_lead * 1.5, sv * LEG_V + fp.slot_w / 2),
                                    (u_back - 0.01, sv * LEG_V + fp.slot_w / 2 + fp.slot_lead), close=True))
         fork -= Pos(0, 0, z0 - 1) * extrude(flare, z1 - z0 + 2)
-    # side plates behind the receiver tie the fork to the base and the emitter sleeve (clear of the legs)
+    # side walls along the whole fork (a U-channel around the legs: stiff to print and handle), tying it
+    # to the base and the emitter sleeve; they stay 0.33 clear of the legs
+    wall_v = LEG_V + LEG_W / 2 + 0.33
     for sv in (1, -1):
-        fork += Pos(e.flange[0], sv * (LEG_V + LEG_W / 2 + 0.33), z0) * Box(
-            r.flange[0] + 0.02 - e.flange[0], OUTLINE[2][1] - fp.base_margin - (LEG_V + LEG_W / 2 + 0.33), e.z - 2 - z0,
+        fork += Pos(u_back, sv * wall_v, z0) * Box(
+            r.flange[0] + 0.02 - u_back, OUTLINE[2][1] - fp.base_margin - wall_v, e.z - 2 - z0,
             align=(Align.MIN, Align.MIN if sv > 0 else Align.MAX, Align.MIN))
     body += fork
     # bores with their ribs; the emitter's pitched about its flange

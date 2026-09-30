@@ -1,6 +1,7 @@
 """Send the current model to the OCP CAD Viewer (VS Code: open the viewer panel first).
 
-Usage: uv run tools/show.py [layout.backlash_mode=fixed ...]
+Usage: uv run tools/show.py [--simple] [layout.backlash_mode=fixed ...]
+  --simple  show the board's components as boxes (faster)
 """
 import sys
 from pathlib import Path
@@ -40,13 +41,17 @@ from ocp_vscode import show  # noqa: E402
 
 from micras import assembly, layout, params  # noqa: E402
 
-# optional parameter overrides, e.g. layout.backlash_mode=fixed
-for kv in sys.argv[1:]:
-    params.override(kv)
 from build123d import Compound  # noqa: E402
 
-pcb, comps = layout.board_simple()
-board = Compound(children=[pcb, comps], label="board")
+# optional parameter overrides, e.g. layout.backlash_mode=fixed
+for kv in sys.argv[1:]:
+    if not kv.startswith("--"):
+        params.override(kv)
+if "--simple" in sys.argv:  # components as boxes (faster)
+    pcb, comps = layout.board_simple()
+    board = Compound(children=[pcb, comps], label="board")
+else:  # the real populated board from ref/board.step, every component as modelled (~0.6 GB, ~25 s)
+    board = layout.board()
 # one group per assembly (drive left/right, fan, body, front, battery), like the board's components
 grouped = []
 for group, parts in assembly.groups().items():
