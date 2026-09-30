@@ -31,6 +31,28 @@ def printed():
     return {**drive.all_parts(), **fan_parts, **front.parts(), **body.parts()}
 
 
+GROUPS = {  # viewer groups: part-name prefix -> group (checked in order; per-side parts get _L/_R groups)
+    "cell": "battery",
+    "body": "body", "lid": "body",
+    "impeller": "fan", "fan_": "fan",
+    "sensor_cap": "front", "bumper": "front",
+    "encoder_": "encoders",
+}
+
+
+def groups():
+    """{group: {part: shape}}: every bought and printed part, grouped for the viewer (drive parts by side)."""
+    out = {}
+    for name, shape in {**bought(), **printed()}.items():
+        group = next((g for prefix, g in GROUPS.items() if name.startswith(prefix)), None)
+        if group is None:
+            group = "drive_" + name[-1] if name[-2:] in ("_L", "_R") else "other"
+        elif name[-2:] in ("_L", "_R") and group == "encoders":
+            group = "drive_" + name[-1]
+        out.setdefault(group, {})[name] = shape
+    return out
+
+
 def bought():
     from .layout import reference
     return {**reference(with_board=False), "fan_motor": fan.fan_motor()}

@@ -43,6 +43,14 @@ from micras import assembly, layout, params  # noqa: E402
 # optional parameter overrides, e.g. layout.backlash_mode=fixed
 for kv in sys.argv[1:]:
     params.override(kv)
+from build123d import Compound  # noqa: E402
+
 pcb, comps = layout.board_simple()
-parts = {**assembly.bought(), **assembly.printed()}  # every bought and printed part, fan motor included
-show(pcb, comps, *parts.values(), names=["pcb", "components", *parts.keys()])
+board = Compound(children=[pcb, comps], label="board")
+# one group per assembly (drive left/right, fan, body, front, battery), like the board's components
+grouped = []
+for group, parts in assembly.groups().items():
+    for name, shape in parts.items():
+        shape.label = name
+    grouped.append(Compound(children=list(parts.values()), label=group))
+show(board, *grouped, names=["board", *[g.label for g in grouped]])
