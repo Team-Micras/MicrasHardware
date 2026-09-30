@@ -1,15 +1,18 @@
-"""Car-styled top (FDM, PETG): the one-piece top body and the battery-box lid.
+"""Car-styled top (FDM, PETG): the top body, the front wing and the battery-box lid.
 
-- Top body: the frame (battery box, cap posts, fan airbox tube, see frame.py) plus a smooth hollow nose
-  cone that runs from the airbox forward and down between the diagonal sensors to the front wing. The
-  wing bears on the board's front edge, so crash loads go into the board, and the keel under the nose
-  tip is the floor skid.
+- Top body: the frame (battery box, cap posts, fan airbox, see frame.py), a flat-topped fairing between
+  the box and the airbox, and a slim nose with a flat underside and a 45 deg ridged top that runs down
+  between the diagonal sensors to a keel whose rounded bottom is the floor skid. The box rim, fairing top
+  and airbox top are one plane: the body prints upside down on it without supports.
+- Front wing: printed flat, screwed to the keel. It bears on the board's front edge, so crash loads go
+  into the board, and it is the cheap part to replace after a crash.
 - Lid: the battery-box cover with gills, a shark fin and a rear wing, held by two screws.
 """
 
 from dataclasses import dataclass
 
-from build123d import Align, Box, Cylinder, Ellipse, Plane, Polyline, Pos, Rot, extrude, loft, make_face
+from build123d import (Align, Axis, Box, Cylinder, Plane, Polyline, Pos, RectangleRounded, Rot, extrude,
+                       fillet, loft, make_face)
 
 from . import drive, fan, frame
 from .params import P, Params
@@ -20,23 +23,30 @@ MAX = (Align.CENTER, Align.CENTER, Align.MAX)
 
 @dataclass(frozen=True)
 class BodyParams:
-    # nose cone: (x, centre z above the board top, half width, half height) sections, rear to tip
-    nose: tuple = ((17.5, 28.0, 3.9, 3.6), (38.0, 14.0, 3.8, 3.0), (53.5, 4.6, 3.3, 2.7), (58.5, 1.3, 1.3, 0.9))
-    nose_hollow_from: float = 26.0  # the nose is solid inside/near the airbox tube, hollow from here on
-    fairing_t: float = 0.9  # engine-cover fairing shell between the battery box and the airbox
-    nose_wall: float = 0.9
-    # front wing
+    # nose: (x, bottom z, half width, side height) stations from the airbox to the tip; the top is a
+    # 45 deg ridge (prints upside down without support), with a flat crest of 2 * crest
+    nose: tuple = ((17.5, 24.0, 4.0, 3.0), (36.0, 12.0, 3.6, 2.6), (53.5, 5.4, 3.0, 1.8), (58.0, 3.0, 1.4, 0.8))
+    crest: float = 0.5
+    chamfer: float = 0.4  # soft lower edges of the nose
+    nose_wall: float = 1.0
+    nose_hollow: tuple = (26.0, 50.0)  # hollow between these x (solid in the airbox and at the tip)
+    fairing_t: float = 0.9
+    fairing_r: float = 2.0
+    # keel / skid under the nose tip
     edge_x: float = 53.5  # board front edge
+    keel_w: float = 3.6
+    keel_front: float = 57.6
+    skid_z: float = 0.3  # skid bottom above the floor at rest
+    skid_r: float = 1.5
+    wing_screw_z: float = 3.4
+    insert_recess: float = 1.0  # insert starts this far behind the keel front
+    # front wing
     span: float = 24.0  # stays inside the diagonal sensor caps
-    chord: float = 4.5
     plane_t: float = 0.9
     plane_z: float = 1.15  # main plane bottom (its rear edge bears on the board edge, z 1.0-2.04)
     endplate_t: float = 0.9
-    endplate_h: float = 1.65  # stays below the sensor caps (z 2.74)
-    keel_w: float = 3.6
-    keel_len: float = 3.5  # in front of the board edge
-    skid_z: float = 0.3  # skid bottom above the floor at rest
-    skid_r: float = 1.5
+    endplate_top: float = 2.6  # below the sensor caps (z 2.74)
+    tab: tuple = (2.0, 6.0, 5.9)  # (x thickness, y width, top z) of the wing's mounting tab
     # lid
     lid_t: float = 0.9
     lid_margin: float = 1.6
@@ -47,69 +57,102 @@ class BodyParams:
     wing_chord: float = 5.5
     wing_t: float = 0.9
     wing_z: float = 6.5  # above the lid top
-    wing_angle: float = 12.0
+    edge_r: float = 0.6  # soft top edge of the lid
+    wing_angle: float = 0.0  # flat main plane: a clean bridge between the fin and the endplates
+    flap_angle: float = 45.0  # steepest angle that still prints without support
 
 
 B = BodyParams()
 
 
-def nose_wing(p: Params = P, b: BodyParams = B):
-    """Hollow nose cone from the airbox tube to the front wing, with the keel/skid and the wing."""
+def _nose_section(x, zb, hw, hs, b: BodyParams, inset=0.0):
+    """House-shaped section: flat bottom, short sides, 45 deg roof, small flat crest."""
+    hw, hs, c, ch = hw - inset, hs, max(b.crest - inset * 0.4, 0.2), min(b.chamfer, hw / 4)
+    zb = zb + inset
+    top = hs + hw - c - inset * 0.4
+    pts = [(-hw + ch, 0), (hw - ch, 0), (hw, ch), (hw, hs), (c, top), (-c, top), (-hw, hs), (-hw, ch)]
+    face = make_face(Polyline(*pts, close=True))
+    return Plane(origin=(x, 0, zb), x_dir=(0, 1, 0), z_dir=(1, 0, 0)) * face
+
+
+def nose(p: Params = P, b: BodyParams = B, d=drive.D):
+    """Slim nose from the airbox down to the keel and skid (part of the top body)."""
     top = p.board.top_z
+    body = loft([_nose_section(*st, b) for st in b.nose])
+    # hollow in the middle (lighter); solid in the airbox and at the tip for the insert
+    xa, xb = b.nose_hollow
+
+    def station(x):
+        for (x0, *a0), (x1, *a1) in zip(b.nose, b.nose[1:]):
+            if x0 <= x <= x1:
+                t = (x - x0) / (x1 - x0)
+                return (x, *[u + t * (v - u) for u, v in zip(a0, a1)])
+    inner = [st for st in b.nose if xa < st[0] < xb]
+    body -= loft([_nose_section(*s, b, inset=b.nose_wall) for s in (station(xa), *inner, station(xb))])
+    # keel from the nose tip down to the rounded skid, in front of the board edge
     x0 = b.edge_x
-    outer = [Plane(origin=(x, 0, top + z), x_dir=(0, 1, 0), z_dir=(1, 0, 0)) * Ellipse(hw, hh) for x, z, hw, hh in b.nose]
-    # hollow, but solid where it merges into the airbox tube (the bore is cut later) and at the tip
-    (xa, za, wa, ha), (xb, zb, wb, hb) = b.nose[0], b.nose[1]
-    t = (b.nose_hollow_from - xa) / (xb - xa)
-    first = (b.nose_hollow_from, za + t * (zb - za), wa + t * (wb - wa), ha + t * (hb - ha))
-    inner = [Plane(origin=(x, 0, top + z), x_dir=(0, 1, 0), z_dir=(1, 0, 0)) * Ellipse(hw - b.nose_wall, hh - b.nose_wall)
-             for x, z, hw, hh in (first, *b.nose[1:-1])]
-    body = loft(outer) - loft(inner)
-    # main plane: rear edge on the board's front edge; endplates below the sensor caps
-    body += Pos(x0 + b.chord / 2, 0, b.plane_z) * Box(b.chord, b.span, b.plane_t, align=MIN)
-    for sy in (1, -1):
-        body += Pos(x0 + b.chord / 2 + 0.6, sy * (b.span / 2 - b.endplate_t / 2), b.plane_z - 0.4) * Box(
-            b.chord + 1.2, b.endplate_t, b.endplate_h, align=MIN)
-    # keel from the nose tip down to the rounded skid
     kz = b.skid_z + b.skid_r
-    body += Pos(x0 + b.keel_len / 2, 0, kz) * Box(b.keel_len, b.keel_w, top + 3.0 - kz, align=MIN)
-    body += Pos(x0 + b.keel_len / 2, 0, kz) * Rot(90, 0, 0) * Cylinder(b.skid_r, b.keel_w)
+    klen = b.keel_front - x0
+    body += Pos(x0 + klen / 2, 0, kz) * Box(klen, b.keel_w, 6.0 - kz + 0.5, align=MIN)
+    body += Pos(x0 + klen / 2, 0, kz) * Rot(90, 0, 0) * Cylinder(b.skid_r, b.keel_w)
+    # insert for the wing screw, facing forward
+    xi = b.keel_front - b.insert_recess
+    body -= Pos(b.keel_front + 1, 0, b.wing_screw_z) * Rot(0, -90, 0) * Cylinder(d.screw_clear_d / 2, 1 + b.insert_recess, align=MIN)
+    body -= Pos(xi, 0, b.wing_screw_z) * Rot(0, -90, 0) * Cylinder(d.insert_d / 2, d.insert_l, align=MIN)
+    body -= Pos(xi, 0, b.wing_screw_z) * Rot(0, -90, 0) * Cylinder(d.screw_clear_d / 2, d.insert_l + 1.0, align=MIN)
     # nothing may go behind the board edge below the board top (the edge face is the contact)
     body -= Pos(x0, 0, 0) * Box(40, 100, top + 0.2, align=(Align.MAX, Align.CENTER, Align.MIN))
     return body
 
 
 def fairing(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
-    """Hollow wedge from the battery box's front edge sloping down to the airbox tube (side profile)."""
+    """Flat-topped hollow fairing joining the battery box to the airbox (top flush with the box rim)."""
     _, x1, _, _ = frame.tray_box(p, fr)
     zt = frame.box_top(p, fr, d)
     z0 = d.tray_bottom_z
     fx, _ = fan.centre(p)
-    h = fan.heights(p)
-    tube_top = h["motor"] + p.motor.body_l + fr.lug_gap
     r_out = p.motor.d / 2 + fr.tube_clear + fr.tube_wall
-    xe = fx - 1.5
-
-    def wedge(inset):
-        pts = [(x1 - 0.5 + inset, z0 + inset), (xe, z0 + inset), (xe, tube_top - inset), (x1 - 0.5 + inset, zt - inset)]
-        return Pos(0, r_out - inset, 0) * (Plane.XZ * extrude(make_face(Polyline(*pts, close=True)), 2 * (r_out - inset)))
-
-    return wedge(0) - wedge(b.fairing_t)
+    xa, xe = x1 - 1.0, fx
+    outer = Pos((xa + xe) / 2, 0, z0) * extrude(RectangleRounded(xe - xa, 2 * r_out, b.fairing_r), zt - z0)
+    inner = Pos((xa + xe) / 2, 0, z0 + b.fairing_t) * extrude(
+        RectangleRounded(xe - xa - 2 * b.fairing_t, 2 * r_out - 2 * b.fairing_t, b.fairing_r - b.fairing_t / 2),
+        zt - z0 - 2 * b.fairing_t)
+    return outer - inner
 
 
 def top_body(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
-    body = frame.frame(p) + nose_wing(p, b) + fairing(p, b)
+    body = frame.frame(p) + nose(p, b, d) + fairing(p, b, d, fr)
+    zt = frame.box_top(p, fr, d)
     # re-cut the front lid screw (its boss sits inside the fairing)
     (fbx, fby), _ = frame.lid_bosses(p, fr)
-    zt = frame.box_top(p, fr, d)
     body -= Pos(fbx, fby, zt) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
     body -= Pos(fbx, fby, zt) * Cylinder(d.screw_clear_d / 2, d.screw_l - 0.9 + 0.5, align=MAX)
-    # keep the airbox bore clear where the nose joins the tube
+    # airbox bore through everything, then the motor lugs again
     h = fan.heights(p)
     fx, fy = fan.centre(p)
-    r_in = p.motor.d / 2 + frame.FR.tube_clear
-    body -= Pos(fx, fy, h["plate"]) * Cylinder(r_in, h["motor"] + p.motor.body_l - h["plate"], align=MIN)
+    r_in = p.motor.d / 2 + fr.tube_clear
+    body -= Pos(fx, fy, h["plate"]) * Cylinder(r_in, zt - h["plate"] + 1, align=MIN)
+    body += frame.lugs(p, fr)
     body.label, body.color = "body", (0.85, 0.12, 0.12)
+    return body
+
+
+def front_wing(p: Params = P, b: BodyParams = B, d=drive.D):
+    """Printed flat (main plane on the bed); screwed to the keel through its central tab."""
+    x0 = b.edge_x
+    chord = b.keel_front - x0 + 0.4
+    body = Pos(x0 + chord / 2, 0, b.plane_z) * Box(chord, b.span, b.plane_t, align=MIN)
+    body -= Pos(x0 + chord / 2 - 0.2, 0, b.plane_z) * Box(chord, b.keel_w + 0.3, b.plane_t, align=MIN)  # keel slot
+    for sy in (1, -1):
+        body += Pos(x0 + chord / 2 + 0.3, sy * (b.span / 2 - b.endplate_t / 2), b.plane_z) * Box(
+            chord + 0.6, b.endplate_t, b.endplate_top - b.plane_z, align=MIN)
+    tx, tw, tz = b.tab
+    body += Pos(b.keel_front + 0.1 + tx / 2, 0, b.plane_z) * Box(tx, tw, tz - b.plane_z, align=MIN)
+    # tie the two halves across the slot, in front of the keel
+    body += Pos(b.keel_front + 0.1 + tx / 2, 0, b.plane_z) * Box(tx, b.span - 1, b.plane_t, align=MIN)
+    seat = b.keel_front - b.insert_recess - d.insert_l + d.screw_l
+    body -= Pos(seat, 0, b.wing_screw_z) * Rot(0, 90, 0) * drive.countersunk(d, depth=d.screw_l, up=10)
+    body.label, body.color = "front_wing", (0.15, 0.15, 0.17)
     return body
 
 
@@ -119,10 +162,16 @@ def lid(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
     (fbx, _), (rbx, _) = frame.lid_bosses(p, fr)
     r = fr.boss_d / 2
     # cover plate over the box, with tabs over the two screw bosses
-    body = Pos((x0 + x1) / 2, 0, zt) * Box(x1 - x0, y1 - y0, b.lid_t, align=MIN)
+    body = Pos((x0 + x1) / 2, 0, zt) * extrude(RectangleRounded(x1 - x0, y1 - y0, fr.corner_r), b.lid_t)
     for bx in (fbx, rbx):
         body += Pos(bx, 0, zt) * Cylinder(r, b.lid_t, align=MIN)
         body += Pos((bx + (x0 + x1) / 2) / 2, 0, zt) * Box(abs(bx - (x0 + x1) / 2), 2 * r, b.lid_t, align=MIN)
+    # soft top edge all round (faces up when printed)
+    try:
+        top_face = body.faces().sort_by(Axis.Z)[-1]
+        body = fillet(top_face.outer_wire().edges(), b.edge_r)
+    except Exception:  # noqa: BLE001 - cosmetic only
+        pass
     # longitudinal gills, like an engine cover's louvres
     m = b.lid_margin
     gw, pitch = b.louvre
@@ -143,7 +192,7 @@ def lid(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
     # rear wing on the fin and two endplates
     wing = Rot(0, b.wing_angle, 0) * Box(b.wing_chord, b.wing_span, b.wing_t)
     body += Pos(wing_x, 0, z_top + b.wing_z) * wing
-    flap = Rot(0, b.wing_angle + 18, 0) * Box(b.wing_chord * 0.55, b.wing_span, b.wing_t * 0.9)
+    flap = Rot(0, b.flap_angle, 0) * Box(b.wing_chord * 0.55, b.wing_span, b.wing_t * 0.9)
     body += Pos(wing_x - b.wing_chord * 0.55, 0, z_top + b.wing_z + 1.6) * flap
     for sy in (1, -1):
         plate = make_face(Polyline((wing_x + b.wing_chord / 2 + 1.0, 0), (wing_x + b.wing_chord / 2 + 1.0, b.wing_z + 1.0),
@@ -156,4 +205,4 @@ def lid(p: Params = P, b: BodyParams = B, d=drive.D, fr=frame.FR):
 
 
 def parts(p: Params = P):
-    return {"body": top_body(p), "lid": lid(p)}
+    return {"body": top_body(p), "front_wing": front_wing(p), "lid": lid(p)}
