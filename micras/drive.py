@@ -8,8 +8,8 @@ with two screws into inserts in the base. The right cap also carries the clamp r
 from dataclasses import dataclass
 from math import atan2, cos, degrees, radians, sin
 
-from build123d import (Align, Box, Circle, Cone, Cylinder, Line, Plane, Pos, Rot, ThreePointArc, Wire, extrude,
-                       make_face, make_hull, mirror)
+from build123d import (Align, Box, Circle, Cone, Cylinder, Line, Plane, Pos, Rectangle, Rot, ThreePointArc, Wire,
+                       extrude, make_face, make_hull, mirror, offset)
 
 from .layout import board_boxes
 from .params import P, Params
@@ -25,6 +25,9 @@ class DriveParams:
     sleeve_wall: float = 0.8  # thinnest wall of the eccentric sleeve
     sleeve_fit: float = 0.1  # diametral clearance sleeve in seat (the split closes by split_relief)
     pillar_wall: float = 1.0  # around the glued cap-screw inserts
+    plate_t: float = 2.4  # outer plate skin where it is pocketed from the inboard side
+    pocket_rim: float = 1.0  # solid rim around the pockets, along the plate's outline
+    pocket_margin: float = 0.8  # pockets stay this far from the rings, screw columns and housing web
     split_relief: float = 0.15  # taken off the cap's split face: tightening the cap clamps bearings and sleeve
     motor_fit: float = 0.05  # diametral clearance motor in sleeve
     sleeve_lip: float = 0.6  # front lip that stops the motor axially
@@ -142,6 +145,14 @@ def _hull_at(circles, y):
     return Pos(0, y, 0) * (Plane.XZ * face.face())
 
 
+def _hull_2d(circles):
+    """Convex hull of circles (x, z, r) as a face in the (x, z) plane."""
+    edges = []
+    for x, z, r in circles:
+        edges += (Pos(x, z) * Circle(r)).edges()
+    return make_hull(edges).face()
+
+
 def _belt(circles, y0, y1):
     """Convex hull of circles (x, z, r) in the xz plane, extruded over y0..y1."""
     return extrude(_hull_at(circles, y1), y1 - y0)
@@ -198,6 +209,16 @@ def _left_block_solid(p: Params, d: DriveParams, motor_angle):
     if all(abs(sx - fx) >= rf + d.csk_d / 2 + 0.3 for sx, _ in screws):
         section += [(fx - rf + 0.01, ftop - 0.01, 0.01), (fx + rf - 0.01, ftop - 0.01, 0.01)]
     body += _belt(section, y0, y1)
+    # lightening pockets in the plate's inboard (hidden) face, leaving the outer skin, a rim along the
+    # outline, and full depth at the rings, the screw columns and the web under the housing; they open on
+    # the base's top (the split) or have the rings above them, so they print without supports
+    pocket = offset(_hull_2d(section), -d.pocket_rim)
+    for keep in [Pos(0, az) * Circle(rh), Pos(mx, mz) * Circle(rs), Pos(0, (lz + az) / 2) * Rectangle(2 * rh, az - lz)] + [
+            Pos(sx, 50) * Rectangle(2 * rp, 200) for sx, _ in screws]:
+        pocket -= offset(keep, d.pocket_margin)
+    for f in pocket.faces():
+        if f.area > 2.0:
+            body -= extrude(Pos(0, y1 - d.plate_t, 0) * (Plane.XZ * f), y1 - d.plate_t - y0 + 1)
     # round ends in plan around the two screws (the front one clears the fan mount's legs)
     for sx, sy in screws:
         out = 1 if sx > 0 else -1
@@ -338,6 +359,13 @@ def block(side, p: Params = P, d: DriveParams = D):
     web = _belt([(fx - rf + 0.01, wz0, 0.01), (fx + rf - 0.01, wz0, 0.01),
                  (fx - rf + 0.01, ftop - 0.01, 0.01), (fx + rf - 0.01, ftop - 0.01, 0.01)], fy, wy1 - 0.02)
     cap = cap.fuse(web).clean()  # (`+` drops part of the web here)
+    # ... and blended into the motor seat's ring along the boss (hull of both), from the boss's centre out
+    ring = (*seat_axis(angle, p), seat_d(p, d) / 2 + d.wall)
+    sy0, sy1 = seat_span(p, d)
+    cap = cap.fuse(_belt([ring, (fx - rf + 0.01, wz0, 0.01), (fx + rf - 0.01, wz0, 0.01),
+                          (fx - rf + 0.01, ftop - 0.01, 0.01), (fx + rf - 0.01, ftop - 0.01, 0.01)],
+                         max(fy, sy0), min(wy1, sy1) - 0.02)
+                   & Pos(0, 0, az + d.split_relief) * Box(200, 200, 100, align=MIN)).clean()
     mx, mz = motor_axis(angle, p)
     cap -= along_y(p.gears.tip_d(p.gears.pinion_z) / 2 + 0.4, seat_span(p, d)[1], 30, mx, mz)
     cap -= along_y(p.gears.tip_d(p.gears.wheel_z) / 2 + 0.5, p.gear_y - p.stack.lip_gap, 40, 0, az)
