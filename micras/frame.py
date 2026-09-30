@@ -14,6 +14,7 @@ from .params import P, Params
 
 MIN = (Align.CENTER, Align.CENTER, Align.MIN)
 MAX = (Align.CENTER, Align.CENTER, Align.MAX)
+MIN_C = (Align.CENTER, Align.CENTER, Align.MIN)
 
 
 @dataclass(frozen=True)
@@ -30,8 +31,12 @@ class FrameParams:
     tube_wall: float = 1.2
     tube_clear: float = 0.3  # around the fan motor
     spine_w: float = 6.0
-    spine_h: float = 4.0
+    spine_h: float = 3.3  # rails stay 0.5 above the raised motor
     nose_boss: tuple = (3.0, 6.0, 7.0)  # (x depth, y width, z height) on the tube front, for the nose screw
+    strap_y: float = 18.0  # |y| of the two TPU battery straps
+    strap_w: float = 5.0
+    strap_t: float = 0.8
+    strap_stretch: float = 0.08  # loop is this much shorter than its path
 
 
 FR = FrameParams()
@@ -75,6 +80,10 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
     outer = Pos((x0 + x1) / 2, (y0 + y1) / 2, z1) * Box(x1 - x0, y1 - y0, fr.wall_h, align=MIN)
     inner = Pos((x0 + x1) / 2, (y0 + y1) / 2, z1) * Box(x1 - x0 - 2 * fr.wall_t, y1 - y0 - 2 * fr.wall_t, fr.wall_h, align=MIN)
     body += outer - inner
+    # strap grooves in the tray walls (front and rear), so the straps cannot slide along y
+    for sy in (1, -1):
+        for x in (x0, x1):
+            body -= Pos(x, sy * fr.strap_y, z1) * Box(2 * fr.wall_t, fr.strap_w + 0.4, fr.wall_h, align=MIN)
     # wire exits in the rear corners
     for sy in (1, -1):
         body -= Pos(x0, sy * (y1 - 6), z1) * Box(4 * fr.wall_t, 6, fr.wall_h, align=MIN)
@@ -127,5 +136,36 @@ def nose_mount(p: Params = P, fr: FrameParams = FR):
     return fx + r_out + fr.nose_boss[0], D_TRAY_TOP(p) - fr.nose_boss[2] / 2
 
 
+def strap(side, p: Params = P, fr: FrameParams = FR, d=drive.D):
+    """TPU loop around the pack and the tray floor, at y = side * strap_y (modelled stretched in place)."""
+    x0, x1, _, _ = tray_box(p, fr)
+    _, _, sz = pack_size(p)
+    zb = d.tray_bottom_z - fr.strap_t
+    zt = d.tray_bottom_z + fr.floor_t + sz + fr.strap_t
+    outer = Pos((x0 + x1) / 2, side * fr.strap_y, zb) * Box(x1 - x0 + 2 * fr.strap_t, fr.strap_w, zt - zb, align=MIN)
+    inner = Pos((x0 + x1) / 2, side * fr.strap_y, zb + fr.strap_t) * Box(x1 - x0, fr.strap_w + 1, zt - zb - 2 * fr.strap_t, align=MIN)
+    body = outer - inner
+    body.label, body.color = f"strap_{'L' if side > 0 else 'R'}", (0.2, 0.2, 0.2)
+    return body
+
+
+def strap_flat(p: Params = P, fr: FrameParams = FR, d=drive.D):
+    """Unstretched strap to print: a flat oval loop, strap_stretch shorter than its path."""
+    from math import pi
+    x0, x1, _, _ = tray_box(p, fr)
+    _, _, sz = pack_size(p)
+    path = 2 * ((x1 - x0) + (fr.floor_t + sz)) + 4 * fr.strap_t
+    length = path * (1 - fr.strap_stretch)
+    r = 2.0  # end radius (inner) of the printed loop
+    straight = (length - 2 * pi * (r + fr.strap_t / 2)) / 2
+    outer = Box(straight, 2 * (r + fr.strap_t), fr.strap_w, align=MIN_C) + \
+        sum((Pos(k * straight / 2, 0, 0) * Cylinder(r + fr.strap_t, fr.strap_w, align=MIN_C) for k in (-1, 1)), start=Box(0.001, 0.001, 0.001))
+    inner = Box(straight, 2 * r, fr.strap_w, align=MIN_C) + \
+        sum((Pos(k * straight / 2, 0, 0) * Cylinder(r, fr.strap_w, align=MIN_C) for k in (-1, 1)), start=Box(0.001, 0.001, 0.001))
+    body = outer - inner
+    body.label = "strap_print"
+    return body
+
+
 def parts(p: Params = P):
-    return {"frame": frame(p)}
+    return {"frame": frame(p), "strap_L": strap(1, p), "strap_R": strap(-1, p)}

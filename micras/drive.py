@@ -38,6 +38,9 @@ class DriveParams:
     frame_screw_depth: float = 3.8  # M2x5 through a 1.2 frame floor
     frame_boss_top_left: float = 21.5  # keeps the screw hole above the left seat bore
     tray_bottom_z: float = 28.8  # frame tray underside, sits on the right boss
+    slit: float = 0.8  # clamp slit in the raised motor's ring
+    ear: float = 2.6  # clamp ear thickness either side of the slit
+    notch_d: float = 1.0  # spanner notches on the sleeve rim
 
 
 D = DriveParams()
@@ -178,6 +181,26 @@ def frame_boss(side, p: Params = P, d: DriveParams = D):
     return sx - (seat_d(p, d) / 2 + d.insert_d / 2 + 0.6), 11.0, d.tray_bottom_z
 
 
+def _ring_clamp(cap, p, d, angle):
+    """Slit the raised motor's ring on its front side and add a vertical clamp screw across the slit."""
+    sx, sz = seat_axis(angle, p)
+    sy0, sy1 = seat_span(p, d)
+    rs = seat_d(p, d) / 2
+    ro = rs + d.wall
+    ymid = (sy0 + sy1) / 2
+    ex = sx + ro + d.insert_d / 2  # screw axis, just outside the ring
+    ear_h = 2 * d.ear + d.slit
+    cap += Pos((sx + rs + ex + d.insert_d / 2 + d.wall) / 2, ymid, sz) * Box(
+        ex + d.insert_d / 2 + d.wall - sx - rs, sy1 - sy0, ear_h)
+    cap -= Pos(sx + rs - 0.5, ymid, sz) * Box(20, sy1 - sy0 + 2, d.slit, align=(Align.MIN, Align.CENTER, Align.CENTER))
+    top = sz + ear_h / 2
+    cap -= Pos(ex, ymid, sz - d.slit / 2) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
+    cap -= Pos(ex, ymid, top - d.screw_l + 0.5) * Cylinder(d.screw_clear_d / 2, 20, align=MIN)
+    cap -= Pos(ex, ymid, top) * Cylinder(d.csk_d / 2, (d.csk_d - d.screw_clear_d) / 2, align=MAX)
+    cap -= along_y(rs, sy0 - 1, sy1 + 1, sx, sz)
+    return cap
+
+
 def block(side, p: Params = P, d: DriveParams = D):
     """(base, cap) for one side; side=+1 left, -1 right."""
     angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right
@@ -204,6 +227,8 @@ def block(side, p: Params = P, d: DriveParams = D):
     cap -= Pos(fx, fy, ftop) * Cylinder(d.screw_clear_d / 2, d.frame_screw_depth, align=MAX)
     # re-cut the seat bore in case the boss reached into it
     cap -= along_y(seat_d(p, d) / 2, *seat_span(p, d), *seat_axis(angle, p))
+    if side < 0 and p.layout.backlash_mode == "eccentric":
+        cap = _ring_clamp(cap, p, d, angle)
     if side < 0:
         base = mirror(base, Plane.XZ)
         cap = mirror(cap, Plane.XZ)
@@ -223,6 +248,10 @@ def sleeve(side, p: Params = P, d: DriveParams = D):
     # the bore is offset by e: turning the sleeve moves the motor by up to +-e along the centre line
     s -= along_y((p.motor.d + d.motor_fit) / 2, sy0 - 1, sy1 - d.sleeve_lip, mx, mz)
     s -= along_y(p.motor.boss_d / 2 + 0.3, sy0, sy1 + 1, mx, mz)
+    # two spanner notches in the inner rim, to turn the sleeve with tweezers
+    r_n = sleeve_od(p, d) / 2 - d.sleeve_wall / 2
+    for k in (-1, 1):
+        s -= Pos(sx + k * r_n, sy0, sz) * Box(d.notch_d, 2 * d.notch_d, d.notch_d, align=(Align.CENTER, Align.CENTER, Align.CENTER))
     if side < 0:
         s = mirror(s, Plane.XZ)
     s.label = f"sleeve_{'L' if side > 0 else 'R'}"

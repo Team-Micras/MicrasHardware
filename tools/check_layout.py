@@ -54,6 +54,7 @@ allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_m
             frozenset(("frame", "fan_mount")), frozenset(("frame", "block_cap_L")), frozenset(("frame", "block_cap_R"))}
 allowed |= {frozenset(("frame", f"cell{i}")) for i in range(3)}
 allowed |= {frozenset(("nose", "frame"))}
+allowed |= {frozenset((f"strap_{t}", o)) for t in "LR" for o in ["frame", "cell0", "cell1", "cell2"]}
 # the caps wrap the LEDs; the board model only offers the sensor bounding box here (exact check below)
 allowed |= {frozenset((f"sensor_cap_{w}", k)) for w in ("W1", "W2", "W3", "W4") for k in others
             if k.startswith("brd:WALL_SENSOR")}

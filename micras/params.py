@@ -120,9 +120,9 @@ class AxialStack:
 class Battery:
     cell: tuple = (47.16, 11.32, 6.45)  # length, width, thickness
     cell_mass: float = 6.0
-    arrangement: str = "flat"  # "pyramid" | "edge" | "flat" | "stack" (tools/battery_study.py)
+    arrangement: str = "stack"  # "pyramid" | "edge" | "flat" | "stack" (tools/battery_study.py)
     gap: float = 0.3
-    x: float = -15.0  # pack centre (battery_study: CoM over the axle)
+    x: float = -9.7  # pack centre (tools/mass_report.py: CoM over the axle)
     floor_z: float = 30.0  # bottom of the cells (tray floor top)
 
 

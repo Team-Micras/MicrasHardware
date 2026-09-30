@@ -57,20 +57,25 @@ def summarize(items):
     return {"mass": m, "com": tuple(com), "izz": izz}
 
 
-def fixed_items(p: Params = P, printed=None, fan_z=None):
-    """Everything except the battery and its tray."""
+def fixed_items(p: Params = P, printed=None, fan_z=None, placeholders=True, material=None):
+    """Everything except the battery.
+
+    With placeholders=False the not-yet-designed parts (front, spine, tray) are left out: pass the real
+    printed parts instead, with material(name) -> material key for their density.
+    """
     M = MASSES
     if fan_z is None:
         from .fan import heights
         fan_z = heights(p)["motor"] + p.motor.body_l / 2
     items = [
         Item("board", M["board"], M["board_com"], box_izz(M["board"], 90, 50)),
-        Item("front", M["front"], M["front_com"], box_izz(M["front"], 20, 50)),
-        Item("spine", M["spine"], M["spine_com"]),
         Item("fan_motor", M["fan_motor"], (p.board.fan_hole_x, 0, fan_z)),
 
         Item("wires", M["wires"], (-10, 0, 15)),
     ]
+    if placeholders:
+        items += [Item("front", M["front"], M["front_com"], box_izz(M["front"], 20, 50)),
+                  Item("spine", M["spine"], M["spine_com"])]
     for s in (1, -1):
         tag = "L" if s > 0 else "R"
         mx, mz = p.motor_axis(s)
@@ -85,7 +90,10 @@ def fixed_items(p: Params = P, printed=None, fan_z=None):
         ]
     for name, part in (printed or {}).items():
         c = part.center()
-        items.append(Item(name, part.volume * DENSITY["resin"], (c.X, c.Y, c.Z)))
+        rho = DENSITY[material(name)] if material else DENSITY["resin"]
+        bb = part.bounding_box()
+        m = part.volume * rho
+        items.append(Item(name, m, (c.X, c.Y, c.Z), box_izz(m, bb.size.X, bb.size.Y) * 0.5))
     return items
 
 
