@@ -7,15 +7,15 @@ raised impeller would hit the encoder daughterboards and the raised drive motor)
 
 - Impeller (resin): flat front shroud 0.3 mm above the component-free Ø27 silkscreen ring (face seal),
   plus a short neck that dips into the board hole with a small radial gap. Hub pressed/glued on the shaft.
-- Mount (resin): symmetric, standing on two feet on free board spots behind the ring. The collar's top is
-  slotted and tapered: the body's airbox presses on it, which holds the mount down and clamps the motor
-  like a collet (no screws).
+- Mount (resin): a yoke hung from the drive blocks. The motor sits in a collar, clamped by a split at its
+  top and a crosswise M2 screw into a trapped nut; two arms reach back to ears on the two drive caps (an M2
+  screw into a trapped nut each), and a front leg rests on the MCU. Only that foot touches the board.
 """
 
 from dataclasses import dataclass
 from math import cos, radians, sin
 
-from build123d import Align, Axis, Box, Cone, Cylinder, Plane, Polyline, Pos, Rot, extrude, make_face, revolve
+from build123d import Align, Axis, Box, Cylinder, Plane, Polygon, Polyline, Pos, Rot, extrude, make_face, revolve
 
 from .params import P, Params
 
@@ -44,27 +44,32 @@ class FanParams:
     nose_d: float = 6.0  # flow-turning cone under the hub
     bore_d: float = 0.9  # printed undersize, ream to 0.97-0.98
     # mount
-    # (angle from +x, radius, height above the board top): symmetric; two feet on free board spots, the
-    # front one resting on the MCU (a 1.0 mm tall QFN rotated 45 deg: the foot sits inside its top)
-    feet: tuple = ((130.0, 15.5, 0.0), (230.0, 15.5, 0.0), (0.0, 18.0, 1.0))
+    # legs (angle from +x, radius, height above the board top): one at the front, resting on the MCU (a 1.0 mm
+    # tall QFN rotated 45 deg: the foot sits inside its top); the drive caps carry the rest
+    feet: tuple = ((0.0, 18.0, 1.0),)
     foot_d: float = 2.5
     arm_w: float = 2.6  # leg width (tangential)
     leg_bend_r: float = 3.0  # outer radius where the arm turns down into the foot
     leg_knee_z: float = 9.0  # the arm's top edge slopes from the collar down to this height at the foot
     root_w: float = 4.5  # leg width where it meets the collar (narrows evenly to arm_w at the foot)
     leg_inner_r: float = 0.5  # radius where the underside meets the foot (the impeller runs 0.55 inside)
-    airbox_gap: float = 0.5  # the legs stay this far below the airbox that slides over the collar
+    leg_gap: float = 0.5  # the leg's root stays this far below the clamp
     run_gap: float = 0.5  # arm underside above the impeller's backplate
     plate_t: float = 1.2
     plate_gap: float = 0.4  # hub top to plate
     collar_wall: float = 1.2
     collar_h: float = 7.0
     motor_fit: float = 0.05
-    slit_angles: tuple = (60.0, 180.0, 300.0)  # collet slits, deg: clear of the legs' roots (0/130/230)
-    slit_w: float = 0.6
-    slit_below: float = 0.0  # how far the slits run below the taper (the legs join the collar up to 0.5 below it)
-    taper_l: float = 4.0  # tapered length at the collar top (the body's airbox squeezes it)
-    taper: float = 0.35  # radial reduction over taper_l
+    # clamp: the collar's top is split at the front, over the front leg, and closed by an M2 screw across two
+    # ears (head in one, nut trapped in the other)
+    clamp_h: float = 4.0
+    clamp_slit: float = 0.8
+    clamp_ear_t: tuple = (1.6, 2.2)  # head side (-y), nut side (+y)
+    clamp_len: float = 5.4  # radial length of the ears
+    # arms to the drive caps' ears (drive.DriveParams.fan_ear)
+    arm_t: float = 2.6  # arm width
+    arm_z0: float = 11.0  # arm underside at the collar (it rises to the cap ear)
+    tab_t: float = 1.8  # the arm's tab on the cap ear (an M2x5 then takes the whole nut)
 
 
 F = FanParams()
@@ -129,14 +134,14 @@ def impeller(p: Params = P, f: FanParams = F):
 
 def _leg(r, p: Params = P, f: FanParams = F, z_foot=0.0):
     """One leg along +x in its radial plane (r, z). It meets the collar over the collar's full height below
-    the airbox and runs down outwards over the impeller, its top and underside each one straight slope,
+    the clamp and runs down outwards over the impeller, its top and underside each one straight slope,
     into a rounded bend and the foot on the board at radius r. Seen from above it narrows evenly from the
     collar to the foot."""
     from build123d import fillet
     h = heights(p, f)
     z0 = p.board.top_z + z_foot
     z_arm = h["back_tip"] + f.back_t + f.run_gap  # underside at the rim: just above the backplate
-    z_root = h["collar_top"] - f.taper_l - f.airbox_gap  # the airbox slides over the collar above this
+    z_root = h["collar_top"] - f.clamp_h - f.leg_gap  # the clamp's split is above this
     r_in, r_out = r - f.foot_d / 2, r + f.foot_d / 2
     rc = collar_r(p, f)
     pts = [(0, h["plate"]), (rc, h["plate"]), (r_in, z_arm), (r_in, z0), (r_out, z0), (r_out, f.leg_knee_z),
@@ -153,25 +158,41 @@ def _leg(r, p: Params = P, f: FanParams = F, z_foot=0.0):
     return side & Pos(0, 0, z0 - 1) * extrude(make_face(plan), 40)
 
 
-def mount(p: Params = P, f: FanParams = F):
+def mount(p: Params = P, f: FanParams = F, d=None):
+    from .drive import D, countersunk, fan_ear_top, nut_trap
+    d = d or D
     h = heights(p, f)
     top = p.board.top_z
     cx, cy = centre(p)
     rc = collar_r(p, f)
-    # plate and collar
+    ct = h["collar_top"]
+    # plate and collar, the front leg: one continuous profile, a deep arm over the impeller sweeping down into
+    # its foot
     body = Pos(0, 0, h["plate"]) * Cylinder(rc, f.plate_t + f.collar_h, align=MIN)
-    # two legs, each one continuous profile: a deep arm over the impeller that sweeps down into its foot
     for ang, r, z_foot in f.feet:
         body += Rot(0, 0, ang) * _leg(r, p, f, z_foot)
-    # collet: tapered, slotted top of the collar
-    ct = h["collar_top"]
-    if f.taper > 0:
-        body -= Pos(0, 0, ct - f.taper_l) * (Cylinder(rc + 2, f.taper_l, align=MIN)
-                                            - Cone(rc, rc - f.taper, f.taper_l, align=MIN))
-    for a in f.slit_angles:
-        turn = Rot(0, 0, a)
-        body -= turn * Pos(rc, 0, ct - f.taper_l - f.slit_below) * Box(
-            2 * rc, f.slit_w, f.taper_l + f.slit_below + 0.01, align=MIN)
+    # arms to the drive caps' ears: each a web in its own vertical plane, low at the collar, rising to its tab
+    zt = fan_ear_top(p, d)
+    tx, ty = d.fan_ear
+    for s in (1, -1):
+        dx, dy = tx - cx, s * ty - cy
+        ln = (dx * dx + dy * dy) ** 0.5
+        x0, y0 = (rc - 0.5) * dx / ln, (rc - 0.5) * dy / ln  # (collar frame: centred on the fan)
+        side = Polygon((0, f.arm_z0), (ln - (rc - 0.5), zt), (ln - (rc - 0.5), zt + f.tab_t), (0, zt + f.tab_t),
+                       align=None)
+        plane = Plane(origin=(x0, y0, 0), x_dir=(dx, dy, 0), z_dir=(dy, -dx, 0))
+        body += extrude(plane * side, f.arm_t / 2, both=True)
+        body += Pos(dx, dy, zt) * Cylinder(d.fan_ear_r, f.tab_t, align=MIN)
+        body -= Pos(dx, dy, zt + f.tab_t) * countersunk(d, depth=5, up=10)
+    # clamp at the front, over the leg: a split through the collar's top and two ears with a crosswise screw
+    t1, t2 = f.clamp_ear_t
+    z0 = ct - f.clamp_h
+    body += Pos(rc - 0.6, -f.clamp_slit / 2 - t1, z0) * Box(f.clamp_len, t1 + f.clamp_slit + t2, f.clamp_h,
+                                                           align=(Align.MIN, Align.MIN, Align.MIN))
+    body -= Pos(rc - 2, 0, z0) * Box(10, f.clamp_slit, 10, align=(Align.MIN, Align.CENTER, Align.MIN))
+    ex, ez = rc + 2.2, ct - f.clamp_h / 2
+    body -= Pos(ex, -f.clamp_slit / 2 - t1, ez) * Rot(90, 0, 0) * countersunk(d, depth=10, up=5)
+    body -= Pos(ex, f.clamp_slit / 2 + t2 + 0.01, ez) * Rot(90, 0, 0) * Rot(0, 0, 30) * nut_trap(d, d.nut_t + 0.01)
     # motor bore, boss hole
     body -= Pos(0, 0, h["motor"]) * Cylinder((p.motor.d + f.motor_fit) / 2, 30, align=MIN)
     body -= Pos(0, 0, h["plate"] - 1) * Cylinder(p.motor.boss_d / 2 + 0.3, 5, align=MIN)

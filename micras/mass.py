@@ -26,6 +26,7 @@ MASSES = {
     "encoder_board": 0.3,
     "cell": 6.0,
     "wires": 2.0,
+    "velcro": 0.25,  # each strap, 10 mm x ~50 mm hook-and-loop (estimated)
     "fan_motor": 7.0,
     "impeller": 1.0,
     "fan_housing": 1.5,
@@ -73,6 +74,8 @@ def fixed_items(p: Params = P, printed=None, fan_z=None, placeholders=True, mate
 
         Item("wires", M["wires"], (-10, 0, 15)),
     ]
+    from .frame import FR, box_top
+    items += [Item(f"velcro_{i}", M["velcro"], (p.battery.x, s * FR.strap_y, box_top(p))) for i, s in enumerate((1, -1))]
     if placeholders:
         items += [Item("front", M["front"], M["front_com"], box_izz(M["front"], 20, 50)),
                   Item("spine", M["spine"], M["spine_com"])]

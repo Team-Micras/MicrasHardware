@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Align, Box, Cylinder, Plane, Pos, Rot, extrude, mirror  # noqa: E402
-from micras import body, checks, drive, fan, front, layout  # noqa: E402
+from micras import checks, drive, fan, frame, front, layout  # noqa: E402
 from micras.params import P  # noqa: E402
 
 t = time.time()
@@ -17,7 +17,8 @@ printed = drive.all_parts()
 parts.update(printed)
 fan_parts = fan.parts()
 parts.update(fan_parts)
-front_parts = {**front.parts(), **body.parts()}
+front_parts = {**front.parts(), **frame.parts()}
+parts.update(frame.straps())
 parts.update(front_parts)
 # every printed part obeys the zone rule; the agreed extra contact areas are added as zones below
 ZONE_EXEMPT = set()
@@ -51,11 +52,13 @@ for s in "LR":
                  ("magnet_cup", "block_base"), ("magnet_cup", "block_cap")]:
         allowed.add(frozenset((f"{a}_{s}", f"{b}_{s}")))
 allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_motor")),
-            frozenset(("body", "fan_mount")), frozenset(("body", "block_cap_L")), frozenset(("body", "block_cap_R"))}
+            frozenset(("fan_mount", "block_cap_L")), frozenset(("fan_mount", "block_cap_R")),  # arm tabs on the ears
+            frozenset(("basket", "block_cap_L")), frozenset(("basket", "block_cap_R"))}  # posts on the bosses
 # the cells rest on the box floor ribs (touching); real overlaps are caught below
-allowed |= {frozenset(("body", f"cell{i}")) for i in range(3)}
+allowed |= {frozenset(("basket", f"cell{i}")) for i in range(3)}
+# the straps lie on the cells and pass through the basket's windows
+allowed |= {frozenset((f"velcro_{j}", k)) for j in range(2) for k in ("basket", "cell0", "cell1", "cell2")}
 # screwed / seated joints
-allowed |= {frozenset(("lid", "body"))}
 # the fan mount's front foot rests on the MCU
 allowed |= {frozenset(("fan_mount", k)) for k in others if k.startswith("brd:STM32")}
 # the bumper passes under the diagonal sensors; the board model's sensor box reaches down to the legs,
@@ -126,10 +129,10 @@ for sd in "LR":
         res.append((f"block_base_{sd}", f"block_cap_{sd}", 0.0, round(v, 3)))
         print("SPLIT", f"block_cap_{sd} overlaps its base by {v:.3f} mm3")
 for i in range(3):
-    common = parts[f"cell{i}"] & parts["body"]
+    common = parts[f"cell{i}"] & parts["basket"]
     v = common.volume if common is not None else 0.0
     if v > 1e-3:
-        res.append((f"cell{i}", "body", 0.0, round(v, 3)))
+        res.append((f"cell{i}", "basket", 0.0, round(v, 3)))
         print("CELLS", f"cell{i} overlaps the battery box by {v:.3f} mm3")
 print(f"{len(res)} issues | parts {t_parts - t:.1f}s, board {t_board - t_parts:.1f}s, "
       f"checks {time.time() - t_board:.1f}s")

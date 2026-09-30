@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Pos, Rot, import_step  # noqa: E402
 
-from micras import body, front, layout  # noqa: E402
+from micras import front, layout  # noqa: E402
 
 raw = import_step(layout.REF / "board.step")
 to_robot = Pos(-67.1112, 64.1608, layout.P.board.bottom_z) * Rot(0, 0, -90)

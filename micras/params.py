@@ -130,7 +130,7 @@ class Battery:
     cell_mass: float = 6.0
     arrangement: str = "edge"  # "pyramid" | "edge" | "flat" | "stack" (tools/battery_study.py)
     gap: float = 0.3
-    x: float = -10.8  # pack centre (tools/mass_report.py: CoM over the axle)
+    x: float = -9.3  # pack centre (tools/mass_report.py: CoM over the axle)
     floor_z: float = 30.0  # bottom of the cells (tray floor top)
 
 

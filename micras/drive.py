@@ -49,6 +49,13 @@ class DriveParams:
     ear: float = 2.2  # clamp ear thickness either side of the slit (M2x5 then engages 2 mm)
     notch_d: float = 1.0  # spanner notches on the sleeve rim (width)
     notch_depth: float = 0.6  # radial, on the sleeve's thick side
+    # ear on each cap for the fan mount's arm: in front of the front cap screw (clear of its head), top level
+    # with the left cap's front column; an M2 screw comes down through the arm's tab into a nut trapped under it
+    fan_ear: tuple = (10.2, 14.2)  # (x, |y|) of the screw
+    fan_ear_r: float = 2.5
+    fan_ear_t: float = 2.4
+    nut_af: float = 4.0  # M2 nut across flats, with fit
+    nut_t: float = 1.6
 
 
 D = DriveParams()
@@ -325,6 +332,31 @@ def _ring_clamp(cap, p, d, angle):
     return cap
 
 
+def fan_ear_top(p: Params = P, d: DriveParams = D):
+    return p.axle_z + p.bearing.od / 2 + d.wall
+
+
+def nut_trap(d: DriveParams = D, depth=None):
+    """Hexagonal pocket for an M2 nut, axis on +z from the origin."""
+    from build123d import RegularPolygon
+    return extrude(RegularPolygon(d.nut_af / 3 ** 0.5, 6), depth or d.nut_t)
+
+
+def _fan_ear(cap, side, p, d):
+    """Add the fan mount's ear to a (left-frame) cap: the hull of the front screw column and the tab, with a
+    screw hole and a nut trap underneath; the front cap screw's counterbore stays open."""
+    sx, sy = cap_screws(side, p, d)[0]
+    tx, ty = d.fan_ear
+    zt = fan_ear_top(p, d)
+    rp = d.insert_d / 2 + d.pillar_wall
+    edges = (Pos(sx, sy) * Circle(rp - 0.05)).edges() + (Pos(tx, ty) * Circle(d.fan_ear_r)).edges()
+    cap = cap.fuse(Pos(0, 0, zt - d.fan_ear_t) * extrude(make_hull(edges).face(), d.fan_ear_t)).clean()
+    cap -= Pos(tx, ty, zt - d.fan_ear_t - 1) * Cylinder(d.screw_clear_d / 2, d.fan_ear_t + 2, align=MIN)
+    cap -= Pos(tx, ty, zt - d.fan_ear_t - 0.01) * nut_trap(d, d.nut_t + 0.01)
+    cap -= Pos(sx, sy, p.axle_z + d.screw_l - d.insert_l) * countersunk(d, depth=0.1)
+    return cap
+
+
 def block(side, p: Params = P, d: DriveParams = D):
     """(base, cap) for one side; side=+1 left, -1 right."""
     angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right
@@ -376,6 +408,7 @@ def block(side, p: Params = P, d: DriveParams = D):
     cap -= along_y(seat_d(p, d) / 2, sy0 - 1, sy1 + 1, *seat_axis(angle, p))  # (as the first cut: through)
     if side < 0 and p.layout.backlash_mode == "eccentric":
         cap = _ring_clamp(cap, p, d, angle)
+    cap = _fan_ear(cap, side, p, d)
     if side < 0:
         base = mirror(base, Plane.XZ)
         cap = mirror(cap, Plane.XZ)

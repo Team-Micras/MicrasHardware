@@ -52,7 +52,7 @@ if "--simple" in sys.argv:  # components as boxes (faster)
     board = Compound(children=[pcb, comps], label="board")
 else:  # the real populated board from ref/board.step, every component as modelled (~0.6 GB, ~25 s)
     board = layout.board()
-# one group per assembly (drive left/right, fan, body, front, battery), like the board's components
+# one group per assembly (drive left/right, fan, front, battery), like the board's components
 grouped = []
 for group, parts in assembly.groups().items():
     for name, shape in parts.items():

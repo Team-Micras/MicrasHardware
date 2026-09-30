@@ -34,7 +34,7 @@ def floor_at(x, sx):
 
 
 from micras import assembly  # noqa: E402
-real = {k: v for k, v in assembly.printed().items() if not k.startswith(("body", "lid"))}  # box moves with the pack
+real = {k: v for k, v in assembly.printed().items() if not k.startswith("basket")}  # the basket moves with the pack
 fixed = mass.fixed_items(P, real, placeholders=False, material=lambda n: assembly.material(n)[0])
 base = mass.summarize(fixed)
 print(f"without battery: {base['mass']:.1f} g, CoM x={base['com'][0]:+.2f} z={base['com'][2]:.1f}")

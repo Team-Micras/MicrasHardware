@@ -16,7 +16,8 @@ the loads are estimates.
 
 Usage: uv run tools/fea.py [part ...] [--h 0.5] [--png]
   part   part names or prefixes (default: every printed part, one of each mirrored pair)
-  --h    target element size in mm (the body uses 1.6x)
+  --h    target element size in mm
+  --dry  only mesh each part and check that every support and load finds its faces (seconds, no solving)
   --png  also render each case (build/fea/<part>_<case>.png, stress on the deformed shape, x10)
 """
 import argparse
@@ -37,7 +38,7 @@ from skfem.models.elasticity import lame_parameters, linear_elasticity
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Pos, export_step  # noqa: E402
 
-from micras import assembly, body, drive, fan, frame, front  # noqa: E402
+from micras import assembly, drive, fan, frame, front  # noqa: E402
 from micras.params import P  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[1] / "build/fea"
@@ -47,7 +48,7 @@ CRASH, DROP = 100 * G, 300 * G  # m/s2
 MAT = {"resin": (1800, 0.38, 35, 1.15e-3), "petg": (1500, 0.39, 35, 1.27e-3), "tpu": (26, 0.45, 8.6, 1.21e-3)}
 LAYER = {"petg": 12.0}  # tension across the layers, MPa (FDM)
 # build direction (up in the printer) of the FDM parts, in the robot frame (assembly.MATERIALS)
-BUILD = {"body": -np.array((0.647, 0, 1)) / np.hypot(0.647, 1), "lid": np.array((0.0, 0, -1))}
+BUILD = {"basket": np.array((0.0, 0, -1))}  # printed upside down
 
 
 @dataclass
@@ -249,26 +250,23 @@ def block_cases(side):
 
 
 def fan_mount_cases(m):
+    """The yoke: held at its front foot (on the MCU) and at the two tabs on the drive caps' ears."""
     zmin, zmax = m.p[2].min(), m.p[2].max()
     cx, cy = fan.centre()
-    top = up(zmax, 0.02)
-    rc, ct = fan.collar_r(), fan.heights()["collar_top"]
-    # the fingers bend about their roots, so the matching airbox taper bears on their upper part
-    taper = lambda c, n: ((c[2] > ct - 0.4 * fan.F.taper_l) & (np.hypot(c[0] - cx, c[1] - cy) > rc - fan.F.taper - 0.05)
-                          & ((n[0] * (c[0] - cx) + n[1] * (c[1] - cy)) > 0.5 * np.hypot(c[0] - cx, c[1] - cy)))
-    feet = lambda c, n: (c[2] < zmin + 1.1) & (n[2] < -0.9)  # rear feet on the board, front foot on the MCU
+    zt, (tx, ty) = drive.fan_ear_top(), drive.D.fan_ear
+    foot = lambda c, n: (c[2] < zmin + 0.05) & (n[2] < -0.9)
+    tabs = lambda c, n: ((np.hypot(c[0] - tx, np.abs(c[1]) - ty) < drive.D.fan_ear_r + 0.05)
+                         & (np.abs(c[2] - zt) < 0.05) & (n[2] < -0.9))
+    fixed = any_of(foot, tabs)
     bore = lambda c, n: ((np.hypot(c[0] - cx, c[1] - cy) < 5.0) & (np.abs(n[2]) < 0.2) & (c[2] > zmax - 6)
                          & ((n[0] * (c[0] - cx) + n[1] * (c[1] - cy)) < 0))
     # the motor stands on the plate inside the collar (its seat)
     seat = lambda c, n: up(fan.heights()["motor"])(c, n) & (np.hypot(c[0] - cx, c[1] - cy) < P.motor.d / 2 + 0.1)
     motor = 8.0e-3
     return "resin", [
-        Case("crash, fan motor on the collar", feet, [(bore, (motor * CRASH, 0, 0))], (-CRASH, 0, 0)),
-        Case("drop, fan motor on its seat", feet, [(seat, (0, 0, -motor * DROP))], (0, 0, DROP)),
-        # the body's airbox squeezes the slotted, tapered collar top onto the motor: the fingers close until
-        # they touch the motor (its radial clearance), the airbox tube takes the rest of frame.collet_squeeze
-        Case("airbox squeezes the collet", feet, squeeze=(taper, cx, cy, min(frame.FR.collet_squeeze, fan.F.motor_fit / 2)),
-             sf=3.0),
+        Case("crash, fan motor on the collar", fixed, [(bore, (motor * CRASH, 0, 0))], (-CRASH, 0, 0)),
+        Case("drop, fan motor on its seat", fixed, [(seat, (0, 0, -motor * DROP))], (0, 0, DROP)),
+        Case("side crash, fan motor on the collar", fixed, [(bore, (0, motor * CRASH, 0))], (0, -CRASH, 0)),
     ]
 
 
@@ -293,20 +291,17 @@ def sensor_cap_cases(name):
     ]
 
 
-def body_cases():
+def basket_cases():
+    """On its two posts (their feet on the cap bosses); the cells load the walls and floor. The straps hold
+    the cells down, so an upside-down landing loads the straps, not the basket."""
     x0, x1, y0, y1 = frame.cavity()
     tray = frame.D_TRAY_TOP()
-    bosses = []
+    posts = []
     for s in (1, -1):
         bx, by, bz = drive.frame_boss(s)
-        bosses.append(lambda c, n, bx=bx, by=s * by, bz=bz: (np.hypot(c[0] - bx, c[1] - by) < 3.0)
-                      & (np.abs(c[2] - bz) < 0.1) & (n[2] < -0.9))
-    # ... and the airbox seated on the fan mount's collar (its taper and the collar top)
-    fx, fy = fan.centre()
-    ct, rc = fan.heights()["collar_top"], fan.collar_r()
-    airbox = lambda c, n: ((np.hypot(c[0] - fx, c[1] - fy) < rc + 0.6) & (c[2] > ct - fan.F.taper_l - 0.5)
-                           & (c[2] < ct + 0.5) & (n[2] < 0.3))
-    fixed = any_of(*bosses, airbox)
+        posts.append(lambda c, n, bx=bx, by=s * by, bz=bz: (np.hypot(c[0] - bx, c[1] - by) < 3.0)
+                     & (np.abs(c[2] - bz) < 0.1) & (n[2] < -0.9))
+    fixed = any_of(*posts)
     inside = lambda c: (c[0] > x0 - 0.1) & (c[0] < x1 + 0.1) & (c[1] > y0 - 0.1) & (c[1] < y1 + 0.1)
     front_wall = lambda c, n: inside(c) & (np.abs(c[0] - x1) < 0.1) & (n[0] < -0.9)
     side_wall = lambda c, n: inside(c) & (np.abs(c[1] - y1) < 0.1) & (n[1] < -0.9)
@@ -317,19 +312,6 @@ def body_cases():
         Case("side crash, cells on the side wall", fixed, [(side_wall, (0, cells * CRASH, 0))], (0, -CRASH, 0)),
         Case("drop, cells on the floor", fixed, [(floor, (0, 0, -cells * DROP))], (0, 0, DROP)),
     ]
-
-
-def lid_cases():
-    x0, x1, y0, y1 = frame.cavity()
-    lugs = [lambda c, n, bx=bx: np.hypot(c[0] - bx, c[1]) < 2.2 for bx, _ in frame.lid_bosses()]
-    under = lambda c, n: (c[0] > x0) & (c[0] < x1) & (c[1] > y0) & (c[1] < y1) & (n[2] < -0.9) & (c[2] < frame.box_top() + 0.5)
-    # the cells lift against the lid on a hard bounce (50 g); upside down, the lid lands on the floor instead
-    cells, bounce = 18e-3, 50 * G
-    cases = [Case("bounce, cells lift against the lid", any_of(*lugs), [(under, (0, 0, cells * bounce))], (0, 0, -bounce))]
-    if body.B.spoiler:
-        tip = lambda c, n: (np.abs(c[1]) > body.B.wing_span / 2 - 1.5) & (c[2] > frame.box_top() + body.B.wing_z - 1)
-        cases.append(Case("2 N sideways on a wing tip", any_of(*lugs), [(tip, (0, 2.0, 0))]))
-    return "petg", cases
 
 
 def bumper_cases(m):
@@ -359,7 +341,7 @@ def analyses(names):
     out += [("fan_mount", parts["fan_mount"], 1.0, fan_mount_cases), ("impeller", parts["impeller"], 1.0, impeller_cases),
             ("sensor_cap_W1", parts["sensor_cap_W1"], 1.0, sensor_cap_cases("sensor_cap_W1")),
             ("sensor_cap_W2", parts["sensor_cap_W2"], 1.0, sensor_cap_cases("sensor_cap_W2")),
-            ("body", parts["body"], 1.6, body_cases()), ("lid", parts["lid"], 1.0, lid_cases()),
+            ("basket", parts["basket"], 1.0, basket_cases()),
             ("bumper", parts["bumper"], 1.0, bumper_cases), ("wheel_hub_L", parts["wheel_hub_L"], 1.0, wheel_hub_cases("wheel_hub_L"))]
     return [a for a in out if not names or any(a[0].startswith(n) for n in names)]
 
@@ -384,6 +366,7 @@ def main():
     ap.add_argument("parts", nargs="*")
     ap.add_argument("--h", type=float, default=0.5)
     ap.add_argument("--png", action="store_true")
+    ap.add_argument("--dry", action="store_true")
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     t_all, rows = time.time(), []
@@ -391,6 +374,15 @@ def main():
         t = time.time()
         m = mesh(shape, args.h * hf)
         mat, cases = cases(m) if callable(cases) else cases
+        if args.dry:  # check that every support and load lands on faces, without solving
+            for case in cases:
+                n_fix = len(facets(m, case.fixed))
+                n_loads = [len(facets(m, sel)) for sel, _ in case.loads]
+                ok = n_fix > 0 and all(n_loads)
+                rows.append((label, case.name, ok))
+                print(f"  {'ok  ' if ok else 'FLAG'} {case.name:40s} supports {n_fix} facets, loads {n_loads}", flush=True)
+            print(f"{label}: {m.t.shape[1]} tets, {mat}, mesh {time.time() - t:.0f} s", flush=True)
+            continue
         model = Model(m, mat)
         print(f"{label}: {m.t.shape[1]} tets, {mat}, mesh + assembly {time.time() - t:.0f} s", flush=True)
         for case in cases:
