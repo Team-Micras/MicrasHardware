@@ -60,9 +60,9 @@ class FanParams:
     collar_wall: float = 1.2
     collar_h: float = 7.0
     motor_fit: float = 0.05
-    collet_slits: int = 3
-    slit_phase: float = 180.0  # slits at 180/300/60 deg: clear of the legs' roots (130/230)
+    slit_angles: tuple = (60.0, 180.0, 300.0)  # collet slits, deg: clear of the legs' roots (0/130/230)
     slit_w: float = 0.6
+    slit_below: float = 0.0  # how far the slits run below the taper (the legs join the collar up to 0.5 below it)
     taper_l: float = 4.0  # tapered length at the collar top (the body's airbox squeezes it)
     taper: float = 0.35  # radial reduction over taper_l
 
@@ -167,9 +167,10 @@ def mount(p: Params = P, f: FanParams = F):
     ct = h["collar_top"]
     body -= Pos(0, 0, ct - f.taper_l) * (Cylinder(rc + 2, f.taper_l, align=MIN)
                                         - Cone(rc, rc - f.taper, f.taper_l, align=MIN))
-    for i in range(f.collet_slits):
-        body -= Rot(0, 0, f.slit_phase + 360 * i / f.collet_slits) * Pos(rc, 0, ct - f.taper_l - 1.0) * Box(
-            2 * rc, f.slit_w, f.taper_l + 1.0 + 0.01, align=MIN)
+    for a in f.slit_angles:
+        turn = Rot(0, 0, a)
+        body -= turn * Pos(rc, 0, ct - f.taper_l - f.slit_below) * Box(
+            2 * rc, f.slit_w, f.taper_l + f.slit_below + 0.01, align=MIN)
     # motor bore, boss hole
     body -= Pos(0, 0, h["motor"]) * Cylinder((p.motor.d + f.motor_fit) / 2, 30, align=MIN)
     body -= Pos(0, 0, h["plate"] - 1) * Cylinder(p.motor.boss_d / 2 + 0.3, 5, align=MIN)

@@ -12,9 +12,20 @@ dependencies = [
 
 [dependency-groups]
 dev = ["pytest", "pyvista", "magpylib", "matplotlib"]
+# structural checks (tools/fea.py); gmsh from its headless build (the PyPI wheel needs libGLU)
+fea = ["gmsh==4.15.0.dev1+nox", "scikit-fem", "pyamg", "scipy"]
 
 [tool.uv]
 package = false
+default-groups = ["dev", "fea"]
+
+[[tool.uv.index]]
+name = "gmsh-nox"
+url = "https://gmsh.info/python-packages-dev-nox"
+explicit = true
+
+[tool.uv.sources]
+gmsh = { index = "gmsh-nox" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

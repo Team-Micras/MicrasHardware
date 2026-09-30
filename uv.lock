@@ -409,6 +409,14 @@ wheels = [
 ]
 
 [[package]]
+name = "gmsh"
+version = "4.15.0.dev1+nox"
+source = { registry = "https://gmsh.info/python-packages-dev-nox" }
+wheels = [
+    { url = "https://gmsh.info/python-packages-dev-nox/gmsh/gmsh-4.15.0.dev1+nox-py2.py3-none-manylinux_2_24_x86_64.whl" },
+]
+
+[[package]]
 name = "idna"
 version = "3.20"
 source = { registry = "https://pypi.org/simple" }
@@ -668,6 +676,13 @@ dev = [
     { name = "pytest" },
     { name = "pyvista" },
 ]
+fea = [
+    { name = "gmsh" },
+    { name = "pyamg" },
+    { name = "scikit-fem" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -683,6 +698,12 @@ dev = [
     { name = "matplotlib" },
     { name = "pytest" },
     { name = "pyvista" },
+]
+fea = [
+    { name = "gmsh", specifier = "==4.15.0.dev1+nox", index = "https://gmsh.info/python-packages-dev-nox" },
+    { name = "pyamg" },
+    { name = "scikit-fem" },
+    { name = "scipy" },
 ]
 
 [[package]]
@@ -1051,6 +1072,32 @@ wheels = [
 ]
 
 [[package]]
+name = "pyamg"
+version = "5.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/54/f1/e7f0466af00dc59b6592f03499a8ca1c839d5265a045d0b010b574f67143/pyamg-5.3.0.tar.gz", hash = "sha256:5323d0f1a4cd999be246a90d580c9e1e9b584b98887f6298d397611087ef860b", size = 4161140, upload-time = "2025-08-24T02:06:10.133Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f5/02/2f5bb76d617a6932c832b71947d57a304a418f95476ff4ea72708b1bac17/pyamg-5.3.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:82619094609688d715871bce25eadfe425156242ea2ce1d73388b8af85e75f9d", size = 1838059, upload-time = "2025-08-24T02:05:38.717Z" },
+    { url = "https://files.pythonhosted.org/packages/dc/c8/3dfa1198a989f72d628675f81025d80863fc9759bfcc2c2eb1c0bde465ce/pyamg-5.3.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:cd91201d246824bdf2ff16129db48b764cf10e5b45f1fd0b4af537591be1091c", size = 1752381, upload-time = "2025-08-24T02:05:40.378Z" },
+    { url = "https://files.pythonhosted.org/packages/af/6a/dea72ea86c94aadab83a1ff8bd4198897a350325911749fb26a2a61271bd/pyamg-5.3.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8701ed806ed2195ff9cdad6f2b80d2b0a4d5b652d0232c0ebc43c677db88662f", size = 1880268, upload-time = "2025-08-24T02:05:42.018Z" },
+    { url = "https://files.pythonhosted.org/packages/48/83/88bbcfab2c40d1cb04baab71f8c8d08c00aeab3202a4ea0e81b365c07311/pyamg-5.3.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:14d921d6f09eb9b4b3e6c22e1ef19ec27ddd193cf406dbec43ccadc4baf2a2f9", size = 2921913, upload-time = "2025-08-24T02:05:43.72Z" },
+    { url = "https://files.pythonhosted.org/packages/01/16/814d99c2d2bb52617b0848a62b5b4dad0cc381096ee65f5a382fe356d414/pyamg-5.3.0-cp311-cp311-win32.whl", hash = "sha256:d43fac3c4b5f2195716d1630bf7e7123bd1cc40f61d78cb8f257876a9816eb6a", size = 1555492, upload-time = "2025-08-24T02:05:45.307Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/7f/3e724b274f4dce9934f05f5df76ef17b4312dbffda11cb24b37ba47ada39/pyamg-5.3.0-cp311-cp311-win_amd64.whl", hash = "sha256:6aff801a44a5eac40ffc171e326467daa571ddc93511db7c35a17150b8bed77a", size = 1673450, upload-time = "2025-08-24T02:05:46.948Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/6f/603ade45abb6ef8fdc40884cb246733efe110db2563c54fd19f7dc240832/pyamg-5.3.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:661f510311fbfa03b8b317ce9cdb6602902321dd936bcc975ee94bfe43eacb72", size = 1852410, upload-time = "2025-08-24T02:05:48.601Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/c4/ae346f844d4e08a15b9178707ced39de3f92c4e1b0447d0a9c5ccd24eaac/pyamg-5.3.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:d7d38303310e8551ae737898577c6ec69a1ee0fa4baf95f525c86f0071d94260", size = 1763595, upload-time = "2025-08-24T02:05:50.55Z" },
+    { url = "https://files.pythonhosted.org/packages/db/45/1c03a50699d1ce96f5a3f54755c3bdd575e459f8ba2c66eba3365881584c/pyamg-5.3.0-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:2a69c7974b26b1d5cd5bc0e371c565239199e9032b2ceb97190d492cd6498367", size = 1899545, upload-time = "2025-08-24T02:05:52.522Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/16/d703720aeaf57eca57867993b57d969ed1bc9675a93c82606663587aa285/pyamg-5.3.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:4a6de101435d11645293f83b23c22830c372100d13e6d0bcb8d1abd3e92c88c8", size = 2943354, upload-time = "2025-08-24T02:05:54.065Z" },
+    { url = "https://files.pythonhosted.org/packages/79/84/cefaabc44798ba7df2e806f4eb06ea435fe627886b40f312d263aaa7b76f/pyamg-5.3.0-cp312-cp312-win32.whl", hash = "sha256:0561b942b7b8a35700842077a2b6a228510ae8fcc402862bd3f60dc7d2cd75f4", size = 1563969, upload-time = "2025-08-24T02:05:55.662Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/8b/ff8c56c1f7a7997c7988c84bc55bc34b336b862531fbf88d3a8c5aa3fe5f/pyamg-5.3.0-cp312-cp312-win_amd64.whl", hash = "sha256:dd832b392314c5d4dbb6464f7ba8d788694d253a51b9809af8ade4886d24565f", size = 1681747, upload-time = "2025-08-24T02:05:57.421Z" },
+]
+
+[[package]]
 name = "pygltflib"
 version = "1.16.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1227,6 +1274,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/cf/0e/faf7c7e36630561e3e9611730c47510cd972dd5fde8f95941ff78f76accd/rich_rst-2.2.0.tar.gz", hash = "sha256:b1e6a67f8f694a6f36035624bf73e2b1a0a4be13edaf3ba5e654d9758b61073a", size = 326270, upload-time = "2026-09-27T19:12:42.163Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/4e/716b42bf066e180c1235783b46f095a5d871d05dca7006d2295aac29c491/rich_rst-2.2.0-py3-none-any.whl", hash = "sha256:1ea1c43813dc4a8d86475fce27ffb74e0ada3d4656c9f8130ba2a59868055fe9", size = 279274, upload-time = "2026-09-27T19:12:40.548Z" },
+]
+
+[[package]]
+name = "scikit-fem"
+version = "12.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a7/5f/77643ece20e33a770fdfb6cafb9b2a5a1dd51b8a1ee1d3dc5bac8c72bdfa/scikit_fem-12.0.2.tar.gz", hash = "sha256:0a38764cdb93411c5a994451c22c1da07808ebabf920f462c6253f78f5703f8a", size = 130353, upload-time = "2026-06-05T20:45:50.903Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5b/13/d46cf943bd1b04b1b010094eb08493d6660c99c49652fa46cf7c3bf36ab5/scikit_fem-12.0.2-py3-none-any.whl", hash = "sha256:34cd891f80072c0c1eb759a2371e82f0eeec91ff7c08acab96d27b6edbbe1b05", size = 178478, upload-time = "2026-06-05T20:45:49.084Z" },
 ]
 
 [[package]]

@@ -24,6 +24,7 @@ class FrameParams:
     wall_t: float = 0.9  # box walls (2 perimeters at 0.45)
     pack_clear: float = 0.3
     post_d: float = 5.6
+    post_flare: float = 1.5  # 45 deg flare where a post meets the floor
     boss_d: float = 5.6  # around an M2 insert
     gill_w: float = 1.8  # vertical gill slots in the long walls
     gill_pitch: float = 3.6
@@ -39,7 +40,8 @@ class FrameParams:
     # needs 0.9 of it
     insert_d: float = 3.1  # heat-set insert hole in PETG (M2x2, OD 3.2)
     lid_boss_off: float = 1.9  # lid screw axes outside the front and rear walls (0.8 PETG to the cells)
-    floor_band: float = 6.0  # solid floor band under each body screw (the rest of the floor is ribs)
+    floor_band: float = 9.0  # solid floor band under each body screw (the rest of the floor is ribs; tools/fea.py)
+    side_band: float = 2.5  # solid floor strip inside each side wall (it holds the wall's foot in a side crash)
     lid_boss_h: float = 5.0  # full-radius height below the box top (insert + screw tip), then a 45 deg taper
     blend_r: float = 1.5  # fillet between the boss and the wall (plan view)
     gills: bool = False  # vertical gill slots in the box walls (lighter; off for the clean faceted look)
@@ -115,6 +117,9 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
     for i in range(n_rib):
         yc = (i - (n_rib - 1) / 2) * fr.rib_pitch
         body += Pos(cx, yc, z0) * Box(x1 - x0 - fr.wall_t, fr.wall_t, fr.floor_t, align=MIN)
+    for sy in (1, -1):
+        body += Pos(cx, sy * (y1 - fr.wall_t), z0) * Box(x1 - x0 - fr.wall_t, fr.side_band, fr.floor_t,
+                                                     align=(Align.CENTER, Align.MAX if sy > 0 else Align.MIN, Align.MIN))
     # full-height walls on all four sides
     outer = Pos(cx, 0, z1) * extrude(RectangleRounded(x1 - x0, y1 - y0, fr.corner_r), zt - z1)
     inner = Pos(cx, 0, z1) * extrude(RectangleRounded(x1 - x0 - 2 * fr.wall_t, y1 - y0 - 2 * fr.wall_t,
@@ -153,6 +158,8 @@ def frame(p: Params = P, fr: FrameParams = FR, d=drive.D, f=fan.F):
         body += Pos(bx, by, z0) * Cylinder(fr.post_d / 2 + 0.6, fr.floor_t, align=MIN)
         if btop < z0:  # post down to a lower boss, screwed through its floor
             body += Pos(bx, by, btop) * Cylinder(fr.post_d / 2, z0 - btop, align=MIN)
+            # flared into the floor (the post's foot was the peak stress in a drop, tools/fea.py)
+            body += Pos(bx, by, z0) * Cone(fr.post_d / 2, fr.post_d / 2 + fr.post_flare, fr.post_flare, align=MAX)
             body -= Pos(bx, by, btop + fr.floor_t) * drive.countersunk(d, depth=5, up=40)
         else:
             body -= Pos(bx, by, z1) * drive.countersunk(d, depth=5, up=40)
