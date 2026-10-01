@@ -22,7 +22,7 @@ It slides on from the front along the look direction; a drop of glue on the base
 from dataclasses import dataclass
 from math import atan2, degrees
 
-from build123d import (Align, Box, Circle, Compound, Cylinder, Plane, Polyline, Pos, Rectangle, Rot, extrude, make_face,
+from build123d import (Align, Box, Circle, Compound, Cylinder, Plane, Polygon, Polyline, Pos, Rectangle, Rot, extrude, make_face,
                        make_hull, offset)
 
 from . import layout
@@ -64,6 +64,7 @@ class FrontParams:
     slot_lead: float = 0.6  # lead-in flare at the slot mouths
     leg_gap: float = 0.3  # side walls to the legs
     side_wall: float = 0.8  # the fork's side walls (above the board, so they may reach past the outline)
+    key_cover: float = 0.5  # wall over the keyway
     key_fit: float = 0.1  # around the receiver's tab (1.2 max wide): its roll is then held to about +-3 deg
 
 
@@ -106,12 +107,14 @@ def _bore_and_ribs(led: Seat, u_front, fp: FrontParams):
     return bore, ribs
 
 
-def _keyway(led: Seat, key, u_front, fp: FrontParams):
-    """Slot for a flange tab, from the flange back to the front (the cap slides over the tab)."""
+def _keyway(led: Seat, key, u_front, fp: FrontParams, grow=0.0, u_end=None):
+    """Slot for a flange tab, from the flange back to the front (the cap slides over the tab). grow > 0 gives
+    the cover over it (a wall all round the slot), ending at u_end."""
     dv, dz = key.dir
-    w, reach = key.w_max + 2 * fp.key_fit, key.dist_max + fp.key_fit
+    w, reach = key.w_max + 2 * fp.key_fit + 2 * grow, key.dist_max + fp.key_fit + grow
+    u1 = u_front + 1 if u_end is None else u_end
     return Pos(led.flange[0] - 0.01, 0, led.z) * Rot(degrees(atan2(-dv, dz)), 0, 0) * Box(
-        u_front + 1 - led.flange[0], w, reach, align=(Align.MIN, Align.CENTER, Align.MIN))
+        u1 - led.flange[0], w, reach, align=(Align.MIN, Align.CENTER, Align.MIN))
 
 
 def sensor_cap(sensor, p: Params = P, fp: FrontParams = FP):
@@ -126,6 +129,8 @@ def sensor_cap(sensor, p: Params = P, fp: FrontParams = FP):
     shell = (_along_u(ro_e, e.flange[0], u_front, e.z)
              + extrude(Plane.YZ.offset(r.flange[0]) * section, u_front - r.flange[0])
              + Pos(r.flange[0], 0, 0) * Box(u_front - r.flange[0], 2 * wb, r.z, align=(Align.MIN, Align.CENTER, Align.MIN)))
+    # a wall over the receiver's keyway (the hull alone leaves a 0.1 mm skin there: it would tear or let IR in)
+    shell += _keyway(r, RECEIVER_TAB, u_front, fp, grow=fp.key_cover, u_end=u_front)
     body = shell
     # fork around the four legs, behind the receiver's flange
     z0, z1 = fp.fork_z
@@ -215,6 +220,13 @@ def bumper(p: Params = P, bp: BumperParams = BP):
     # lip over the board top along the straight front edge
     x_edge = max(v.X for v in board.vertices())
     body += Pos(x_edge - bp.lip_w / 2, 0, p.board.top_z) * Box(bp.lip_w + 0.01, 2 * bp.lip_y, bp.lip_t, align=MIN)
+    # its top rises at 45 deg to the band's top: printed top down, the lip would otherwise overhang
+    zl = p.board.top_z + bp.lip_t
+    h = bp.top_z - zl
+    if h > 0:
+        wedge = Polygon((x_edge - bp.lip_w, zl), (x_edge + 0.01, zl), (x_edge + 0.01, bp.top_z),
+                        (x_edge - bp.lip_w + h, bp.top_z), align=None)
+        body += extrude(Plane.XZ * wedge, bp.lip_y, both=True)
     body.label, body.color = "bumper", (0.15, 0.15, 0.17)
     return body
 

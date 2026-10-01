@@ -10,7 +10,7 @@ import numpy as np
 
 from .params import P, Params
 
-DENSITY = {"resin": 1.15e-3, "petg": 1.27e-3, "tpu": 1.21e-3}  # g/mm^3
+DENSITY = {"resin": 1.15e-3, "petg": 1.27e-3, "pla": 1.24e-3, "tpu": 1.21e-3}  # g/mm^3
 
 # Estimates, replace with weighed values.
 MASSES = {

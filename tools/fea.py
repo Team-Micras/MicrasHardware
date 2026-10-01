@@ -9,9 +9,9 @@ Parts carry the inertia of what they hold as forces on their seats, and their ow
 
 The stress reported is von Mises at the 99.9 % volume percentile (the raw peak sits in sharp corners, where
 linear FEA does not converge), against a design strength already knocked down for printing:
-  resin 35 MPa (standard / ABS-like, UTS 35-50), PETG 35 MPa along its layers (0.75 x 47 yield) and 12 MPa of
-  tension across them (0.7 x 18 interlayer adhesion; checked with each part's print orientation), TPU 8.6 MPa.
-Short events need a safety factor of 2, sustained loads 3 (resin and PETG creep). A FLAG means "look here":
+  resin 35 MPa (standard / ABS-like, UTS 35-50), PLA 37 MPa along its layers (0.75 x 50) and 15 MPa of tension
+  across them (PETG 35 and 12; checked with each part's print orientation), TPU 8.6 MPa.
+Short events need a safety factor of 2, sustained loads 3 (resin and PLA creep). A FLAG means "look here":
 the loads are estimates.
 
 Usage: uv run tools/fea.py [part ...] [--h 0.5] [--png]
@@ -45,8 +45,8 @@ OUT = Path(__file__).resolve().parents[1] / "build/fea"
 G = 9.81
 CRASH, DROP = 100 * G, 300 * G  # m/s2
 # E MPa, Poisson, design strength MPa, density g/mm3
-MAT = {"resin": (1800, 0.38, 35, 1.15e-3), "petg": (1500, 0.39, 35, 1.27e-3), "tpu": (26, 0.45, 8.6, 1.21e-3)}
-LAYER = {"petg": 12.0}  # tension across the layers, MPa (FDM)
+MAT = {"resin": (1800, 0.38, 35, 1.15e-3), "petg": (1500, 0.39, 35, 1.27e-3), "pla": (2300, 0.36, 37, 1.24e-3), "tpu": (26, 0.45, 8.6, 1.21e-3)}
+LAYER = {"petg": 12.0, "pla": 15.0}  # tension across the layers, MPa (FDM)
 # build direction (up in the printer) of the FDM parts, in the robot frame (assembly.MATERIALS)
 BUILD = {"basket": np.array((0.0, 0, -1))}  # printed upside down
 
@@ -339,7 +339,7 @@ def basket_cases():
         cases.append(Case("strap pulled tight, 10 N on each lug", any_of(*posts, feet()),
                           [(lambda c, n: lug_bar(c, n, 0), (0, 0, 10.0)), (lambda c, n: lug_bar(c, n, 1), (0, 0, 10.0)),
                            (floor, (0, 0, -20.0))], sf=3.0))
-    return "petg", cases
+    return "pla", cases
 
 
 def bumper_cases(m):

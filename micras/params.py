@@ -148,6 +148,7 @@ class Layout:
     motor_angle_left: float = 180.0  # low, straight behind the axle
     motor_angle_right: float = 112.0  # above the left motor, clears the encoder boards
     backlash_mode: str = "eccentric"  # "eccentric" | "fixed"
+    blocks: str = "split"  # "split" (base + cap) | "solid" (one-piece bearing blocks)
     eccentricity: float = 0.3
     clearance: float = 0.3  # minimum air gap to board components
 

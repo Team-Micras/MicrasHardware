@@ -1,4 +1,4 @@
-"""Battery basket (FDM, PETG): an open box on two posts onto the bearing-block caps, the cells held in by two
+"""Battery basket (FDM, PLA): an open box on two posts onto the bearing-block caps, the cells held in by two
 velcro straps over the top.
 
 The floor is ribs plus a solid band under each screw post and a strip along each side wall (tools/fea.py sized
@@ -7,7 +7,7 @@ straps: each strap runs over the pack and through a window in each wall, and clo
 the floor rest along the drive caps' top edges, so the basket can't pitch about its two posts.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from build123d import Align, Box, Cone, Cylinder, Plane, Polygon, Pos, RectangleRounded, Rot, SlotOverall, extrude
 
@@ -22,6 +22,7 @@ MAX = (Align.CENTER, Align.CENTER, Align.MAX)
 @dataclass(frozen=True)
 class FrameParams:
     floor_t: float = 1.2  # box floor (FDM: 6 layers at 0.2)
+    floor_skin: float = 0.4  # solid skin on the floor's top (the first bridge when printed upside down)
     wall_t: float = 0.9  # box walls (2 perimeters at 0.45)
     pack_clear: float = 0.3
     post_d: float = 5.6
@@ -95,11 +96,14 @@ def floor(p: Params = P, fr: FrameParams = FR, d=drive.D):
     z1 = z0 + fr.floor_t
     x0, x1, y0, y1 = tray_box(p, fr)
     cx = (x0 + x1) / 2
-    # box floor: ribs running front to back (no plate, so no ceiling when printed on the nose plane);
-    # the cells rest on the rib edges
+    # box floor: ribs running front to back, with a thin skin on the cells' side: the basket prints upside down,
+    # and the skin is then one bridge across the box between the end walls (the ribs alone would start as
+    # strips in mid-air); the cells rest on it
     body = Pos(cx, 0, z0) * extrude(RectangleRounded(x1 - x0, y1 - y0, fr.corner_r), fr.floor_t)
     body -= Pos(cx, 0, z0) * extrude(RectangleRounded(x1 - x0 - 2 * fr.wall_t, y1 - y0 - 2 * fr.wall_t,
                                                       fr.corner_r - fr.wall_t), fr.floor_t)
+    body += Pos(cx, 0, z1 - fr.floor_skin) * extrude(RectangleRounded(x1 - x0 - fr.wall_t, y1 - y0 - fr.wall_t,
+                                                                      fr.corner_r - fr.wall_t / 2), fr.floor_skin)
     n_rib = int((y1 - y0) // fr.rib_pitch)
     for i in range(n_rib):
         yc = (i - (n_rib - 1) / 2) * fr.rib_pitch
@@ -130,7 +134,9 @@ def _feet(p: Params = P, fr: FrameParams = FR, d=drive.D):
     """Columns from the floor down onto the caps, their undersides following the cap's top (with a peg for the
     cap's socket where the foot has one)."""
     out = None
-    caps = {side: drive.block(side, p, d)[1] for side in {fs for fs, _, _ in d.basket_feet}}
+    # (from the default blocks: their tops are the same in every variant, so one basket fits them all)
+    pd = replace(p, layout=replace(p.layout, backlash_mode="eccentric", blocks="split"))
+    caps = {side: drive.block(side, pd, d)[-1] for side in {fs for fs, _, _ in d.basket_feet}}
     for side, x, kind in d.basket_feet:
         cap = caps[side]
         y = (1 if side > 0 else -1) * drive.plate_mid_y(side, p, d)
@@ -183,6 +189,8 @@ def basket(p: Params = P, fr: FrameParams = FR, d=drive.D):
         # strap lugs: front and rear, on the centre line
         lug = _lug(fr, fr.strap_w + 4.0)
         body += Pos(x1 - 0.01, 0, z0) * lug + Pos(x0 + 0.01, 0, z0) * lug.mirror(Plane.YZ)
+        # the lugs' ramps end level with the wall tops: the basket prints upside down on them
+        body -= Pos(cx, 0, top) * Box(200, 200, 20, align=MIN)
     else:
         foot = Polygon((0, z0), (fr.foot_t, z0), (fr.foot_t, z1 + fr.foot_h), (0, z1 + fr.foot_h + fr.foot_t),
                        align=None)

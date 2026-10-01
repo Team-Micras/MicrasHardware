@@ -1,6 +1,8 @@
 """Print interferences in the reference layout, including against every board component.
 
 Board components are checked as their bounding boxes (conservative), from the ref/board_boxes.json cache.
+
+Usage: uv run tools/check_layout.py [layout.backlash_mode=fixed] [layout.blocks=solid]
 """
 import sys
 import time
@@ -9,8 +11,10 @@ from pathlib import Path
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Align, Box, Cylinder, Plane, Pos, Rot, extrude, mirror  # noqa: E402
 from micras import checks, drive, fan, frame, front, layout  # noqa: E402
-from micras.params import P  # noqa: E402
+from micras.params import P, override  # noqa: E402
 
+for a in sys.argv[1:]:
+    override(a)
 t = time.time()
 parts = layout.reference(with_board=False)
 printed = drive.all_parts()
@@ -39,21 +43,26 @@ for s in "LR":
     for a, b in [("block_base", "block_cap"), ("block_base", "bearing_inner"), ("block_base", "bearing_outer"),
                  ("block_cap", "bearing_inner"), ("block_cap", "bearing_outer"), ("sleeve", "block_base"),
                  ("sleeve", "block_cap"), ("sleeve", "motor"),
+                 # one-piece blocks (Layout.blocks = "solid")
+                 ("block", "bearing_inner"), ("block", "bearing_outer"), ("sleeve", "block"),
                  # fixed-bore variant (Layout.backlash_mode = "fixed"): the motor sits in the blocks
-                 *((("motor", "block_base"), ("motor", "block_cap")) if P.layout.backlash_mode == "fixed" else ()),
+                 *((("motor", "block_base"), ("motor", "block_cap"), ("motor", "block"))
+                   if P.layout.backlash_mode == "fixed" else ()),
                  # running gaps set by params (stack.lip_gap)
-                 ("wheel_gear", "block_base"), ("wheel_gear", "block_cap"),
+                 ("wheel_gear", "block_base"), ("wheel_gear", "block_cap"), ("wheel_gear", "block"),
                  # assembled on the axle
                  ("magnet_cup", "magnet"), ("magnet_cup", "axle"), ("magnet_cup", "bearing_inner"),
                  ("race_spacer", "axle"), ("race_spacer", "bearing_outer"), ("race_spacer", "wheel_gear"),
                  ("wheel_hub", "axle"), ("wheel_hub", "wheel_gear"), ("wheel_hub", "tire"),
                  ("magnet", "axle"),
                  # running gap set by params (stack.holder_gap)
-                 ("magnet_cup", "block_base"), ("magnet_cup", "block_cap")]:
+                 ("magnet_cup", "block_base"), ("magnet_cup", "block_cap"), ("magnet_cup", "block")]:
         allowed.add(frozenset((f"{a}_{s}", f"{b}_{s}")))
 allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_motor")),
             frozenset(("fan_mount", "block_cap_L")), frozenset(("fan_mount", "block_cap_R")),  # arm tabs on the ears
-            frozenset(("basket", "block_cap_L")), frozenset(("basket", "block_cap_R"))}  # posts on the bosses
+            frozenset(("basket", "block_cap_L")), frozenset(("basket", "block_cap_R")),  # posts on the bosses
+            frozenset(("fan_mount", "block_L")), frozenset(("fan_mount", "block_R")),
+            frozenset(("basket", "block_L")), frozenset(("basket", "block_R"))}
 # the cells rest on the box floor ribs (touching); real overlaps are caught below
 allowed |= {frozenset(("basket", f"cell{i}")) for i in range(3)}
 # the straps lie on the cells and pass through the basket's windows
@@ -121,8 +130,21 @@ for name, part in {**printed, **front_parts, **{k: v for k, v in fan_parts.items
     if not part.is_valid or len(part.solids()) != 1:
         res.append((name, "invalid shape", 0.0, len(part.solids())))
         print("SHAPE", f"{name}: valid {part.is_valid}, {len(part.solids())} solids")
-# base and cap of each block touch at the split by design (allowed above) but must not overlap
+# parts seated in the blocks touch them by design (allowed above) but must not sink into them: the bearings, the
+# sleeves, and the motors in the fixed-bore variant
 for sd in "LR":
+    blocks = [k for k in parts if k.startswith("block") and k.endswith(f"_{sd}")]
+    for k in (f"bearing_inner_{sd}", f"bearing_outer_{sd}", f"sleeve_{sd}", f"motor_{sd}"):
+        if k not in parts:
+            continue
+        for b in blocks:
+            common = parts[k] & parts[b]
+            v = common.volume if common is not None else 0.0
+            if v > 1e-3:
+                res.append((k, b, 0.0, round(v, 3)))
+                print("SEAT ", f"{k} sinks into {b} by {v:.3f} mm3")
+# base and cap of each block touch at the split by design (allowed above) but must not overlap
+for sd in "LR" if P.layout.blocks == "split" else "":
     common = parts[f"block_base_{sd}"] & parts[f"block_cap_{sd}"]
     v = common.volume if common is not None else 0.0
     if v > 1e-3:

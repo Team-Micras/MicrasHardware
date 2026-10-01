@@ -1,0 +1,244 @@
+"""Turn the print files (build/print, from tools/export.py) into files the printers run, with no GUI.
+
+Each plate is laid out here (parts already turned to their print orientation by export.py, copies as in
+assembly.PRINT), then
+  resin:  PrusaSlicer (SLA mode: supports, pad, layer images) -> .sl1 -> UVtools -> .pm4n for the Photon Mono 4
+  FDM:    PrusaSlicer -> .gcode for the Ender 3 V3 SE
+with the profiles in tools/slicing/. Output in build/sliced/:
+  <plate>.3mf          the plate as laid out (open it in PrusaSlicer or Lychee to look at it or change it)
+  <plate>.pm4n         Photon Mono 4 (copy to its USB stick)
+  <plate>.gcode        Ender 3 V3 SE (copy to its SD card)
+
+Plates: calibration, resin, sensor_caps, drive_<sleeve|nosleeve>_<split|solid> (one per drive variant), basket,
+bumper. A plate that doesn't fit the build area is split in two (<plate>_1, <plate>_2).
+
+Usage:
+  uv run tools/slice.py                          # every plate
+  uv run tools/slice.py calibration              # some plates
+  uv run tools/slice.py resin drive_sleeve_split --copy-to E:    # and copy the files to the drive at E:
+Needs prusa-slicer and UVtoolsCmd on the PATH (tools/setup_print_tools.sh installs them).
+"""
+import argparse
+import re
+import shutil
+import subprocess
+import sys
+import zipfile
+from pathlib import Path
+
+import numpy as np
+import pyvista as pv
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, ROOT.as_posix())
+from micras import assembly  # noqa: E402
+
+PRINT = ROOT / "build/print"
+OUT = ROOT / "build/sliced"  # (outside build/print: export.py clears that)
+PROFILES = ROOT / "tools/slicing"
+# printer: (build area x, y, margin, gap between parts' outlines)
+RESIN_BED = (153.4, 87.0, 3.5, 4.0)  # the gap leaves room for the pads' 1.6 mm brims
+FDM_BED = (220.0, 220.0, 10.0, 8.0)
+PM4N_VERSION = 517  # what Lychee 7.5 writes for the Mono 4
+
+
+def plates():
+    """{plate: (kind, profiles, [stl files])}"""
+    out = {}
+    for d in sorted(PRINT.iterdir()):
+        if not d.is_dir():
+            continue
+        files = sorted(d.glob("*.stl"))
+        if d.name == "fdm_pla":
+            out["basket"] = ("fdm", ["ender3v3se.ini", "pla.ini"], files)
+        elif d.name == "fdm_tpu":
+            out["bumper"] = ("fdm", ["ender3v3se.ini", "tpu.ini"], files)
+        else:
+            out[d.name] = ("resin", ["mono4.ini", "resin.ini"], files)
+    return out
+
+
+def load(path):
+    m = pv.read(path).triangulate()
+    v = np.asarray(m.points, dtype=float)
+    t = m.faces.reshape(-1, 4)[:, 1:]
+    return v, t
+
+
+def turn_flat(v):
+    """Turn about z so the longer side runs along x (the beds are widest in x)."""
+    w = v.max(0) - v.min(0)
+    if w[1] > w[0] * 1.05:
+        v = v[:, [1, 0, 2]] * (-1, 1, 1)
+    return v - [*(v.min(0)[:2]), 0]
+
+
+def lay_out(items, bed):
+    """Shelf packing: [(name, verts, tris)] -> plates of [(name, verts, tris, (x, y))]."""
+    bx, by, margin, gap = bed
+    items = sorted(items, key=lambda it: -(it[1].max(0)[1]))
+    out, plate, x, y, row = [], [], margin, margin, 0.0
+    for name, v, t in items:
+        w, d = v.max(0)[:2]
+        if w > bx - 2 * margin or d > by - 2 * margin:
+            sys.exit(f"{name} ({w:.0f} x {d:.0f} mm) doesn't fit the build area")
+        if x + w > bx - margin:  # next shelf
+            x, y, row = margin, y + row + gap, 0.0
+        if y + d > by - margin:  # next plate
+            out.append(plate)
+            plate, x, y, row = [], margin, margin, 0.0
+        plate.append((name, v, t, (x, y)))
+        x += w + gap
+        row = max(row, d)
+    out.append(plate)
+    return out
+
+
+def centre(plate, bed):
+    """Shift a plate's parts so the group sits in the middle of the bed."""
+    lo = np.min([np.array(p) for *_, p in plate], 0)
+    hi = np.max([np.array(p) + v.max(0)[:2] for _, v, _, p in plate], 0)
+    shift = (np.array(bed[:2]) - (hi - lo)) / 2 - lo
+    return [(n, v, t, tuple(np.array(p) + shift)) for n, v, t, p in plate]
+
+
+def write_3mf(plate, path):
+    """Plain 3MF (core spec): one object and one build item per placed part."""
+    objs, items, ids = [], [], {}
+    for i, (name, v, t, (x, y)) in enumerate(plate):
+        name = f"{name}_{i}"  # each copy its own object (PrusaSlicer 2.9.4's SLA mode can crash on instances)
+        if name not in ids:
+            ids[name] = len(ids) + 1
+            vs = "".join(f'<vertex x="{a:.5f}" y="{b:.5f}" z="{c:.5f}"/>' for a, b, c in v)
+            ts = "".join(f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in t)
+            objs.append(f'<object id="{ids[name]}" name="{name}" type="model"><mesh><vertices>{vs}</vertices>'
+                        f'<triangles>{ts}</triangles></mesh></object>')
+        items.append(f'<item objectid="{ids[name]}" transform="1 0 0 0 1 0 0 0 1 {x:.4f} {y:.4f} 0"/>')
+    model = ('<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" '
+             'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">'
+             f'<resources>{"".join(objs)}</resources><build>{"".join(items)}</build></model>')
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.'
+                   'openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/'
+                   'vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/'
+                   'vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>')
+        z.writestr("_rels/.rels", '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.'
+                   'openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" '
+                   'Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>')
+        z.writestr("3D/3dmodel.model", model)
+
+
+def run(cmd):
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    return r.returncode, r.stdout + r.stderr
+
+
+def warnings(log):
+    """PrusaSlicer's warnings with the lines that follow them (they say what the issue is)."""
+    lines = [ln.strip() for ln in log.splitlines()]
+    out = []
+    for i, ln in enumerate(lines):
+        if "warning" in ln.lower():
+            out += [ln] + [x for x in lines[i + 1:i + 4] if x and "=>" not in x]
+    return out
+
+
+def slicer_args(profiles):
+    return [a for prof in profiles for a in ("--load", str(PROFILES / prof))]
+
+
+def slice_resin(name, profiles, src):
+    sl1, pm4n = OUT / f"{name}.sl1", OUT / f"{name}.pm4n"
+    sl1.unlink(missing_ok=True)
+    pm4n.unlink(missing_ok=True)
+    code, log = run(["prusa-slicer", "--export-sla", "--dont-arrange", *slicer_args(profiles), "-o", str(sl1), str(src)])
+    if code != 0 or not sl1.exists():
+        sys.exit(f"PrusaSlicer failed on {name} (exit {code}):\n" + "\n".join(log.splitlines()[-15:]))
+    run(["UVtoolsCmd", "convert", str(sl1), "pm4n", str(pm4n), "-v", str(PM4N_VERSION)])  # (its exit code lies)
+    if not pm4n.exists() or pm4n.stat().st_size == 0:
+        sys.exit(f"UVtools didn't write {pm4n.name}")
+    sl1.unlink()
+    _, props = run(["UVtoolsCmd", "print-properties", str(pm4n)])
+    get = lambda key: (re.search(rf"^{key}: (.+)$", props, re.M) or [None, "?"])[1]
+    secs = float(get("PrintTime")) if get("PrintTime") != "?" else 0
+    warn = warnings(log)
+    return pm4n, f"{get('LayerCount')} layers, {secs / 3600:.1f} h, {float(get('MaterialMilliliters') or 0):.1f} ml" \
+        if get("MaterialMilliliters") != "?" else f"{get('LayerCount')} layers, {secs / 3600:.1f} h", warn
+
+
+def slice_fdm(name, profiles, src):
+    gcode = OUT / f"{name}.gcode"
+    gcode.unlink(missing_ok=True)
+    code, log = run(["prusa-slicer", "--export-gcode", "--dont-arrange", *slicer_args(profiles), "-o", str(gcode), str(src)])
+    if code != 0 or not gcode.exists():
+        sys.exit(f"PrusaSlicer failed on {name} (exit {code}):\n" + "\n".join(log.splitlines()[-15:]))
+    text = gcode.read_text(errors="ignore")
+    t = re.search(r"estimated printing time \(normal mode\) = (.+)", text)
+    g = re.search(r"filament used \[g\] = ([\d.]+)", text)
+    warn = warnings(log)
+    return gcode, f"{t[1] if t else '?'}, {g[1] if g else '?'} g", warn
+
+
+def copy_to(files, target):
+    """Copy to a Windows drive given as "E:" (mounted at /mnt/e, mounting it if needed) or to a directory."""
+    if re.fullmatch(r"[A-Za-z]:", target):
+        letter = target[0].lower()
+        dest = Path(f"/mnt/{letter}")
+        if subprocess.run(["mountpoint", "-q", str(dest)]).returncode != 0:
+            print(f"mounting {letter.upper()}: at {dest} (sudo)")
+            subprocess.run(["sudo", "mkdir", "-p", str(dest)], check=True)
+            subprocess.run(["sudo", "mount", "-t", "drvfs", f"{letter.upper()}:", str(dest)], check=True)
+    else:
+        dest = Path(target)
+    if not dest.is_dir():
+        sys.exit(f"{dest} is not a directory (is the stick plugged in?)")
+    for f in files:
+        shutil.copy(f, dest / f.name)
+        print(f"copied {f.name} -> {dest}")
+    print("eject the drive in Windows before pulling it out")
+
+
+def main():
+    all_plates = plates()
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("plates", nargs="*", help=f"plates to slice (default all): {', '.join(all_plates)}")
+    ap.add_argument("--copy-to", default="", help="drive letter (E:) or directory to copy the sliced files to")
+    args = ap.parse_args()
+    if not all_plates:
+        sys.exit("no print files: run tools/export.py first")
+    for tool in ("prusa-slicer", "UVtoolsCmd"):
+        if not shutil.which(tool):
+            sys.exit(f"{tool} not found: run tools/setup_print_tools.sh")
+    unknown = [p for p in args.plates if p not in all_plates]
+    if unknown:
+        sys.exit(f"unknown plate(s) {unknown}; plates: {', '.join(all_plates)}")
+    OUT.mkdir(parents=True, exist_ok=True)
+    done, report = [], []
+    for name in args.plates or all_plates:
+        kind, profiles, files = all_plates[name]
+        bed = RESIN_BED if kind == "resin" else FDM_BED
+        items = []
+        for f in files:
+            v, t = load(f)
+            v = turn_flat(v)
+            items += [(f.stem, v, t)] * assembly.print_pose(f.stem)[2]
+        laid = lay_out(items, bed)
+        for i, plate in enumerate(laid):
+            pname = name if len(laid) == 1 else f"{name}_{i + 1}"
+            src = OUT / f"{pname}.3mf"
+            write_3mf(centre(plate, bed), src)
+            print(f"{pname}: {len(plate)} parts, slicing ...", flush=True)
+            out, info, warn = (slice_resin if kind == "resin" else slice_fdm)(pname, profiles, src)
+            done.append(out)
+            report.append((pname, out.name, info, warn))
+    print()
+    for pname, fname, info, warn in report:
+        print(f"{fname:32s} {info}")
+        for w in warn:
+            print(f"    {w.strip()}")
+    if args.copy_to:
+        copy_to(done, args.copy_to)
+
+
+if __name__ == "__main__":
+    main()
