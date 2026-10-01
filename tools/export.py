@@ -2,7 +2,7 @@
 
   build/print/<group>/<part>.stl   every printed part, already turned to its print orientation and standing on the
                                    plate (assembly.PRINT), grouped by printer and material:
-                                     resin/        Photon Mono 4 (Anycubic Standard resin)
+                                     resin/        Photon Mono 4 (Anycubic ABS-Like Pro 2)
                                      sensor_caps/  Photon Mono 4, the four wall-sensor caps and five test variants
                                                    (painted black after printing)
                                      calibration/  Photon Mono 4, the fit-test coupon (print it first)

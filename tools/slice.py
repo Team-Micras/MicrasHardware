@@ -16,6 +16,7 @@ Usage:
   uv run tools/slice.py                          # every plate
   uv run tools/slice.py calibration              # some plates
   uv run tools/slice.py resin drive_sleeve_split --copy-to E:    # and copy the files to the drive at E:
+  uv run tools/slice.py calibration --resin standard              # another resin (tools/slicing/resin_<name>.ini)
 Needs prusa-slicer and UVtoolsCmd on the PATH (tools/setup_print_tools.sh installs them).
 """
 import argparse
@@ -42,7 +43,10 @@ FDM_BED = (220.0, 220.0, 10.0, 8.0)
 PM4N_VERSION = 517  # what Lychee 7.5 writes for the Mono 4
 
 
-def plates():
+RESIN = "abs_pro2"  # tools/slicing/resin_<name>.ini
+
+
+def plates(resin=RESIN):
     """{plate: (kind, profiles, [stl files])}"""
     out = {}
     for d in sorted(PRINT.iterdir()):
@@ -54,7 +58,7 @@ def plates():
         elif d.name == "fdm_tpu":
             out["bumper"] = ("fdm", ["ender3v3se.ini", "tpu.ini"], files)
         else:
-            out[d.name] = ("resin", ["mono4.ini", "resin.ini"], files)
+            out[d.name] = ("resin", ["mono4.ini", f"resin_{resin}.ini"], files)
     return out
 
 
@@ -199,11 +203,14 @@ def copy_to(files, target):
 
 
 def main():
-    all_plates = plates()
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("plates", nargs="*", help=f"plates to slice (default all): {', '.join(all_plates)}")
+    ap.add_argument("plates", nargs="*", help="plates to slice (default all)")
+    ap.add_argument("--resin", default=RESIN, help=f"tools/slicing/resin_<name>.ini (default {RESIN})")
     ap.add_argument("--copy-to", default="", help="drive letter (E:) or directory to copy the sliced files to")
     args = ap.parse_args()
+    if not (PROFILES / f"resin_{args.resin}.ini").exists():
+        sys.exit(f"no tools/slicing/resin_{args.resin}.ini")
+    all_plates = plates(args.resin)
     if not all_plates:
         sys.exit("no print files: run tools/export.py first")
     for tool in ("prusa-slicer", "UVtoolsCmd"):

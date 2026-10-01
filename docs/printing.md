@@ -14,13 +14,14 @@ tools/capped.sh uv run tools/slice.py calibration --copy-to E:   # one plate, co
 
 ## 1. Calibration print (once, before any part)
 
-One resin print, `build/sliced/calibration.pm4n` (48 min, 17 ml). It holds every fit the robot uses at a
+One resin print, `build/sliced/calibration.pm4n` (about 50 min, 19 ml). It holds every fit the robot uses at a
 range of clearances, so the parts can be printed right the first time. The fits it measures belong to this resin
-at this exposure (Anycubic Standard, 2.8 s): change either and it has to be printed again.
+at this exposure (Anycubic ABS-Like Pro 2, 3.0 s): change either and it has to be printed again. (A first
+coupon in Anycubic Standard, `--resin standard`, tests the pipeline but its fits don't carry over.)
 
 ### Before printing
 
-1. Room and resin at 25-30 °C (below 20 °C Standard resin needs about 30 % more exposure). Shake the bottle for
+1. Room and resin at 25-30 °C (below 20 °C the resin needs about 30 % more exposure). Shake the bottle for
    a minute.
 2. Vat: clean film, no cured flakes (run the printer's tank clean if unsure). Fill to well above the minimum line.
 3. Level the plate the way Anycubic describes for the Mono 4 (paper under the plate, home, tighten).
@@ -68,7 +69,7 @@ From the table, the clearances go into the parameters (`DriveParams.solid_bearin
 and the pins and bores give the light bleed. Then export and slice again; the layout checks rerun on the way
 (`tools/check_layout.py` for each drive variant).
 
-## 3. Resin parts (Photon Mono 4, Anycubic Standard)
+## 3. Resin parts (Photon Mono 4, Anycubic ABS-Like Pro 2)
 
 Same preparation and post-processing as the calibration print. The plates, in `build/sliced/`:
 
@@ -117,7 +118,7 @@ tension a little if it skips, and print with the spool where the filament runs f
 
 ## How the settings were chosen
 
-Resin (`tools/slicing/mono4.ini`, `resin.ini`):
+Resin (`tools/slicing/mono4.ini`, `resin_abs_pro2.ini`):
 
 - **Orientation:** every critical bore and pin has its axis vertical (each layer then holds the whole circle at
   the 17 µm pixel resolution; tilted bores come out stepped, oval and skewed by the light that cures through to the
@@ -126,7 +127,8 @@ Resin (`tools/slicing/mono4.ini`, `resin.ini`):
   overhangs can be supported; its bore is reamed.
 - **Supports:** 0.4 mm tips (0.3 is borderline on an FEP film), dense, 3 mm above a pad (the bottom layers'
   over-cure stays in the pad).
-- **Exposure:** Anycubic's chart for Standard resin on the Mono 4 (2.8 s, 5 bottom layers at 30 s), at 25-30 °C.
+- **Exposure:** Anycubic's settings table for ABS-Like Pro 2 on the Mono 4 (3.0 s, 5 bottom layers at 35 s), at
+  25-30 °C. ABS-like resin is tough enough for the press fits, slit clamps and the 0.5 module gears; Standard is brittle.
   Anti-aliasing off (its grey edge pixels mostly don't cure and shift the edges; at 17 µm it gains nothing here).
 - **Motion:** slow lifts (1 mm/s up, 2 mm/s down) so the soft fresh layers and the support tips bend less, and a
   2 s rest before each exposure so the resin film settles (even layers).
