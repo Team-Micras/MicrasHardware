@@ -52,10 +52,17 @@ class DriveParams:
     # ear on each cap for the fan mount's arm: in front of the front cap screw (clear of its head), top level
     # with the left cap's front column; an M2 screw comes down through the arm's tab into a nut trapped under it
     fan_ear: tuple = (10.2, 14.2)  # (x, |y|) of the screw
-    fan_ear_r: float = 2.5
-    fan_ear_t: float = 2.4
+    fan_ear_r: float = 3.3
+    fan_ear_t: float = 2.9
+    fan_tab_r: float = 2.5  # the arm's tab drops into a recess in the ear's top: it locates the fan mount
+    fan_recess: float = 0.5
     nut_af: float = 4.0  # M2 nut across flats, with fit
     nut_t: float = 1.6
+    # the battery basket's feet (frame.py): (side, x) on each cap's outer plate, on its mid-plane; a peg on the
+    # foot drops into a socket in the cap (it places the basket before its screws go in), "pad" feet only rest
+    basket_feet: tuple = ((1, 0.0, "peg"), (1, -15.0, "peg"), (-1, -1.0, "pad"))
+    socket_d: float = 2.2
+    socket_depth: float = 2.0
 
 
 D = DriveParams()
@@ -332,6 +339,12 @@ def _ring_clamp(cap, p, d, angle):
     return cap
 
 
+def plate_mid_y(side, p: Params = P, d: DriveParams = D):
+    """|y| of the outer plate's mid-plane."""
+    rp = d.insert_d / 2 + d.pillar_wall
+    return (cap_screws(side, p, d)[0][1] - rp + housing_span(p)[1]) / 2
+
+
 def fan_ear_top(p: Params = P, d: DriveParams = D):
     return p.axle_z + p.bearing.od / 2 + d.wall
 
@@ -351,6 +364,7 @@ def _fan_ear(cap, side, p, d):
     rp = d.insert_d / 2 + d.pillar_wall
     edges = (Pos(sx, sy) * Circle(rp - 0.05)).edges() + (Pos(tx, ty) * Circle(d.fan_ear_r)).edges()
     cap = cap.fuse(Pos(0, 0, zt - d.fan_ear_t) * extrude(make_hull(edges).face(), d.fan_ear_t)).clean()
+    cap -= Pos(tx, ty, zt - d.fan_recess) * Cylinder(d.fan_tab_r + 0.1, 5, align=MIN)
     cap -= Pos(tx, ty, zt - d.fan_ear_t - 1) * Cylinder(d.screw_clear_d / 2, d.fan_ear_t + 2, align=MIN)
     cap -= Pos(tx, ty, zt - d.fan_ear_t - 0.01) * nut_trap(d, d.nut_t + 0.01)
     cap -= Pos(sx, sy, p.axle_z + d.screw_l - d.insert_l) * countersunk(d, depth=0.1)
@@ -409,6 +423,12 @@ def block(side, p: Params = P, d: DriveParams = D):
     if side < 0 and p.layout.backlash_mode == "eccentric":
         cap = _ring_clamp(cap, p, d, angle)
     cap = _fan_ear(cap, side, p, d)
+    # sockets for the basket's pegs, straight down into the plate's top
+    for fs, fx, kind in d.basket_feet:
+        if fs == side and kind == "peg":
+            fy = plate_mid_y(side, p, d)
+            top = (cap & Pos(fx, fy, 0) * Box(0.2, 0.2, 100, align=MIN)).bounding_box().max.Z
+            cap -= Pos(fx, fy, top - d.socket_depth) * Cylinder(d.socket_d / 2, 10, align=MIN)
     if side < 0:
         base = mirror(base, Plane.XZ)
         cap = mirror(cap, Plane.XZ)
@@ -462,8 +482,6 @@ class WheelParams:
     rim: float = 0.8  # tire seat thickness
     web: float = 0.8  # disc joining rim and boss (on the gear side, glued to the gear face)
     boss_d: float = 4.0
-    lip_h: float = 0.3  # small outer lip that keeps the tire from walking off
-    lip_w: float = 0.5
     axle_fit: float = 0.03  # diametral clearance on the axle (magnet cup and hub are glued; the thin resin
     # bosses would split on a press fit)
 
@@ -496,10 +514,18 @@ def wheel_hub(side, p: Params = P, w: WheelParams = W):
     y0 = p.gear_y + p.gears.wheel_w
     y1 = p.tire_outer_y
     r = p.hub_d / 2
-    hub = along_y(r, y0, y1) - along_y(r - w.rim, y0 + w.web, y1 + 1)
-    # lip just outboard of the tire, an open ring (a solid disc would close the drum)
-    hub += along_y(r + w.lip_h, y1, y1 + w.lip_w) - along_y(r - w.rim, y1 - 1, y1 + w.lip_w + 1)
-    hub += along_y(w.boss_d / 2, y0, y1)
+    wh = p.wheel
+    # web glued to the gear face, inside the pinion's tip circle (the pinion's face is flush with the gear's)
+    r_pin = p.gears.center_distance - p.gears.tip_d(p.gears.pinion_z) / 2
+    r_web = r_pin - 0.3
+    hub = along_y(r_web, y0, y0 + w.web)
+    # drum and the tire's channel (the seat between two flanges; the tire is stretched over the outer one),
+    # clear of the gear face
+    ya = y0 + wh.hub_relief
+    drum = along_y(r, ya, y1) + along_y(r + wh.flange_h, ya, ya + wh.flange_in)
+    drum += along_y(r + wh.flange_h, y1, y1 + wh.flange_out)
+    drum -= along_y(r_web - 0.3, ya - 1, y1 + wh.flange_out + 1)  # open drum (a closed one would trap air)
+    hub += drum + along_y(w.boss_d / 2, y0, y1)
     hub -= along_y((p.wheel.axle_d + w.axle_fit) / 2, 0, 40)
     return _side(Pos(0, 0, p.axle_z) * hub, side, "wheel_hub", (0.95, 0.95, 0.95))
 

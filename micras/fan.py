@@ -186,8 +186,10 @@ def mount(p: Params = P, f: FanParams = F, d=None):
                        align=None)
         plane = Plane(origin=(x0, y0, 0), x_dir=(dx, dy, 0), z_dir=(dy, -dx, 0))
         body += extrude(plane * side, f.arm_t / 2, both=True)
-        body += Pos(dx, dy, zt) * Cylinder(d.fan_ear_r, f.tab_t, align=MIN)
-        body -= Pos(dx, dy, zt + f.tab_t) * countersunk(d, depth=5, up=10)
+        # the tab sits in the ear's recess (it locates the mount before the screws go in)
+        zr = zt - d.fan_recess
+        body += Pos(dx, dy, zr) * Cylinder(d.fan_tab_r, zt + f.tab_t - zr, align=MIN)
+        body -= Pos(dx, dy, zr + f.tab_t) * countersunk(d, depth=5, up=10)
     # clamp at the front, over the leg: a split through the collar's top and two ears with a crosswise screw
     t1, t2 = f.clamp_ear_t
     z0 = ct - f.clamp_h

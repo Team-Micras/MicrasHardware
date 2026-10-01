@@ -100,6 +100,14 @@ class Wheel:
     recess: float = 0.5  # tire outer face inside the board edge
     gear_gap_min: float = 0.3  # wheel gear to notch inner face, minimum
     axle_d: float = 2.0
+    # the hub holds the tire in a channel (no glue): a flange each side, flange_h above the seat (about half the
+    # stretched tire, so the tread stays proud of them); the outer one ends at the board edge
+    flange_h: float = 0.8
+    flange_in: float = 0.6
+    flange_out: float = 0.5
+    # the pinion's outer face is flush with the gear's: the hub's drum and flanges stand this far off the gear
+    # face (only its glued web, inside the pinion's tip circle, touches the gear)
+    hub_relief: float = 0.35
 
     def stretched_t(self, hub_d):
         """Tire wall after stretching onto the hub (incompressible, equal biaxial thinning)."""
@@ -130,7 +138,7 @@ class Battery:
     cell_mass: float = 6.0
     arrangement: str = "edge"  # "pyramid" | "edge" | "flat" | "stack" (tools/battery_study.py)
     gap: float = 0.3
-    x: float = -8.58  # pack centre (tools/mass_report.py: CoM over the axle)
+    x: float = -9.52  # pack centre (tools/mass_report.py: CoM over the axle)
     floor_z: float = 30.0  # bottom of the cells (tray floor top)
 
 
@@ -219,7 +227,7 @@ class Params:
 
     @property
     def tire_w(self):
-        return self.tire_outer_y - (self.gear_y + self.gears.wheel_w)
+        return self.tire_outer_y - (self.gear_y + self.gears.wheel_w) - self.wheel.hub_relief - self.wheel.flange_in
 
     @property
     def track(self):

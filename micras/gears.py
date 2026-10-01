@@ -58,3 +58,31 @@ def pinion(pg_: PrintedGears = PG, p: Params = P):
 
 def wheel_gear(pg_: PrintedGears = PG, p: Params = P):
     return _gear(p.gears.wheel_z, p.gears.wheel_w, pg_.wheel_bore, "gear_wheel", pg_, p)
+
+
+def placed(side, pg_: PrintedGears = PG, p: Params = P):
+    """{"wheel_gear_X": ..., "pinion_X": ...} in the robot frame, where the layout puts the bought gears, with the
+    teeth in mesh (for the viewer and renders; the layout's clash checks keep the tip-circle stand-ins)."""
+    import numpy as np
+    from build123d import Rot
+    g = p.gears
+    s = 1 if side > 0 else -1
+    tag = "L" if side > 0 else "R"
+    mx, mz = p.motor_axis(side)
+    # local frame (purchased.spur): axis +Z, outer face at z=0; Rot(-90 * s, 0, 0) takes it into the robot,
+    # local y going to robot -z (left) or +z (right)
+    target = np.array([mx, -s * (mz - p.axle_z), 0.0])
+    w = spec(g.wheel_z, g.wheel_w, pg_, p)
+    pn = spec(g.pinion_z, g.pinion_w, pg_, p)
+    pn.mesh_to(w, target_dir=target / np.linalg.norm(target))
+    out = {}
+    for gear, bore, y_outer, name in ((w, pg_.wheel_bore, p.gear_y + g.wheel_w, "wheel_gear"),
+                                      (pn, pg_.pinion_bore, p.pinion_y, "pinion")):
+        h = g.wheel_w if gear is w else g.pinion_w
+        cx, cy = gear.center[:2]
+        part = Pos(0, 0, -h) * gear.build_part()
+        part -= Pos(cx, cy, 0) * Cylinder(bore / 2, 2 * h + 2)
+        part = Pos(0, s * y_outer, p.axle_z) * Rot(-90 * s, 0, 0) * part
+        part.label, part.color = f"{name}_{tag}", (0.85, 0.7, 0.3)
+        out[part.label] = part
+    return out

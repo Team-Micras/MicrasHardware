@@ -54,7 +54,10 @@ else:  # the real populated board from ref/board.step, every component as modell
     board = layout.board()
 # one group per assembly (drive left/right, fan, front, battery), like the board's components
 grouped = []
+from micras import gears  # noqa: E402
+real = {**gears.placed(1), **gears.placed(-1)}  # real teeth, in mesh, instead of the layout's tip circles
 for group, parts in assembly.groups().items():
+    parts.update({k: v for k, v in real.items() if k in parts})
     for name, shape in parts.items():
         shape.label = name
     grouped.append(Compound(children=list(parts.values()), label=group))

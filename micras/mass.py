@@ -74,8 +74,8 @@ def fixed_items(p: Params = P, printed=None, fan_z=None, placeholders=True, mate
 
         Item("wires", M["wires"], (-10, 0, 15)),
     ]
-    from .frame import FR, box_top
-    items += [Item(f"velcro_{i}", M["velcro"], (p.battery.x, s * FR.strap_y, box_top(p))) for i, s in enumerate((1, -1))]
+    from .frame import box_top, straps
+    items += [Item(f"velcro_{i}", M["velcro"], (p.battery.x, 0.0, box_top(p))) for i in range(len(straps(p)))]
     if placeholders:
         items += [Item("front", M["front"], M["front_com"], box_izz(M["front"], 20, 50)),
                   Item("spine", M["spine"], M["spine_com"])]

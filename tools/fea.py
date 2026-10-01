@@ -253,9 +253,9 @@ def fan_mount_cases(m):
     """The yoke: held at its front foot (on the MCU) and at the two tabs on the drive caps' ears."""
     zmin, zmax = m.p[2].min(), m.p[2].max()
     cx, cy = fan.centre()
-    zt, (tx, ty) = drive.fan_ear_top(), drive.D.fan_ear
+    zt, (tx, ty) = drive.fan_ear_top() - drive.D.fan_recess, drive.D.fan_ear
     foot = lambda c, n: (c[2] < zmin + 0.05) & (n[2] < -0.9)
-    tabs = lambda c, n: ((np.hypot(c[0] - tx, np.abs(c[1]) - ty) < drive.D.fan_ear_r + 0.05)
+    tabs = lambda c, n: ((np.hypot(c[0] - tx, np.abs(c[1]) - ty) < drive.D.fan_tab_r + 0.05)
                          & (np.abs(c[2] - zt) < 0.05) & (n[2] < -0.9))
     fixed = any_of(foot, tabs)
     bore = lambda c, n: ((np.hypot(c[0] - cx, c[1] - cy) < 5.0) & (np.abs(n[2]) < 0.2) & (c[2] > zmax - 6)
@@ -292,9 +292,9 @@ def sensor_cap_cases(name):
 
 
 def basket_cases():
-    """On its two posts (their feet on the cap bosses) and its saddle ribs, which rest on the caps' top edges:
-    only the ribs that the load presses down count (a rib lifting off supports nothing). The cells load the
-    walls and floor; the straps hold them down, so an upside-down landing loads the straps, not the basket."""
+    """On its two posts (their feet on the cap bosses) and its feet, which rest on the caps' tops: only the feet
+    that the load presses down count (a foot lifting off supports nothing). The cells load the walls and floor;
+    the strap holds them down, so an upside-down landing loads the strap, not the basket."""
     x0, x1, y0, y1 = frame.cavity()
     tray = frame.D_TRAY_TOP()
     posts = []
@@ -302,27 +302,44 @@ def basket_cases():
         bx, by, bz = drive.frame_boss(s)
         posts.append(lambda c, n, bx=bx, by=s * by, bz=bz: (np.hypot(c[0] - bx, c[1] - by) < 3.0)
                      & (np.abs(c[2] - bz) < 0.1) & (n[2] < -0.9))
-    rp = drive.D.insert_d / 2 + drive.D.pillar_wall
-    y_rib = (drive.cap_screws(1)[0][1] - rp + drive.housing_span()[1]) / 2
     x_post = np.mean([drive.frame_boss(s)[0] for s in (1, -1)])
 
-    def ribs(sides=(1, -1), x_min=-99.0):
-        return lambda c, n: (np.any([np.abs(c[1] - s * y_rib) < frame.FR.saddle_w / 2 + 0.05 for s in sides], axis=0)
-                             & (c[2] < drive.D.tray_bottom_z - 0.05) & (n[2] < -0.2) & (c[0] > x_min))
+    def feet(sides=(1, -1), x_min=-99.0):
+        sel = []
+        for fs, fx, _ in drive.D.basket_feet:
+            fy = (1 if fs > 0 else -1) * drive.plate_mid_y(fs)
+            if fs in sides and fx > x_min:
+                sel.append(lambda c, n, fx=fx, fy=fy: (np.hypot(c[0] - fx, c[1] - fy) < frame.FR.foot_d / 2 + 0.05)
+                           & (c[2] < drive.D.tray_bottom_z - 0.05) & (n[2] < -0.2))
+        return any_of(*sel)
+    bx0, bx1, _, _ = frame.tray_box()
+    z_under = drive.D.tray_bottom_z
+    s_out = frame.FR.lug_slot[0] + frame.FR.lug_slot[1]  # the bar starts past the slot
+
+    def lug_bar(c, n, k):  # underside of lug k's bar (front, rear)
+        under = (np.abs(c[2] - z_under) < 0.05) & (n[2] < -0.9)
+        return under & [c[0] > bx1 + s_out, c[0] < bx0 - s_out][k]
     inside = lambda c: (c[0] > x0 - 0.1) & (c[0] < x1 + 0.1) & (c[1] > y0 - 0.1) & (c[1] < y1 + 0.1)
     front_wall = lambda c, n: inside(c) & (np.abs(c[0] - x1) < 0.1) & (n[0] < -0.9)
     side_wall = lambda c, n: inside(c) & (np.abs(c[1] - y1) < 0.1) & (n[1] < -0.9)
     floor = lambda c, n: inside(c) & (c[2] < tray + 2.0) & (n[2] > 0.9)
     cells = 18e-3
-    return "petg", [
-        # it tips forward: the ribs in front of the posts bear
-        Case("crash, cells on the front wall", any_of(*posts, ribs(x_min=x_post)), [(front_wall, (cells * CRASH, 0, 0))],
+    cases = [
+        # it tips forward: the feet in front of the posts bear
+        Case("crash, cells on the front wall", any_of(*posts, feet(x_min=x_post)), [(front_wall, (cells * CRASH, 0, 0))],
              (-CRASH, 0, 0)),
-        # it rolls towards +y: that side's rib bears
-        Case("side crash, cells on the side wall", any_of(*posts, ribs((1,))), [(side_wall, (0, cells * CRASH, 0))],
+        # it rolls towards +y: that side's feet bear
+        Case("side crash, cells on the side wall", any_of(*posts, feet((1,))), [(side_wall, (0, cells * CRASH, 0))],
              (0, -CRASH, 0)),
-        Case("drop, cells on the floor", any_of(*posts, ribs()), [(floor, (0, 0, -cells * DROP))], (0, 0, DROP)),
+        Case("drop, cells on the floor", any_of(*posts, feet()), [(floor, (0, 0, -cells * DROP))], (0, 0, DROP)),
     ]
+    if frame.FR.wall_h is not None:
+        # the strap pulled to 5 N loops under each lug's bar (10 N up on each) and presses the cells onto the
+        # floor (20 N down): balanced, sustained
+        cases.append(Case("strap pulled tight, 10 N on each lug", any_of(*posts, feet()),
+                          [(lambda c, n: lug_bar(c, n, 0), (0, 0, 10.0)), (lambda c, n: lug_bar(c, n, 1), (0, 0, 10.0)),
+                           (floor, (0, 0, -20.0))], sf=3.0))
+    return "petg", cases
 
 
 def bumper_cases(m):

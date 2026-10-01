@@ -9,13 +9,13 @@ MATERIALS = {
     "sleeve": ("resin", "Photon Mono 4", "axis vertical, notched rim up; ream the motor bore if tight"),
     "magnet_cup": ("resin", "Photon Mono 4", "axis vertical, magnet pocket up; glue the magnet with the correct pole direction"),
     "race_spacer": ("resin", "Photon Mono 4", "axis vertical; tiny, print several"),
-    "wheel_hub": ("resin", "Photon Mono 4", "axis vertical, web down; glue to the brass gear face"),
+    "wheel_hub": ("resin", "Photon Mono 4", "axis vertical, web down; glue to the gear face; the tire (cut to the channel's width) is stretched over the outer flange into its channel, no glue"),
     "impeller": ("resin", "Photon Mono 4", "tilted 30-45 deg, hub side towards the plate, supports on the backplate and hub only (the flat shroud face is the inlet seal: keep it support-free); ream the bore to 0.97-0.98, balance"),
     "fan_mount": ("resin", "Photon Mono 4", "collar up, supports under the foot, the arms' undersides and the plate; put an M2 nut in the clamp ear's trap"),
     "sensor_cap": ("resin", "Photon Mono 4", "BLACK resin (IR-opaque); front face down (bores vertical, fork up), no supports"),
     "bumper": ("tpu", "Ender 3 V3 SE", "upside down, flat top on the bed (the rounded lower edge then needs no supports); 100 % infill"),
     "gear_": ("resin", "Photon Mono 4", "stand-ins for the brass gears, print 2 of each: axis vertical, lifted on supports (on the plate the first layers flare the teeth); tough / ABS-like resin if available; drill the bore (1.0 pinion, 2.0 wheel) and glue; a pair only, don't mix with a brass gear"),
-    "basket": ("petg", "Ender 3 V3 SE", "upside down (wall tops on the bed), no supports: the floor and the low side walls bridge ~21 mm between the front and rear walls (bridge settings on), the strap windows 10.6 mm"),
+    "basket": ("petg", "Ender 3 V3 SE", "upside down (wall tops on the bed), no supports: the floor bridges ~21 mm between the front and rear walls (bridge settings on); the feet and posts print as short columns, the strap lugs are 45 deg wedges"),
 }
 
 
@@ -51,6 +51,12 @@ def groups():
             group = "drive_" + name[-1]
         out.setdefault(group, {})[name] = shape
     return out
+
+
+def display():
+    """Printed parts plus the real (meshed) gears in place of the bought gears' tip circles: for pictures."""
+    from . import gears
+    return {**printed(), **gears.placed(1), **gears.placed(-1)}
 
 
 def bought():
