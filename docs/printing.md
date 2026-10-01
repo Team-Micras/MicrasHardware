@@ -14,7 +14,7 @@ tools/capped.sh uv run tools/slice.py calibration --copy-to E:   # one plate, co
 
 ## 1. Calibration print (once, before any part)
 
-One resin print, `build/sliced/calibration.pm4n` (about 50 min, 19 ml). It holds every fit the robot uses at a
+One resin print, `build/sliced/calibration.pm4n` (about 30 min, 7 ml), flat on the build plate with no supports. It holds every fit the robot uses at a
 range of clearances, so the parts can be printed right the first time. The fits it measures belong to this resin
 at this exposure (Anycubic ABS-Like Pro 2, 3.0 s): change either and it has to be printed again. (A first
 coupon in Anycubic Standard, `--resin standard`, tests the pipeline but its fits don't carry over.)
@@ -23,25 +23,28 @@ coupon in Anycubic Standard, `--resin standard`, tests the pipeline but its fits
 
 1. Room and resin at 25-30 °C (below 20 °C the resin needs about 30 % more exposure). Shake the bottle for
    a minute.
-2. Vat: clean film, no cured flakes (run the printer's tank clean if unsure). Fill to well above the minimum line.
+2. Vat: clean film, no cured flakes. After any failed print, run the printer's tank clean (it cures a layer over
+   the whole film that you peel off with the debris) or sieve the resin: a cured flake under the plate can
+   puncture the film. Fill to well above the minimum line.
 3. Level the plate the way Anycubic describes for the Mono 4 (paper under the plate, home, tighten).
 4. Copy `calibration.pm4n` to the USB stick and print it. Don't change any setting on the printer.
 
 ### After printing
 
-1. Let it drip for 10 min, then lift the pad off the plate with the spatula.
+1. Let it drip for 10 min, then slide the spatula under the coupon's bars from one end and lift it off the plate
+   gently (it has no supports).
 2. Wash in IPA: two baths of 2-3 min (no more than 6 min in all; long soaks swell the resin).
-3. Cut the supports off at their tips with flush cutters while the part is still soft (don't pull or twist).
-4. Let it dry completely: 30 min, no IPA smell left.
-5. Cure briefly: about 2 min per side (or 3 min on the Wash & Cure's turntable). Over-curing makes it brittle
+3. Let it dry completely: 30 min, no IPA smell left.
+4. Cure briefly: about 2 min per side (or 3 min on the Wash & Cure's turntable). Over-curing makes it brittle
    and shrinks it.
-6. Let it rest a day before measuring (or an hour at 50 °C): resin keeps shrinking a little after the cure.
+5. Let it rest a day before measuring (or an hour at 50 °C): resin keeps shrinking a little after the cure.
 
 ### Reading it
 
 Every tube and slot stands on a tab whose number is its clearance over the nominal size, in
-hundredths of a mm (the size is the diameter, or across the flats for the nuts). Measure 1 mm or more above the
-bottom: the first layers sit on the supports and are a little off.
+hundredths of a mm (the size is the diameter, or across the flats for the nuts). The digits should read normally
+(not mirrored). Measure 1 mm or more above the bottom, and push the test parts in from the top: the first layers
+are over-cured on the plate and a little tight.
 
 Try the real parts and note, for each row:
 

@@ -58,7 +58,8 @@ def plates(resin=RESIN):
         elif d.name == "fdm_tpu":
             out["bumper"] = ("fdm", ["ender3v3se.ini", "tpu.ini"], files)
         else:
-            out[d.name] = ("resin", ["mono4.ini", f"resin_{resin}.ini"], files)
+            extra = ["flat.ini"] if d.name == "calibration" else []  # (flat on the plate, no supports)
+            out[d.name] = ("resin", ["mono4.ini", f"resin_{resin}.ini", *extra], files)
     return out
 
 
