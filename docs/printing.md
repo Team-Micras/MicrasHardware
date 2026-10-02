@@ -116,13 +116,27 @@ The rest of the robot is the same for all of them.
 
 ### Finishing the resin parts
 
-- Glue the M2 inserts with a drop of CA or epoxy (resin is a thermoset: heat-setting cracks it).
-- Magnet cups: the boss that bears on the bearing's inner race is the supported face; lap it flat on fine
-  sandpaper on glass.
-- Race spacers: they're 0.55 mm thick (11 layers, a 0.33 mm wall: cut them off the supports gently). Measure them; if one is thicker, lap it on fine sandpaper on
-  glass. A 2 mm shim washer that clears the outer race works too.
-- Impeller: it prints tilted, so its bore is undersize on purpose: ream it to 0.97-0.98 mm and balance it.
-- Gears: drill the bores to size (1.0 pinion, 2.0 wheel) if the calibration didn't give a direct fit, and glue.
+Every part is turned so that its bores are vertical and its supports land on faces that don't matter; the few
+working faces that must face down are flattened by hand (a minute each: fine sandpaper, 600-1000 grit, on glass,
+figure-of-eight strokes):
+
+- Cut the supports at their tips with flush cutters while the parts are soft, before the cure; the braced supports
+  come away as one piece. Clip any nub flush with a blade.
+- Bearing blocks: look into each bearing bore before fitting a bearing and scrape the ridge's lower face flat (a
+  nub there stops the bearing seating); deburr the housing's inboard end (it runs 0.25 mm from the magnet cup).
+- Sleeves: lap the front face (it rests on the seat's cone).
+- Magnet cups: lap the boss end that bears on the inner race to 3.15 mm overall (short is safe: the magnet only
+  moves away from the chip); deburr the flange face.
+- Wheel hubs: lap the web (it's glued to the gear face).
+- Printed wheel gears: lap the inner face (the race spacer bears on it).
+- Fan mount: clear the nubs on the foot and the tabs' undersides (they set the impeller's 0.3 mm seal gap).
+- Inserts: their holes print sideways in the blocks; dry-fit an insert first, and run a 3.3 mm drill through if
+  tight, then glue it with a drop of CA or epoxy (resin is a thermoset: heat-setting cracks it).
+- Race spacers print on edge (both faces clean); check they're 0.55 mm thick. A 2 mm shim washer that clears the
+  outer race works too.
+- Impeller: it prints tilted, so its bore is undersize on purpose: check the Ø0.9 hole is open, ream it to
+  0.97-0.98 mm and balance it.
+- Gears: the bores are sized from the calibration (press the pinion on, push the wheel gear on); glue them.
 - **Sensor caps:** most black paints let infrared through. Use a carbon-black paint (matte black acrylic or
   enamel with carbon/lamp black pigment, or a black permanent marker for the bores), two thin coats outside and in
   the bores, and check it before fitting: shine the emitter at the receiver through a painted cap wall. The

@@ -11,7 +11,7 @@ all four combinations (it is always drawn for the sleeves), so the fan mount and
 """
 
 from dataclasses import dataclass, replace
-from math import atan2, cos, degrees, radians, sin
+from math import atan2, cos, degrees, radians, sin, tan
 
 from build123d import (Align, Box, Circle, Cone, Cylinder, Line, Plane, Pos, Rectangle, Rot, ThreePointArc, Wire,
                        extrude, make_face, make_hull, mirror, offset)
@@ -152,6 +152,21 @@ def seat_stop(p=P, d=D):
     """|y| of the step at the seat's outboard end: the sleeve's front face rests on it (its lip holds the motor
     at motor_front_y), or without sleeves the motor's own front face."""
     return seat_span(p, d)[1] if p.layout.backlash_mode == "eccentric" else p.motor_front_y
+
+
+def seat_cut(angle, p=P, d=D):
+    """Cutter for a motor seat: the bore, open inboard, ending in a cone (50 deg, so it prints without supports
+    inside the bore) that narrows to the pinion's clearance; the sleeve (or without sleeves the motor's front
+    face) stops on the cone's rim."""
+    sx, sz = seat_axis(angle, p)
+    mx, mz = motor_axis(angle, p)
+    sy0, _ = seat_span(p, d)
+    stop = seat_stop(p, d)
+    r0 = seat_d(p, d) / 2
+    r1 = p.gears.tip_d(p.gears.pinion_z) / 2 + 0.4 - ((sx - mx) ** 2 + (sz - mz) ** 2) ** 0.5  # inside the clearance
+    length = (r0 - r1) * tan(radians(50))
+    cone = Pos(sx, stop - 0.01, sz) * Rot(-90, 0, 0) * Cone(r0, r1, length + 0.01, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    return along_y(r0, sy0 - 1, stop, sx, sz) + cone
 
 
 def motor_axis(angle, p=P):
@@ -300,9 +315,9 @@ def _cut_left_bores(body, p: Params, d: DriveParams, motor_angle):
         body -= along_y(rb, p.bearing_outer_y - p.bearing.w, p.bearing_outer_y, 0, az)
     # room for the magnet cup (rotating)
     body -= along_y(p.magnet.d / 2 + st.holder_wall + st.holder_gap, 0, hy0, 0, az)
-    # motor seat bore, open inboard; it ends in a step that stops the sleeve (or the motor's front face)
+    # motor seat bore, open inboard; its cone stops the sleeve (or the motor's front face)
     stop = seat_stop(p, d)
-    body -= along_y(seat_d(p, d) / 2, sy0 - 1, stop, sx, sz)
+    body -= seat_cut(motor_angle, p, d)
     # clearance for the pinion and the motor can beyond the seat
     body -= along_y(p.gears.tip_d(p.gears.pinion_z) / 2 + 0.4, stop - 0.01, 30, mx, mz)
     body -= along_y(p.motor.d / 2 + 0.4, -30, sy0, mx, mz)
@@ -383,7 +398,7 @@ def _ring_clamp(top, p, d, angle, out=1, y_max=None):
         20, y_hi - y_lo, d.slit, align=(Align.MIN if out > 0 else Align.MAX, Align.CENTER, Align.CENTER))
     top -= Pos(ex, ymid, bz - d.slit / 2) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
     top -= Pos(ex, ymid, bz + ear_h / 2) * countersunk(d, depth=d.screw_l + 0.5)
-    top -= along_y(rb, sy0 - 1, seat_stop(p, d), bx, bz)
+    top -= seat_cut(angle, p, d)
     return top
 
 
@@ -472,7 +487,7 @@ def block(side, p: Params = P, d: DriveParams = D):
     top -= Pos(fx, fy, ftop) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
     top -= Pos(fx, fy, ftop) * Cylinder(d.screw_clear_d / 2, d.frame_screw_depth, align=MAX)
     # re-cut the seat bore in case the boss reached into it
-    top -= along_y(seat_d(p, d) / 2, sy0 - 1, seat_stop(p, d), *seat_axis(angle, p))  # (as the first cut)
+    top -= seat_cut(angle, p, d)  # (as the first cut)
     if side < 0:
         # the raised motor's ring is all above the split: a slit clamp holds the sleeve (or the motor)
         top = _ring_clamp(top, p, d, angle)

@@ -4,12 +4,12 @@ from . import drive, fan, frame, front
 
 # part-name prefix -> (material, printer, orientation / notes)
 MATERIALS = {
-    "block_base": ("resin", "Photon Mono 4", "flat pad face down on the plate; light supports under the lifted body (about 150 mm2, 1.8-3.2 mm tall) and the rounded top; clear the insert holes of burn-in, glue the M2 inserts"),
-    "block_cap": ("resin", "Photon Mono 4", "split face up (bores open upward), supports on the outside; glue inserts; an M2 nut goes in the fan ear's trap before the cap is fitted"),
+    "block_base": ("resin", "Photon Mono 4", "inboard (hidden) face down on supports: bores vertical, the pads and the split face come out as clean walls; glue the M2 inserts"),
+    "block_cap": ("resin", "Photon Mono 4", "inboard (hidden) face down on supports: bores vertical, the split face, fan ear and basket seats come out as clean walls; glue the inserts; an M2 nut goes in the fan ear's trap before the cap is fitted"),
     "block_": ("resin", "Photon Mono 4", "one-piece block: inboard face down (all bores vertical: round), supports on that hidden face; glue the inserts; press the bearings in from either end up to the ridge; an M2 nut goes in the fan ear's trap"),
     "sleeve": ("resin", "Photon Mono 4", "axis vertical, notched rim up; ream the motor bore if tight"),
     "magnet_cup": ("resin", "Photon Mono 4", "axis vertical, magnet pocket up; glue the magnet with the correct pole direction"),
-    "race_spacer": ("resin", "Photon Mono 4", "axis vertical; tiny (11 layers): measure 0.55 thick and lap it on fine sandpaper on glass if thicker; a 2 mm shim washer that clears the outer race also works"),
+    "race_spacer": ("resin", "Photon Mono 4", "on edge (axis horizontal): both faces are clean, the support touches the rim; measure 0.55 thick; a 2 mm shim washer that clears the outer race also works"),
     "wheel_hub": ("resin", "Photon Mono 4", "axis vertical, web down (its vents keep the drum from acting as a suction cup); glue to the gear face; the tire (cut to the channel's width) is stretched over the outer flange into its channel, no glue"),
     "impeller": ("resin", "Photon Mono 4", "tilted 45 deg, hub side towards the plate, supports on the backplate and hub only (the flat shroud face is the inlet seal: keep it support-free); ream the bore to 0.97-0.98, balance"),
     "fan_mount": ("resin", "Photon Mono 4", "collar up, supports under the foot, the arms' undersides and the plate; put an M2 nut in the clamp ear's trap"),
@@ -25,12 +25,14 @@ MATERIALS = {
 # for the left (_L) part (mirrored for _R), or "look" for a sensor cap's look direction; tilt about the printer's
 # x after that, deg; copies to print)
 PRINT = {
-    "block_base": ((0, 0, -1), 0, 1),  # pads down
-    "block_cap": ((0, 0, 1), 0, 1),  # split face up
+    # the blocks stand on their hidden inboard face: every bore vertical, and the faces that seat (the pads on the
+    # board, the split, the fan ear and the basket seats) are walls, not support-scarred down faces
+    "block_base": ((0, -1, 0), 0, 1),
+    "block_cap": ((0, -1, 0), 0, 1),
     "block_": ((0, -1, 0), 0, 1),  # one-piece block: inboard face down, all bores vertical
     "sleeve": ((0, 1, 0), 0, 1),  # notched rim up
     "magnet_cup": ((0, 1, 0), 0, 1),  # magnet pocket up
-    "race_spacer": ((0, 1, 0), 0, 2),  # tiny: a spare
+    "race_spacer": ((0, 0, -1), 0, 2),  # on edge: both faces (they space the bearing and the gear) are clean walls
     "wheel_hub": ((0, -1, 0), 0, 1),  # web down
     "impeller": ((0, 0, 1), 45, 1),  # hub side towards the plate, tilted (the shroud's inside supportable)
     "fan_mount": ((0, 0, -1), 0, 1),  # collar up
