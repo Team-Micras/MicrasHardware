@@ -165,7 +165,7 @@ Resin (`tools/slicing/mono4.ini`, `resin_abs_pro2.ini`):
   overhangs can be supported; its bore is reamed.
 - **Supports:** 0.4 mm tips (0.3 is borderline on an FEP film), dense, 3 mm above a pad (the bottom layers'
   over-cure stays in the pad).
-- **Exposure:** Anycubic's settings table for ABS-Like Pro 2 on the Mono 4 (3.0 s, 5 bottom layers at 35 s), at
+- **Exposure:** Anycubic's settings table for ABS-Like Pro 2 on the Mono 4 (3.0 s; the bottom layers at 45 s x 6, harder than its 35 s x 5, for the pad's grip), at
   25-30 °C. ABS-like resin is tough enough for the press fits, slit clamps and the 0.5 module gears; Standard is brittle.
   Anti-aliasing off (its grey edge pixels mostly don't cure and shift the edges; at 17 µm it gains nothing here).
 - **Motion:** slow lifts (1 mm/s up, 2 mm/s down) so the soft fresh layers and the support tips bend less, and a
