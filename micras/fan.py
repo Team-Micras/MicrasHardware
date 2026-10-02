@@ -59,7 +59,7 @@ class FanParams:
     plate_gap: float = 0.4  # hub top to plate
     collar_wall: float = 1.2
     collar_h: float = 7.0
-    motor_fit: float = 0.05
+    motor_fit: float = 0.09  # slides in, the clamp holds it (calibration: DriveParams.motor_fit)
     # clamp: the collar's top is split at the front, over the front leg, and closed by an M2 screw across two
     # ears (head in one, nut trapped in the other)
     clamp_h: float = 4.0

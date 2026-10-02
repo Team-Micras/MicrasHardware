@@ -67,20 +67,41 @@ is sliced again with them.
 
 ## 2. Set the fits
 
-From the table, the clearances go into the parameters (`DriveParams.solid_bearing_fit`, `motor_fit`, `sleeve_fit`,
-`insert_d`, `nut_af`, `WheelParams.axle_fit`, `PrintedGears.pinion_bore`, `FanParams.motor_fit`, the magnet pocket),
-and the pins and bores give the light bleed. Then export and slice again; the layout checks rerun on the way
-(`tools/check_layout.py` for each drive variant).
+Results of the first coupon in ABS-Like Pro 2 at 3.0 s (2026-10-01): pins Ø2 / Ø5 / Ø8 measured 2.05 / 4.97 / 8.05
+(the scale is right; outsides grow about 0.02-0.03 per side); the bearing presses in at +0.06 and drops in at +0.08;
+the insert goes in at +0.10; the axle pushes through at +0.06 and slides at +0.10; the Ø4 magnet presses in at
++0.04; slots open from 0.30. So holes print about 0.06 small. The fits now in the parameters:
+
+| Fit | Value | From |
+| --- | --- | --- |
+| bearing in a one-piece block (`solid_bearing_fit`) | +0.06 | measured: firm press |
+| motor in sleeve, ring or fan collar (`motor_fit`) | +0.09 | like the bearing's drop-in |
+| sleeve in its seat (`sleeve_fit`) | +0.15 | both printed: hole -0.06, outside +0.05 |
+| insert hole (`insert_d`) | 3.30 | measured |
+| magnet cup, hub, race spacer on the axle (`axle_fit`) | +0.10 | measured: slides (glued) |
+| printed pinion / wheel gear bores | 1.05 / 2.08 | press on the shaft / push on the axle |
+| nut traps (`nut_af`) | 4.05 | hole -0.06 |
+| magnet pockets | +0.04 | measured |
+
+The rows not measured yet (MOT, SLV, SHF, NUT, MG6) are set from the same hole and outside offsets; check them on the
+coupon when you can, and on the parts.
 
 ## 3. Resin parts (Photon Mono 4, Anycubic ABS-Like Pro 2)
 
-Same preparation and post-processing as the calibration print. The plates, in `build/sliced/`:
+Everything fits in two prints (same preparation and post-processing as the calibration print):
 
-| File | What | Notes |
+| File | What | Time, resin |
 | --- | --- | --- |
-| `resin.pm4n` | magnet cups, race spacers, wheel hubs, impeller, fan mount, 2 printed gear pairs | the gears and spacers are tiny: count them off the supports |
-| `sensor_caps.pm4n` | the 4 wall-sensor caps and 5 test caps (1-5 dots: three crush-rib grips, the emitter pitched 1° and 2°) | paint them black (below) |
-| `drive_<variant>.pm4n` | one drive variant's bearing blocks (and sleeves) | print the variant you want to try (below) |
+| `print1_robot.pm4n` | the whole robot's resin parts with the default drive (split blocks, eccentric sleeves): blocks, sleeves, magnet cups, race spacers, wheel hubs, impeller, fan mount, 2 printed gear pairs, the 4 sensor caps and 5 test caps (1-5 dots: three crush-rib grips, the emitter pitched 1° and 2°) | 2.2 h, 31 ml |
+| `print2_drive_variants.pm4n` | the three other drive variants (one-piece blocks with sleeves, split and one-piece blocks without) | 1.9 h, 30 ml |
+
+```sh
+tools/capped.sh uv run tools/slice.py resin sensor_caps drive_sleeve_split --merge print1_robot
+tools/capped.sh uv run tools/slice.py drive_sleeve_solid drive_nosleeve_split drive_nosleeve_solid --merge print2_drive_variants
+```
+
+The parts stand on braced supports (they come off as one piece: cut the tips with flush cutters, don't twist the
+parts off) on a pad whose border is lifted off the plate, so the spatula slides under its edge.
 
 ### The four drive variants
 

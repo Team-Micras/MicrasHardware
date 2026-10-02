@@ -28,19 +28,23 @@ class DriveParams:
     wall: float = 1.2  # around bearing and sleeve bores
     bearing_fit: float = 0.1  # diametral clearance on the bearing OD (the split closes by split_relief)
     sleeve_wall: float = 0.8  # thinnest wall of the eccentric sleeve
-    sleeve_fit: float = 0.1  # diametral clearance sleeve in seat (the split closes by split_relief)
+    # fits from the calibration print (ABS-Like Pro 2 at 3.0 s): holes print about 0.06 small, outsides about 0.05
+    # large; the bearing presses in at +0.06 and drops in at +0.08, the axle slides freely at +0.10
+    sleeve_fit: float = 0.15  # diametral clearance sleeve in seat: turns smoothly (both are printed); the split
+    # closes by split_relief, the one-piece rings clamp
     pillar_wall: float = 1.0  # around the glued cap-screw inserts
     plate_t: float = 2.4  # outer plate skin where it is pocketed from the inboard side
     pocket_rim: float = 1.0  # solid rim around the pockets, along the plate's outline
     pocket_margin: float = 0.8  # pockets stay this far from the rings, screw columns and housing web
     split_relief: float = 0.15  # taken off the cap's split face: tightening the cap clamps bearings and sleeve
-    motor_fit: float = 0.05  # diametral clearance motor in sleeve
+    motor_fit: float = 0.09  # diametral clearance motor in sleeve or ring: slides in (the clamp or the cap holds it;
+    # 0.08 makes two faces of the right no-sleeve block coincide: an invalid solid)
     sleeve_lip: float = 0.6  # front lip that stops the motor axially
     seat_min_y: float = 7.6  # seats stay outboard of the encoder daughterboards
     pad_inset: float = 0.3  # stay inside the silkscreen contact outline
     lift: float = 1.8  # everything except the pads starts this far above the board top
     pad_h: float = 3.0  # contact plate thickness
-    insert_d: float = 3.35  # threaded insert hole in resin (M2x2 OD 3.2, glued in)
+    insert_d: float = 3.30  # threaded insert hole in resin (M2x2 OD 3.2, glued in): goes in without forcing
     insert_l: float = 2.0
     screw_clear_d: float = 2.2
     screw_l: float = 5.0
@@ -61,15 +65,14 @@ class DriveParams:
     fan_ear_t: float = 2.9
     fan_tab_r: float = 2.5  # the arm's tab drops into a recess in the ear's top: it locates the fan mount
     fan_recess: float = 0.5
-    nut_af: float = 4.0  # M2 nut across flats, with fit
+    nut_af: float = 4.05  # M2 nut across flats, with fit (presses in and stays)
     nut_t: float = 1.6
     # the battery basket's feet (frame.py): (side, x) on each cap's outer plate, on its mid-plane; a peg on the
     # foot drops into a socket in the cap (it places the basket before its screws go in), "pad" feet only rest
     basket_feet: tuple = ((1, 0.0, "peg"), (1, -15.0, "peg"), (-1, -1.0, "pad"))
     socket_d: float = 2.2
     socket_depth: float = 2.0
-    solid_bearing_fit: float = 0.02  # one-piece block: diametral clearance on the bearing OD (set it from the
-    # calibration print's BRG row: the hole the bearing presses into with a firm thumb push)
+    solid_bearing_fit: float = 0.06  # one-piece block: the bearing presses in with a firm thumb push (calibration)
 
 
 D = DriveParams()
@@ -212,8 +215,10 @@ def _left_block_solid(p: Params, d: DriveParams, motor_angle):
     # bearing housing and motor seat as one body: the hull of both rings over the length where they
     # overlap; beyond it each continues as its own ring, with flat, solid end faces
     ring_h, ring_s = (0, az, rh), (mx, mz, rs)
-    body += along_y(rh, hy0, hy1, 0, az) + along_y(rs, sy0, sy1, mx, mz)
-    body += _belt((ring_h, ring_s), max(hy0, sy0), min(hy1, sy1))
+    # (fuse: `+` dropped the seat ring's inboard part for some sleeve sizes)
+    for piece in (along_y(rh, hy0, hy1, 0, az), along_y(rs, sy0, sy1, mx, mz),
+                  _belt((ring_h, ring_s), max(hy0, sy0), min(hy1, sy1))):
+        body = body.fuse(piece).clean()
     # web from the housing down towards the pads (over the housing only: nothing next to the encoders)
     lz = b.top_z + d.lift
     body += Pos(0, (hy0 + hy1) / 2, lz) * Box(2 * rh, hy1 - hy0, az - lz, align=MIN)
@@ -366,12 +371,14 @@ def _ring_clamp(top, p, d, angle, out=1, y_max=None):
         hy0, hy1 = housing_span(p)
         y_lo, y_hi = min(sy0, hy0) - 1, max(sy1, hy1) + 1  # through the whole ring and its tapers
     else:
-        ey1, y_lo, y_hi = y_max - 0.3, sy0 - 1, y_max - 0.3  # (the ear as long as the slit: walls round the insert)
+        # the ear runs almost to the slit's end (walls round its insert; ending level with the slit breaks the cut)
+        ey1, y_lo, y_hi = y_max - 0.5, sy0 - 1, y_max - 0.3
     ymid = (sy0 + ey1) / 2
     ex = cx + out * (ro + d.insert_d / 2)  # screw axis, just outside the ring
     ear_h = 2 * d.ear + d.slit
-    xa, xb = bx + out * rb, ex + out * (d.insert_d / 2 + d.wall)
-    top += Pos((xa + xb) / 2, ymid, bz) * Box(abs(xb - xa), ey1 - sy0, ear_h)
+    # the ear starts inside the bore (re-cut below): a face tangent to the bore breaks the union
+    xa, xb = bx + out * (rb - 0.3), ex + out * (d.insert_d / 2 + d.wall)
+    top = top.fuse(Pos((xa + xb) / 2, ymid, bz) * Box(abs(xb - xa), ey1 - sy0, ear_h)).clean()
     top -= Pos(bx + out * (rb - 0.5), (y_lo + y_hi) / 2, bz) * Box(
         20, y_hi - y_lo, d.slit, align=(Align.MIN if out > 0 else Align.MAX, Align.CENTER, Align.CENTER))
     top -= Pos(ex, ymid, bz - d.slit / 2) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
@@ -533,7 +540,7 @@ class WheelParams:
     boss_d: float = 4.0
     vents: int = 4  # through the web (3 x 1.5 trips a PrusaSlicer 2.9.4 crash in its support generator)
     vent_d: float = 1.5
-    axle_fit: float = 0.03  # diametral clearance on the axle (magnet cup and hub are glued; the thin resin
+    axle_fit: float = 0.10  # diametral clearance on the axle: slides freely (magnet cup and hub are glued; the thin resin
     # bosses would split on a press fit)
 
 
@@ -556,7 +563,7 @@ def magnet_cup(side, p: Params = P, w: WheelParams = W):
 def race_spacer(side, p: Params = P, w: WheelParams = W):
     """Spacer between the outer bearing's inner race and the wheel gear."""
     s = along_y(p.stack.boss_d / 2, p.bearing_outer_y, p.gear_y)
-    s -= along_y((p.wheel.axle_d + 0.05) / 2, 0, 40)
+    s -= along_y((p.wheel.axle_d + w.axle_fit) / 2, 0, 40)
     return _side(Pos(0, 0, p.axle_z) * s, side, "race_spacer", (0.9, 0.9, 0.3))
 
 

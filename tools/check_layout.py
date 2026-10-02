@@ -143,6 +143,14 @@ for sd in "LR":
             if v > 1e-3:
                 res.append((k, b, 0.0, round(v, 3)))
                 print("SEAT ", f"{k} sinks into {b} by {v:.3f} mm3")
+# the blocks reach in to the motor seats' inboard end (a union that silently drops the seat ring shows up here)
+for sd in "LR":
+    for k in [k for k in parts if k.startswith("block") and k.endswith(f"_{sd}") and "base" not in k]:
+        bb = parts[k].bounding_box()
+        inner = bb.min.Y if sd == "L" else -bb.max.Y
+        if inner > drive.D.seat_min_y + 0.01:
+            res.append((k, "seat ring missing", 0.0, round(inner, 2)))
+            print("RING ", f"{k} starts at |y| {inner:.2f}, not at the seat's {drive.D.seat_min_y}")
 # base and cap of each block touch at the split by design (allowed above) but must not overlap
 for sd in "LR" if P.layout.blocks == "split" else "":
     common = parts[f"block_base_{sd}"] & parts[f"block_cap_{sd}"]

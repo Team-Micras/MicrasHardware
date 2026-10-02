@@ -26,8 +26,8 @@ class PrintedGears:
     backlash: float = 0.06  # per gear, module units along the line of action: the pair has 0.06 mm (the
     # eccentric sleeves then set the running backlash; they close 0.09 mm of centre distance before binding)
     tip_fillet: float = 0.1  # module
-    pinion_bore: float = 1.0  # motor shaft 1.0: drill 1.0, glue
-    wheel_bore: float = 2.0  # axle 2.0: drill 2.0, glue
+    pinion_bore: float = 1.05  # motor shaft 1.0: prints about 0.06 small, a press fit (calibration); glue
+    wheel_bore: float = 2.08  # axle 2.0: pushes on (calibration: AXL +0.06 pushes through, +0.10 slides); glue
 
 
 PG = PrintedGears()

@@ -17,6 +17,7 @@ Usage:
   uv run tools/slice.py calibration              # some plates
   uv run tools/slice.py resin drive_sleeve_split --copy-to E:    # and copy the files to the drive at E:
   uv run tools/slice.py calibration --resin standard              # another resin (tools/slicing/resin_<name>.ini)
+  uv run tools/slice.py resin sensor_caps drive_sleeve_split --merge robot   # several plates as one print
 Needs prusa-slicer and UVtoolsCmd on the PATH (tools/setup_print_tools.sh installs them).
 """
 import argparse
@@ -78,25 +79,62 @@ def turn_flat(v):
     return v - [*(v.min(0)[:2]), 0]
 
 
-def lay_out(items, bed):
-    """Shelf packing: [(name, verts, tris)] -> plates of [(name, verts, tris, (x, y))]."""
+def rotate90(v):
+    """Quarter turn about z (a rotation, not a mirror), back to x, y >= 0."""
+    v = v[:, [1, 0, 2]] * (-1, 1, 1)
+    return v - [*(v.min(0)[:2]), 0]
+
+
+def lay_out(items, bed, cell=0.5):
+    """Bottom-left packing on an occupancy grid, each part in its better quarter turn:
+    [(name, verts, tris)] -> plates of [(name, verts, tris, (x, y))]. Parts keep `gap` between their outlines
+    and `margin` from the build area's edges."""
     bx, by, margin, gap = bed
-    items = sorted(items, key=lambda it: -(it[1].max(0)[1]))
-    out, plate, x, y, row = [], [], margin, margin, 0.0
+    nx, ny = int((bx - 2 * margin) / cell), int((by - 2 * margin) / cell)
+    items = sorted(items, key=lambda it: -float(np.prod(it[1].max(0)[:2])))
+    plates, grids = [], []
+
+    def place(grid, w, d):
+        """Lowest, then leftmost free spot for a w x d cell block (with the gap around it), or None."""
+        g = int(np.ceil(gap / cell))
+        W, D = int(np.ceil(w / cell)) + g, int(np.ceil(d / cell)) + g
+        if W - g > nx or D - g > ny:
+            return None
+        # free(i, j): the block at (i, j) .. (i + W, j + D), clipped to the grid, is empty
+        pad = np.pad(grid, ((0, g), (0, g)))
+        s = np.pad(pad.cumsum(0).cumsum(1), ((1, 0), (1, 0)))
+        I, J = pad.shape[0] - W + 1, pad.shape[1] - D + 1
+        if I <= 0 or J <= 0:
+            return None
+        occ = s[W:W + I, D:D + J] - s[:I, D:D + J] - s[W:W + I, :J] + s[:I, :J]
+        occ = occ[:nx - (W - g) + 1, :ny - (D - g) + 1]
+        free = np.argwhere(occ.T == 0)  # (j, i): sorted by y, then x
+        return None if len(free) == 0 else (int(free[0][1]), int(free[0][0]), W, D)
+
     for name, v, t in items:
-        w, d = v.max(0)[:2]
-        if w > bx - 2 * margin or d > by - 2 * margin:
-            sys.exit(f"{name} ({w:.0f} x {d:.0f} mm) doesn't fit the build area")
-        if x + w > bx - margin:  # next shelf
-            x, y, row = margin, y + row + gap, 0.0
-        if y + d > by - margin:  # next plate
-            out.append(plate)
-            plate, x, y, row = [], margin, margin, 0.0
-        plate.append((name, v, t, (x, y)))
-        x += w + gap
-        row = max(row, d)
-    out.append(plate)
-    return out
+        best = None
+        for vv in (v, rotate90(v)):
+            w, d = vv.max(0)[:2]
+            for k, grid in enumerate(grids):
+                spot = place(grid, w, d)
+                if spot and (best is None or (k, spot[1], spot[0]) < (best[0], best[2][1], best[2][0])):
+                    best = (k, vv, spot)
+                if spot:
+                    break
+        if best is None:  # a new plate
+            grids.append(np.zeros((nx, ny), dtype=np.int32))
+            plates.append([])
+            for vv in (v, rotate90(v)):
+                spot = place(grids[-1], *vv.max(0)[:2])
+                if spot:
+                    best = (len(grids) - 1, vv, spot)
+                    break
+            if best is None:
+                sys.exit(f"{name} ({v.max(0)[0]:.0f} x {v.max(0)[1]:.0f} mm) doesn't fit the build area")
+        k, vv, (i, j, W, D) = best
+        grids[k][i:i + W, j:j + D] = 1
+        plates[k].append((name, vv, t, (margin + i * cell, margin + j * cell)))
+    return plates
 
 
 def centre(plate, bed):
@@ -208,6 +246,7 @@ def main():
     ap.add_argument("plates", nargs="*", help="plates to slice (default all)")
     ap.add_argument("--resin", default=RESIN, help=f"tools/slicing/resin_<name>.ini (default {RESIN})")
     ap.add_argument("--copy-to", default="", help="drive letter (E:) or directory to copy the sliced files to")
+    ap.add_argument("--merge", default="", help="lay the given plates out together as one print of this name")
     args = ap.parse_args()
     if not (PROFILES / f"resin_{args.resin}.ini").exists():
         sys.exit(f"no tools/slicing/resin_{args.resin}.ini")
@@ -221,6 +260,14 @@ def main():
     if unknown:
         sys.exit(f"unknown plate(s) {unknown}; plates: {', '.join(all_plates)}")
     OUT.mkdir(parents=True, exist_ok=True)
+    if args.merge:
+        jobs = {(all_plates[n][0], tuple(all_plates[n][1])) for n in args.plates}
+        if not args.plates or len(jobs) != 1:
+            sys.exit("--merge needs plates of one printer and material")
+        kind, profiles = jobs.pop()
+        profiles = list(profiles)
+        all_plates = {args.merge: (kind, profiles, [f for n in args.plates for f in all_plates[n][2]])}
+        args.plates = [args.merge]
     done, report = [], []
     for name in args.plates or all_plates:
         kind, profiles, files = all_plates[name]
