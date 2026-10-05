@@ -40,7 +40,7 @@ class Board:
 
 @dataclass(frozen=True)
 class Motor:
-    """Coreless 1020 drive motor: Ø10 x 20 with a Ø1 x 6 shaft (motor.png, the datasheet; the owner confirmed the can
+    """Coreless 1020 drive motor: Ø10 x 20 with a Ø1 x 6 shaft (the datasheet drawing, README Components; the owner confirmed the can
     is Ø10). The fan motor is another size (Params.fan_motor)."""
     d: float = 10.0
     body_l: float = 20.0

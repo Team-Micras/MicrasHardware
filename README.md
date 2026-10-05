@@ -2,6 +2,8 @@
 
 A parametric chassis for the Micras micromouse, written as [build123d](https://github.com/gumyr/build123d) code. Every dimension lives in `micras/params.py` and in the `*Params` dataclasses at the top of each part module. Change a value, then rerun the checks and the exports.
 
+![The robot: main board, sensor caps, fan, drive blocks, wheels and battery basket](docs/render.png)
+
 The previous design (SolidWorks parts and assembly) was removed from the tree; it is in the git history (`git show 1307880:MicrasAssembly.STEP`).
 
 ## Workflow
@@ -30,7 +32,7 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 | Module | Parts | Material |
 |---|---|---|
 | `drive.py` | bearing blocks (base + cap per side, or one piece) with the outer bearing's tube, magnet cups, wheels (gear, drum and end web in one piece) | resin |
-| `fan.py` | closed radial impeller (Ø26.4, eye 11, 12 blades, neck into the board hole); the fan mount, a yoke hung from the drive caps with a split collar clamp | resin |
+| `fan.py` | closed radial impeller (Ø22, eye 10, 12 blades, neck into the board hole); the fan mount, a yoke hung from the drive caps with a split collar clamp | resin |
 | `frame.py` | battery basket on two posts onto the drive caps, held shut by a velcro strap | PLA |
 | `leds.py` | SFH 4550 and TPS601A models from their datasheets (they replace the board model's hand-drawn LEDs) and the numbers the caps are built from | – |
 | `gears.py` | printed gears (0.5M 7T pinion in two bores, the 36T gear of the wheel), generated with py_gearworks | resin |
@@ -38,7 +40,26 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 | `skirt.py` | skirt cutting pattern (0.05–0.1 mm PET or Kapton film) | film |
 | `skids.py` | where the two PTFE skates go under the board's centre line, front and rear, and their size | bought (mouse skates) |
 
-`build/parts.md` lists each part's mass and print orientation. The printed parts come to about 14 g, and the whole robot to about 84 g (`mass_report.py`).
+`build/parts.md` lists each part's mass and print orientation. The printed parts come to about 16 g, and the whole robot to about 75 g (`mass_report.py`).
+
+## Components
+
+The bought parts the chassis is drawn around (in `micras/params.py`, measured where noted):
+
+| Part | Size |
+|---|---|
+| Drive motors (2) | coreless 1020: can Ø10 ± 0.05 × 20 ± 0.2, shaft Ø1 × 6 ± 0.3, two solder tabs 1.5 × 0.32 at 7.4 pitch on the rear face (datasheet) |
+| Fan motor | Ø9.97 × 23.08 (measured), 54k rpm at 7.6 V, with a pressed-on 9T module 0.3 pinion (tip Ø3.3, 4.6 long) that stays on |
+| Batteries | 3 cells, 47.16 × 11.32 × 6.45 (51 long with their leads) |
+| Magnets | Ø4 × 2 (the default) or Ø6 × 2, diametrically magnetised |
+| Axles | Ø2 |
+| Bearings | 2 × 5 × 2.5 (measured 2.57 wide) |
+| Tires | 16 inside, 2 thick, 10 long as bought: stretched onto the wheel and cut to the channel (3.2) |
+| Gears | brass 0.5M 7T pinion (0.98 bore) and 36T wheel gear (1.98 bore), for reference: the robot uses the printed pinion and the wheel's own gear |
+| Screws | M2 × 5 countersunk |
+| Threaded inserts | M2, 2 long, OD 3.2 (glued) |
+| Nuts | M2 |
+| Velcro strap | 10 wide |
 
 ## Key design decisions
 
