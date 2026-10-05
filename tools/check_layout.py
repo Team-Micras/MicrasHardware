@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Align, Box, Cylinder, Plane, Pos, Rot, extrude, mirror  # noqa: E402
-from micras import checks, drive, fan, frame, front, layout, skids  # noqa: E402
+from micras import checks, drive, fan, fasteners, frame, front, layout, skids  # noqa: E402
 from micras.params import P, override  # noqa: E402
 
 for a in sys.argv[1:]:
@@ -24,6 +24,9 @@ parts.update(fan_parts)
 front_parts = {**front.parts(), **frame.parts(), **skids.parts()}
 parts.update(frame.straps())
 parts.update(front_parts)
+fastener_parts = fasteners.parts()
+parts.update(fastener_parts)
+fastener_hosts = fasteners.hosts()
 # every printed part obeys the zone rule; the agreed extra contact areas are added as zones below
 ZONE_EXEMPT = set()
 t_parts = time.time()
@@ -62,6 +65,8 @@ allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_m
             frozenset(("basket", "block_cap_L")), frozenset(("basket", "block_cap_R")),  # posts on the bosses
             frozenset(("fan_mount", "block_L")), frozenset(("fan_mount", "block_R")),
             frozenset(("basket", "block_L")), frozenset(("basket", "block_R"))}
+# the fasteners sit in their holes, traps and inserts (touching them: they mustn't overlap them, checked below)
+allowed |= {frozenset((k, h)) for k, hs in fastener_hosts.items() for h in hs}
 # the cells rest on the box floor ribs (touching); real overlaps are caught below
 allowed |= {frozenset(("basket", f"cell{i}")) for i in range(3)}
 # the straps lie on the cells and pass through the basket's windows
@@ -145,6 +150,15 @@ for sd in "LR":
         if inner > drive.D.seat_min_y + 0.01:
             res.append((k, "seat ring missing", 0.0, round(inner, 2)))
             print("RING ", f"{k} starts at |y| {inner:.2f}, not at the seat's {drive.D.seat_min_y}")
+# the fasteners must not sink into the parts they sit in (a screw too long for its hole, a trap too small)
+for k, hs in fastener_hosts.items():
+    for h in hs:
+        if h in parts:
+            common = parts[k] & parts[h]
+            v = common.volume if common is not None else 0.0
+            if v > 1e-3:
+                res.append((k, h, 0.0, round(v, 3)))
+                print("SEAT ", f"{k} sinks into {h} by {v:.3f} mm3")
 # base and cap of each block touch at the split by design (allowed above) but must not overlap
 for sd in "LR" if P.layout.blocks == "split" else "":
     common = parts[f"block_base_{sd}"] & parts[f"block_cap_{sd}"]

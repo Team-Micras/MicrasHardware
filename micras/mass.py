@@ -75,6 +75,10 @@ def fixed_items(p: Params = P, printed=None, fan_z=None, placeholders=True, mate
     ]
     from .frame import box_top, straps
     items += [Item(f"velcro_{i}", M["velcro"], (p.battery.x, 0.0, box_top(p))) for i in range(len(straps(p)))]
+    from . import fasteners
+    for name, part in fasteners.parts(p).items():
+        c = part.center()
+        items.append(Item(name, fasteners.MASS[name.split("_")[0]], (c.X, c.Y, c.Z)))
     if placeholders:
         items += [Item("front", M["front"], M["front_com"], box_izz(M["front"], 20, 50)),
                   Item("spine", M["spine"], M["spine_com"])]

@@ -1,6 +1,8 @@
 """Render the layout to a PNG with six views (for quick visual checks without a viewer).
 
-Usage: uv run tools/render.py out.png [--no-board] [--hide label1,label2] [--set layout.blocks=solid]
+Usage: uv run tools/render.py out.png [--no-board] [--hide label1,label2] [--ghost label1,label2] [--set layout.blocks=solid]
+  --ghost  draw the parts whose labels start with these see-through (to show the bearings and fasteners inside)
+  --focus x,y,z --zoom z --dir dx,dy,dz   aim the camera at a point (a close-up), from a direction
 """
 import argparse
 import colorsys
@@ -44,6 +46,10 @@ def main():
     ap.add_argument("out")
     ap.add_argument("--no-board", action="store_true")
     ap.add_argument("--hide", default="")
+    ap.add_argument("--ghost", default="")
+    ap.add_argument("--focus", default="")
+    ap.add_argument("--zoom", type=float, default=1.3)
+    ap.add_argument("--dir", default="", help="camera direction for a single view, e.g. 0.6,1,0.6")
     ap.add_argument("--extra", default="", help="module:function returning {label: shape}")
     ap.add_argument("--view", default="", help="render one large view instead of six: " + ", ".join(VIEWS))
     ap.add_argument("--set", action="append", default=[], help="override a parameter, e.g. layout.blocks=solid")
@@ -56,12 +62,15 @@ def main():
         mod, fn = args.extra.split(":")
         parts.update(getattr(__import__(mod, fromlist=[fn]), fn)())
     hide = [h for h in args.hide.split(",") if h]
+    ghost = tuple(g for g in args.ghost.split(",") if g)
     items = [(k, v) for k, v in parts.items() if not any(h in k for h in hide)]
     meshes = [(k, mesh(v), getattr(v, "color", None)) for k, v in items]
     if not args.no_board:
         meshes.append(("brd:board", board_mesh(), None))
     pv.OFF_SCREEN = True
     views = {args.view: VIEWS[args.view]} if args.view else VIEWS
+    if args.dir:
+        views = {"custom": (tuple(float(v) for v in args.dir.split(",")), (0, 0, 1))}
     single = len(views) == 1
     pl = pv.Plotter(off_screen=True, shape=(1, 1) if single else (2, 3), window_size=(1600, 1200) if single else (1800, 1100))
     if single:
@@ -77,12 +86,16 @@ def main():
                 col = (0.45, 0.62, 0.48)
             else:
                 col = tuple(c) [:3] if c is not None else colorsys.hsv_to_rgb((j * 0.137) % 1, 0.55, 0.95)
-            pl.add_mesh(m, color=col, smooth_shading=single, specular=0.3 if single else 0.0)
-        pl.camera.focal_point = (0, 0, 10)
-        pl.camera.position = tuple(np.array((0, 0, 10)) + np.array(d) * 300)
+            see = bool(ghost) and k.startswith(ghost)
+            pl.add_mesh(m, color=col, smooth_shading=single, specular=0.3 if single else 0.0,
+                        opacity=0.22 if see else 1.0)
+        focus = tuple(float(v) for v in args.focus.split(",")) if args.focus else (0, 0, 10)
+        pl.camera.position = tuple(np.array(focus) + np.array(d) / np.linalg.norm(d) * 300)
         pl.camera.up = up
-        pl.reset_camera()
-        pl.camera.zoom(1.3)
+        if not args.focus:
+            pl.reset_camera()
+        pl.camera.focal_point = focus
+        pl.camera.zoom(args.zoom)
     pl.screenshot(args.out)
 
 

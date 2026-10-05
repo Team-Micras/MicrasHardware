@@ -87,6 +87,7 @@ GROUPS = {  # viewer groups: part-name prefix -> group (checked in order; per-si
     "impeller": "fan", "fan_": "fan",
     "sensor_cap": "front", "skid": "front",
     "encoder_": "encoders",
+    "screw_": "fasteners", "nut_": "fasteners", "insert_": "fasteners",
 }
 
 
@@ -111,4 +112,6 @@ def display():
 
 def bought():
     from .layout import reference
-    return {**reference(with_board=False), "fan_motor": fan.fan_motor(), **frame.straps(), **skids.parts()}
+    from . import fasteners
+    return {**reference(with_board=False), "fan_motor": fan.fan_motor(), **frame.straps(), **skids.parts(),
+            **fasteners.parts()}

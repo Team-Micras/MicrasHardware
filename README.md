@@ -13,6 +13,9 @@ uv sync                                   # Python 3.12 environment
 uv run tools/export_board.py              # re-import the board after it changes in ../hw_debug (needs Windows KiCad); the wall sensors get the datasheet LED models of micras/leds.py (--original-sensors keeps the embedded model)
 uv run pytest -q                          # design rules: clashes, board contact zones, LED fit, CoM over the axle
 uv run tools/show.py                      # send the model to the OCP CAD Viewer, grouped, with the real board and its silkscreen (--simple: boxes)
+uv run tools/render.py out.png --view iso --extra micras.assembly:printed          # the README's render (docs/render.png)
+uv run tools/render.py out.png --dir=0.5,1,0.75 --focus=-5,13,14 --zoom 3 --extra micras.assembly:printed \
+    --hide cell,velcro,sensor_cap --ghost block,fan_mount,basket,wheel,magnet_cup,impeller,tire   # docs/render_inside.png
 uv run tools/export.py                    # build/print/<group>/*.stl (turned to print), build/print/parts.md, build/micras.step, build/skirt.dxf|svg
 uv run tools/slice.py [plate ...]         # build/sliced/*.pm4n (Photon Mono 4) and *.gcode (Ender 3 V3 SE); see docs/printing.md
 uv run tools/mass_report.py               # mass, centre of mass, yaw inertia, battery position for balance
@@ -38,9 +41,10 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 | `gears.py` | printed gears (0.5M 7T pinion in two bores, the 36T gear of the wheel), generated with py_gearworks | resin |
 | `front.py` | four wall-sensor caps that stand on the footprint outlines and set the LEDs' aim | resin, painted black |
 | `skirt.py` | skirt cutting pattern (0.05–0.1 mm PET or Kapton film) | film |
+| `fasteners.py` | the M2 screws, nuts and inserts in place, from the same helpers that cut their holes (viewer, STEP, `check_layout.py`) | bought |
 | `skids.py` | where the two PTFE skates go under the board's centre line, front and rear, and their size | bought (mouse skates) |
 
-`build/parts.md` lists each part's mass and print orientation. The printed parts come to about 16 g, and the whole robot to about 75 g (`mass_report.py`).
+`build/parts.md` lists each part's mass and print orientation. The printed parts come to about 16 g, and the whole robot to about 79 g with its fasteners (`mass_report.py`).
 
 ## Components
 
@@ -80,7 +84,9 @@ The bought parts the chassis is drawn around (in `micras/params.py`, measured wh
 
 ## Fasteners (M2×5 countersunk, M2×2 inserts, M2 nuts)
 
-14 screws, 6 inserts and 8 nuts in total with the default split blocks (the one-piece blocks: 12 screws, 3 inserts and 9 nuts, without the cap screws but with a clamp on the left ring too). Each head seat is placed so the 5 mm screw engages the full 2 mm of its insert, or a whole nut.
+![Left drive side with the printed parts see-through: the cap screws in their inserts, the board screws' nuts, the fan mount's screws and nuts, the fan clamp, the bearings on the axle](docs/render_inside.png)
+
+14 screws, 6 inserts and 8 nuts in total with the default split blocks (the one-piece blocks: 11 screws, 2 inserts and 9 nuts, without the cap screws but with a clamp on the left ring too). Each head seat is placed so the 5 mm screw engages the full 2 mm of its insert, or a whole nut. `fasteners.py` places every one, and `check_layout.py` checks that none of them runs into a part (a screw too long for its hole, a nut against a bearing).
 
 | Joint | Qty | Insert in | Notes |
 |---|---|---|---|

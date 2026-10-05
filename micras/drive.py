@@ -343,6 +343,13 @@ def cup_room(p: Params = P):
             + along_y(st.sleeve_d / 2 + st.holder_gap, hy0 - 1, y_shoulder, 0, az))
 
 
+def board_holes(p: Params = P, d: DriveParams = D):
+    """[(x, |y|, angle)] of the board screws (left frame), with the direction their nut's slot opens (deg):
+    outward, from the contact zone's middle through the hole."""
+    cz = contact_zone(p, d.pad_inset).center()
+    return [(hx, hy, degrees(atan2(hy - cz.Y, hx - cz.X))) for hx, hy in (p.board.front_hole, p.board.rear_hole)]
+
+
 def _cut_left_bores(body, p: Params, d: DriveParams, motor_angle):
     b = p.board
     az = p.axle_z
@@ -373,10 +380,8 @@ def _cut_left_bores(body, p: Params, d: DriveParams, motor_angle):
     body -= along_y(p.gears.tip_d(p.gears.wheel_z) / 2 + 0.5, p.gear_y - p.stack.lip_gap, 40, 0, az)
     # board screws: from under the board into an M2 nut trapped board_nut_z up (a boss round it from the lift up,
     # where the base may be wider than the contact zone), slid in sideways through a slot that opens away from the block
-    cz = contact_zone(p, d.pad_inset).center()
     z_nut = b.top_z + d.board_nut_z
-    for hx, hy in (b.front_hole, b.rear_hole):
-        a = degrees(atan2(hy - cz.Y, hx - cz.X))  # outward, from the zone's middle through the hole
+    for hx, hy, a in board_holes(p, d):
         r_boss = d.nut_af / 3 ** 0.5 + d.board_nut_wall
         boss = Pos(hx, hy, b.top_z + d.lift) * Cylinder(r_boss, d.board_nut_z + d.nut_t + d.board_nut_roof - d.lift, align=MIN)
         body = body.fuse(boss).clean()
@@ -423,6 +428,30 @@ def frame_boss(side, p: Params = P, d: DriveParams = D):
     return sx - (seat_d(p, d, angle) / 2 + d.insert_d / 2 + 0.6), 11.0, d.tray_bottom_z
 
 
+def ring_clamps(side, p: Params = P, d: DriveParams = D):
+    """The slit ring clamps on one side's block: [(angle, out, y_max)] for _ring_clamp."""
+    if side < 0:  # the raised motor's ring is all above the split
+        return [(p.layout.motor_angle_right, 1, None)]
+    if solid(p):  # the level motor's ring has no cap to clamp it: a slit on its rear side, inboard of the outer plate
+        return [(p.layout.motor_angle_left, -1, cap_screws(side, p, d)[0][1] - d.insert_d / 2 - d.pillar_wall)]
+    return []
+
+
+def ring_clamp_screw(angle, out, y_max, p: Params = P, d: DriveParams = D):
+    """(x, |y|, z) of a ring clamp's screw axis at the slit's mid-plane, and its ear's (y0, y1, height), in the
+    left frame."""
+    bx, bz = motor_axis(angle, p)
+    sy0, sy1 = seat_span(p, d)
+    ey0 = max(sy0, d.clamp_min_y)
+    if y_max is None:
+        # the ear stops short of the front cap screw, so a screwdriver reaches that screw past it
+        ey1 = min(sy1, cap_screws(-1, p, d)[0][1] - 1.5)
+    else:
+        ey1 = y_max - 0.5  # almost to the slit's end (walls round its nut; ending level with the slit breaks the cut)
+    ex = bx + out * (ring_r(angle, p, d) + d.nut_af / 2 + 0.1)  # just outside the ring (the nut's flat faces it)
+    return (ex, (ey0 + ey1) / 2, bz), (ey0, ey1, 2 * d.ear + d.slit)
+
+
 def _ring_clamp(top, p, d, angle, out=1, y_max=None):
     """Slit a motor ring on its `out` side (+1 front, -1 rear) at the bore's centre height and add a vertical
     clamp screw across the slit, just outside the ring, into an M2 nut trapped under the lower ear. The slit runs
@@ -430,20 +459,13 @@ def _ring_clamp(top, p, d, angle, out=1, y_max=None):
     short of it (the outer plate there would make the clamp too stiff to close)."""
     bx, bz = motor_axis(angle, p)
     sy0, sy1 = seat_span(p, d)
-    ey0 = max(sy0, d.clamp_min_y)
     rb = seat_d(p, d, angle) / 2
-    ro = ring_r(angle, p, d)
+    (ex, ymid, _), (ey0, ey1, ear_h) = ring_clamp_screw(angle, out, y_max, p, d)
     if y_max is None:
-        # the ear stops short of the front cap screw, so a screwdriver reaches that screw past it
-        ey1 = min(sy1, cap_screws(-1, p, d)[0][1] - 1.5)
         hy0, hy1 = housing_span(p)
         y_lo, y_hi = min(sy0, hy0) - 1, max(sy1, hy1) + 1  # through the whole ring and its tapers
     else:
-        # the ear runs almost to the slit's end (walls round its nut; ending level with the slit breaks the cut)
-        ey1, y_lo, y_hi = y_max - 0.5, sy0 - 1, y_max - 0.3
-    ymid = (ey0 + ey1) / 2
-    ex = bx + out * (ro + d.nut_af / 2 + 0.1)  # screw axis, just outside the ring (the nut's flat faces it)
-    ear_h = 2 * d.ear + d.slit
+        y_lo, y_hi = sy0 - 1, y_max - 0.3
     # the ear starts inside the bore (re-cut below): a face tangent to the bore breaks the union
     xa, xb = bx + out * (rb - 0.3), ex + out * (d.nut_af / 2 + d.wall)
     top = top.fuse(Pos((xa + xb) / 2, ymid, bz) * Box(abs(xb - xa), ey1 - ey0, ear_h)).clean()
@@ -550,12 +572,8 @@ def block(side, p: Params = P, d: DriveParams = D):
     top -= seat_cut(angle, p, d)  # (as the first cut)
     top -= encoder_slot(angle, p, d)
     top -= cup_room(p)
-    if side < 0:
-        # the raised motor's ring is all above the split: a slit clamp holds the motor
-        top = _ring_clamp(top, p, d, angle)
-    elif one:
-        # the level motor's ring has no cap to clamp it: a slit on its rear side, inboard of the outer plate
-        top = _ring_clamp(top, p, d, angle, out=-1, y_max=cap_screws(side, p, d)[0][1] - d.insert_d / 2 - d.pillar_wall)
+    for a, out, y_max in ring_clamps(side, p, d):
+        top = _ring_clamp(top, p, d, a, out, y_max)
     top = _fan_ear(top, side, p, d)
     # sockets for the basket's pegs, straight down into the plate's top
     for fs, fx, kind in d.basket_feet:
