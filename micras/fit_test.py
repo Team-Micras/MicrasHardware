@@ -6,10 +6,8 @@ coupon() (grey resin): short vertical tubes, each with a tab below it giving its
 hundredths of a mm (raised digits), joined by thin bars (small layer areas: low peel forces). Rows:
   BRG  bearing Ø5          -2..12   one-piece blocks: press fit (DriveParams.solid_bearing_fit); split blocks
                                     clamp theirs (bearing_fit 0.1 with split_relief)
-  MOT  motor Ø9.61         0..15    the motor in the sleeve, the fan collar and the no-sleeve blocks
-                                    (DriveParams.motor_fit, FanParams.motor_fit)
-  SLV  sleeve seat         5..20    over the sleeve's outside (DriveParams.sleeve_fit); the peg "P" is a
-                                    sleeve's outside, printed like a sleeve
+  MOT  motor Ø9.61         0..15    the motor in the blocks and the fan collar
+                                    (DriveParams.ring_motor_fit_*, FanParams.motor_fit)
   INS  insert Ø3.2         5..25    the glued M2 inserts (DriveParams.insert_d = 3.2 + this)
   AXL  axle Ø2             0..10    magnet cup and hub bores (WheelParams.axle_fit); also the basket's peg sockets
   SHF  motor shaft Ø1     -10..10   the printed pinion's bore (PrintedGears.pinion_bore); the impeller prints
@@ -46,17 +44,14 @@ TAB = (2.8, 1.0)  # label tab depth, thickness (digits stand 0.4 on it)
 BAR = (1.0, 1.0)  # bars joining the cells: width, height
 GAP_X = 1.5  # between cells
 H = 5.0  # tubes and pins: measure them above their first 1 mm (the supported layers are distorted)
-BIG = ("MOT", "SLV", "PIN")  # rows in the right-hand column
+BIG = ("MOT", "PIN")  # rows in the right-hand column
 
 
 def rows():
-    from . import drive
     return [  # (code, nominal, clearances, kind, height)
         ("BRG", P.bearing.od, (-0.02, 0.0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12), "tube", H),
         ("MOT", P.motor.d, (0.0, 0.03, 0.05), "tube", H),
         ("MOT", P.motor.d, (0.08, 0.10, 0.15), "tube", H),
-        ("SLV", drive.sleeve_od(), (0.05, 0.10), "tube", H),
-        ("SLV", drive.sleeve_od(), (0.15, 0.20, "peg"), "tube", H),
         ("INS", 3.2, (0.05, 0.10, 0.15, 0.20, 0.25), "tube", H),
         ("AXL", P.wheel.axle_d, (0.0, 0.03, 0.06, 0.10), "tube", H),
         ("SHF", P.motor.shaft_d, (-0.10, -0.05, 0.0, 0.03, 0.06, 0.10), "tube", H),
@@ -77,9 +72,6 @@ def _cell(kind, nominal, c, h):
     """One test feature and its outer size (w, d), its bottom-left corner at the origin."""
     if kind == "pin":  # an outside of known size (c is its diameter), for the scale vs the light bleed
         return Pos(c / 2, c / 2, 0) * Cylinder(c / 2, h, align=CMIN), c, c
-    if c == "peg":  # a sleeve's outside (nominal), printed like a sleeve
-        part = Pos(nominal / 2, nominal / 2, 0) * (Cylinder(nominal / 2, h, align=CMIN) - Cylinder(nominal / 2 - 1.5, 10, align=CMIN))
-        return part, nominal, nominal
     if kind in ("tube", "cup", "hex"):
         hole = nominal + c if kind != "hex" else (nominal + c) / 3 ** 0.5 * 2
         od = hole + 2 * WALL
@@ -165,7 +157,6 @@ FIT_ROWS = (  # (code, nominal, kind, diametral offsets) for fit_blocks(); the b
     # The exposure test (2.0 s) still needed force at nominal in every hole, so the rows start above nominal.
     ("BRG", 5.0, "round", (0.0, 0.03, 0.05, 0.08, 0.10)),  # bearing (5.10 at 2.5 s: slid in with no force)
     ("MOT", 10.0, "round", (0.05, 0.10, 0.15, 0.20, 0.25)),  # drive motor (Ø10) and fan motor (Ø9.97)
-    ("SLV", 11.9, "round", (0.05, 0.10, 0.15, 0.20, 0.25)),  # a printed sleeve (from the first print, OD 11.9) turning in its seat
     ("MG6", 6.0, "round", (0.04, 0.08, 0.12, 0.16)),  # magnet
     ("NUT", 4.0, "hex", (0.05, 0.10, 0.15, 0.20, 0.25)),  # M2 nut, across flats
     ("INS", 3.2, "round", (0.05, 0.10, 0.15, 0.20, 0.25)),  # M2 insert (glued)

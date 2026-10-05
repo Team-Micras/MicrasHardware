@@ -134,8 +134,8 @@ def _feet(p: Params = P, fr: FrameParams = FR, d=drive.D):
     """Columns from the floor down onto the caps, their undersides following the cap's top (with a peg for the
     cap's socket where the foot has one)."""
     out = None
-    # (from the default blocks: their tops are the same in every variant, so one basket fits them all)
-    pd = replace(p, layout=replace(p.layout, backlash_mode="eccentric", blocks="split"))
+    # (from the split blocks: their tops are the same in both variants, so one basket fits them all)
+    pd = replace(p, layout=replace(p.layout, blocks="split"))
     caps = {side: drive.block(side, pd, d)[-1] for side in {fs for fs, _, _ in d.basket_feet}}
     for side, x, kind in d.basket_feet:
         cap = caps[side]

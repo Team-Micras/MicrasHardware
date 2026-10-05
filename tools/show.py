@@ -1,6 +1,6 @@
 """Send the current model to the OCP CAD Viewer (VS Code: open the viewer panel first).
 
-Usage: uv run tools/show.py [--simple] [layout.backlash_mode=fixed ...]
+Usage: uv run tools/show.py [--simple] [layout.blocks=solid ...]
   --simple  show the board's components as boxes (faster)
 """
 import sys
@@ -43,7 +43,7 @@ from micras import assembly, layout, params  # noqa: E402
 
 from build123d import Compound  # noqa: E402
 
-# optional parameter overrides, e.g. layout.backlash_mode=fixed
+# optional parameter overrides, e.g. layout.blocks=solid
 for kv in sys.argv[1:]:
     if not kv.startswith("--"):
         params.override(kv)

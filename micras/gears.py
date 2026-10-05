@@ -25,8 +25,8 @@ from .params import P, Params
 class PrintedGears:
     # profile shift and pinion tip cut: Gears.shift / Gears.tip_cut (the layout's clearances use them)
     dedendum: float = 1.25  # both (module): 0.25 m of tip clearance
-    backlash: float = 0.06  # per gear, module units along the line of action: the pair has 0.06 mm (the
-    # eccentric sleeves then set the running backlash; they close 0.09 mm of centre distance before binding)
+    backlash: float = 0.06  # per gear, module units along the line of action: the pair has 0.06 mm (a print
+    # error may close 0.09 mm of centre distance before the teeth bind: tools/check_gears.py)
     tip_fillet: float = 0.1  # module
     pinion_bores: tuple = (1.07, 1.03)  # motor shaft 1.0, glued: 1.07 at 2.5 s, and a tighter one
 

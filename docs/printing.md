@@ -89,7 +89,6 @@ Try the real parts and note, for each row:
 | PIN Ø2, Ø5, Ø8 | calipers on each pin, at half height, twice at 90° | the three diameters |
 | BRG (bearing Ø5) | push a bearing in by hand | the smallest that takes it with a firm thumb press, and the smallest it just drops into |
 | MOT (motor Ø9.61) | slide a motor in | the smallest it slides into with light friction, and the first that is loose |
-| SLV (sleeve seat) | turn the "P" peg in each ring | the smallest it turns in smoothly with no play |
 | INS (insert Ø3.2) | drop an M2 insert in | the smallest it goes into without forcing (it will be glued) |
 | AXL (axle Ø2) | push the 2 mm axle through | the smallest it slides through freely, and the smallest it pushes through at all |
 | SHF (motor shaft Ø1) | push a motor's shaft (or a 1 mm pin) in | the smallest it presses into firmly, and the smallest it slides into |
@@ -111,44 +110,43 @@ the insert goes in at +0.10; the axle pushes through at +0.06 and slides at +0.1
 | Fit | Value | From |
 | --- | --- | --- |
 | bearing in a one-piece block (`solid_bearing_fit`) | +0.06 | measured: firm press |
-| motor in sleeve, ring or fan collar (`motor_fit`) | +0.09 | like the bearing's drop-in |
-| sleeve in its seat (`sleeve_fit`) | +0.15 | both printed: hole -0.06, outside +0.05 |
+| motor in a ring or the fan collar | +0.09 | like the bearing's drop-in |
 | insert hole (`insert_d`) | 3.30 | measured |
 | magnet cup, hub, race spacer on the axle (`axle_fit`) | +0.10 | measured: slides (glued) |
 | printed pinion / wheel gear bores | 1.05 / 2.08 | press on the shaft / push on the axle |
 | nut traps (`nut_af`) | 4.05 | hole -0.06 |
 | magnet pockets | +0.04 | measured |
 
-The rows not measured yet (MOT, SLV, SHF, NUT, MG6) are set from the same hole and outside offsets; check them on the
+The rows not measured yet (MOT, SHF, NUT, MG6) are set from the same hole and outside offsets; check them on the
 coupon when you can, and on the parts.
 
 ## 3. Resin parts (Photon Mono 4, Anycubic ABS-Like Pro 2)
 
-Everything fits in two prints (same preparation and post-processing as the calibration print):
+Everything fits in one print, with the one-piece drive blocks as an optional second (same preparation and
+post-processing as the calibration print):
 
 | File | What | Time, resin |
 | --- | --- | --- |
-| `print1_robot.pm4n` | the whole robot's resin parts with the default drive (split blocks, eccentric sleeves): blocks, sleeves, magnet cups, race spacers, wheel hubs, impeller, fan mount, 2 printed gear pairs, the 4 sensor caps and 5 test caps (1-5 dots: three crush-rib grips, the emitter pitched 1° and 2°) | 2.2 h, 31 ml |
-| `print2_drive_variants.pm4n` | the three other drive variants (one-piece blocks with sleeves, split and one-piece blocks without) | 1.9 h, 30 ml |
+| `robot.pm4n` | the whole robot's resin parts with the default drive (split blocks): blocks, wheels, magnet cups (Ø4), fan mount, radial impeller, 4 printed pinions (two bores), the 4 sensor caps | 2.1 h, 23 ml |
+| `drive_solid.pm4n` | the other drive variant (one-piece blocks) | 2.1 h, 11 ml |
 
 ```sh
-tools/capped.sh uv run tools/slice.py resin sensor_caps drive_sleeve_split --merge print1_robot
-tools/capped.sh uv run tools/slice.py drive_sleeve_solid drive_nosleeve_split drive_nosleeve_solid --merge print2_drive_variants
+tools/capped.sh uv run tools/slice.py resin sensor_caps drive_split --merge robot
+tools/capped.sh uv run tools/slice.py drive_solid
 ```
 
 The parts stand on braced supports (they come off as one piece: cut the tips with flush cutters, don't twist the
 parts off) on a pad whose border is lifted off the plate, so the spatula slides under its edge.
 
-### The four drive variants
+### The two drive variants
 
-The rest of the robot is the same for all of them.
+The rest of the robot is the same for both. The motors sit straight in their rings (the backlash is what the
+print gives).
 
 | Variant | Blocks | Motors | Screws |
 | --- | --- | --- | --- |
-| `drive_sleeve_split` (default) | base + cap per side; the cap clamps the bearings and the left sleeve | eccentric sleeves: turn them to set the gear backlash | 4 cap screws + 1 ring clamp |
-| `drive_sleeve_solid` | one piece per side; the bearings press in from either end against the ridge | eccentric sleeves, each locked by a ring clamp | 2 ring clamps |
-| `drive_nosleeve_split` | base + cap | straight in the blocks (the backlash is what the print gives) | 4 cap screws + 1 ring clamp |
-| `drive_nosleeve_solid` | one piece | straight in their ring clamps | 2 ring clamps |
+| `drive_split` (default) | base + cap per side; the cap clamps the bearings and the left motor | the right one in a slit ring clamp | 4 cap screws + 1 ring clamp |
+| `drive_solid` | one piece per side; the bearings press in from either end against the ridge | each in a slit ring clamp | 2 ring clamps |
 
 ### Finishing the resin parts
 
@@ -161,7 +159,7 @@ figure-of-eight strokes):
 - Bearing blocks: look into each bearing bore before fitting a bearing and scrape the lip's and the tube step's
   faces flat (a nub there stops the bearing seating); deburr the housing's inboard end (it runs 0.25 mm from the
   magnet cup).
-- Sleeves: lap the front face (it rests on the seat's cone).
+- Motor rings: clear any nub off the ledge at the bore's outer end (the motor's front face sits on it).
 - Magnet cups: clean the cone's tip (it bears on the inner race); deburr the flange face.
 - Wheels: clean the cone on the end web's inner side (it bears on the outer bearing's inner race).
 - Fan mount: clear the nubs on the tabs' undersides (they set the impeller's 0.3 mm seal gap).

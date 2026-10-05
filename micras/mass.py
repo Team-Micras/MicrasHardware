@@ -21,7 +21,7 @@ MASSES = {
     "tire": 0.5,
     "bearing": 0.2,
     "axle": 0.32,  # 2 mm steel, 13 mm
-    "magnet": 0.42,  # 6x2 NdFeB
+    "magnet": 0.19,  # 4x2 NdFeB (the 6x2: 0.42)
     "encoder_board": 0.3,
     "cell": 6.0,
     "wires": 2.0,

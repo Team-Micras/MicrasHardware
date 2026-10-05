@@ -92,10 +92,12 @@ class Bearing:
 
 @dataclass(frozen=True)
 class Magnet:
-    d: float = 6.0
+    """The Ø4x2 diametric magnet (the owner's default; drive.WheelParams.alt_magnet is the Ø6x2 cup)."""
+    d: float = 4.0
     t: float = 2.0
-    gap: float = 0.5  # package top to magnet face (magpylib, Bz on the Hall circle: ~60 mT N35 / ~66 mT N42
-    # centred, window 35-70; keep it centred). Closer than 1.0 to make room for the bearing ridge
+    gap: float = 0.5  # package top to magnet face, the same for either magnet (the owner's choice). For the Ø6x2
+    # (magpylib, Bz on the Hall circle) it gives ~60 mT N35 / ~66 mT N42, centred in the AS5047U's 35-70 window; the
+    # README's estimate for the Ø4x2 here is 103-113 mT, over it (1.3 mm would give about 54-59 mT): check the readings
 
 
 @dataclass(frozen=True)
@@ -164,7 +166,7 @@ class Battery:
     arrangement: str = "edge"  # "pyramid" | "edge" | "flat" | "stack" (tools/battery_study.py)
     gap: float = 0.3
     x: float = -7.8  # pack centre (tools/mass_report.py: CoM over the axle)
-    floor_z: float = 30.2  # bottom of the cells (tray floor top)
+    floor_z: float = 29.2  # bottom of the cells (tray floor top)
 
 
 @dataclass(frozen=True)
@@ -172,9 +174,7 @@ class Layout:
     # Motor axis angle around its wheel axle, measured from +x (forward) towards +z (up).
     motor_angle_left: float = 180.0  # low, straight behind the axle
     motor_angle_right: float = 112.0  # above the left motor, clears the encoder boards
-    backlash_mode: str = "fixed"  # "eccentric" | "fixed" (the owner's choice: split blocks without sleeves)
     blocks: str = "split"  # "split" (base + cap) | "solid" (one-piece bearing blocks)
-    eccentricity: float = 0.3
     clearance: float = 0.3  # minimum air gap to board components
 
 
@@ -303,7 +303,7 @@ P = Params()
 
 
 def override(assignment: str, p: Params = P):
-    """Change a parameter of the shared P in place, e.g. "layout.backlash_mode=fixed", for what-if renders
+    """Change a parameter of the shared P in place, e.g. "layout.blocks=solid", for what-if renders
     and checks (the part functions take P as their default). Values are parsed as numbers when possible."""
     path, value = assignment.split("=", 1)
     *parents, name = path.split(".")

@@ -1,9 +1,9 @@
 """Suction fan: a closed radial impeller running just above the board, and its mount.
 
 Sized for the fan motor (Ø9.97 x 23.08, 54k rpm at 7.6 V: about 87k rpm with no load at 12.3 V, so it is limited
-by its power and heat, not its speed) following docs/fan_study.md: a Ø22 impeller (eye 10, six main blades whose
-inlets curve to meet the air and six radial splitters, all radial at the tip, the channel tapering from 3 at the eye
-to 2 at the tip) run at about 6.3 V average (PWM) for about 1000 Pa, 4 N with
+by its power and heat, not its speed) following docs/fan_study.md: a Ø22 impeller (eye 10, twelve straight radial
+blades from hub to tip, the channel tapering from 3 at the eye to 2 at the tip; the CFD found the curved-inlet and
+backward-curved variants no better) run at about 6.3 V average (PWM) for about 1000 Pa, 4 N with
 the skirt; never at full voltage (79k rpm, 17 W). Its hub is glued onto the motor's 9T pinion (it doesn't come
 off), gripping 3.8 of its 4.6 mm.
 
@@ -41,7 +41,7 @@ class FanParams:
     #   "radial"    12 straight radial blades, hub to tip (the first design)
     #   "inducer"   6 main blades with curved inlets, radial from blade_knee_r out, and 6 radial splitters
     #   "backward"  7 backward-curved blades (a vacuum-cleaner fan): beta1 at the inlet easing to beta2_backward
-    style: str = "inducer"
+    style: str = "radial"  # the default: the CFD found no gain from the curved inlets (docs/fan_study.md, CFD results)
     blades: int = 6  # main blades ("inducer")
     radial_blades: int = 12
     backward_blades: int = 7

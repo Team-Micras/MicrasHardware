@@ -1,6 +1,6 @@
 """Render the layout to a PNG with six views (for quick visual checks without a viewer).
 
-Usage: uv run tools/render.py out.png [--no-board] [--hide label1,label2] [--set layout.backlash_mode=fixed]
+Usage: uv run tools/render.py out.png [--no-board] [--hide label1,label2] [--set layout.blocks=solid]
 """
 import argparse
 import colorsys
@@ -46,7 +46,7 @@ def main():
     ap.add_argument("--hide", default="")
     ap.add_argument("--extra", default="", help="module:function returning {label: shape}")
     ap.add_argument("--view", default="", help="render one large view instead of six: " + ", ".join(VIEWS))
-    ap.add_argument("--set", action="append", default=[], help="override a parameter, e.g. layout.backlash_mode=fixed")
+    ap.add_argument("--set", action="append", default=[], help="override a parameter, e.g. layout.blocks=solid")
     args = ap.parse_args()
     for kv in args.set:
         params.override(kv)

@@ -1,18 +1,17 @@
-"""Printed drivetrain parts: bearing block base + cap per side, eccentric motor sleeves, magnet cups, wheels.
+"""Printed drivetrain parts: bearing block base + cap per side, magnet cups, wheels.
 
 Each side's block is split at the axle plane (z = axle_z). The base is screwed to the board through
-the two countersunk holes; the cap clamps the inner bearing (and, on the left, the level motor's sleeve)
+the two countersunk holes; the cap clamps the inner bearing (and, on the left, the level motor)
 with two screws into inserts in the base. The right cap also carries the clamp ring of the raised motor. A tube
 on the base (one piece with it, not split) reaches out from the block through the wheel's gear into its hollow drum
 and holds the outer bearing at its end, pressed in from the end up to a step (Params.AxialStack).
 
 Layout.blocks = "solid" makes each block one piece instead: the inner bearing presses in from the inboard end
-(through the magnet cup's room) up to the lip, and both motor rings are slit clamps (the left one on its rear side). Layout.backlash_mode
-= "fixed" drops the eccentric sleeves: the motors sit straight in the rings. The blocks' outside is the same in
-all four combinations (it is always drawn for the sleeves), so the fan mount and the basket fit every one.
+(through the magnet cup's room) up to the lip, and both motor rings are slit clamps (the left one on its rear side).
+The motors sit straight in their rings (the eccentric sleeves are gone: the thin rings let the battery sit lower).
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from math import atan2, cos, degrees, radians, sin, tan
 
 from build123d import (Align, Box, Circle, Cone, Cylinder, Line, Plane, Pos, Rectangle, Rot, ThreePointArc, Wire,
@@ -27,33 +26,33 @@ MAX = (Align.CENTER, Align.CENTER, Align.MAX)
 
 @dataclass(frozen=True)
 class DriveParams:
-    wall: float = 1.2  # around bearing and sleeve bores
+    wall: float = 1.2  # around the bearing bores
+    motor_wall: float = 1.5  # the motor rings (2.1-2.7 when they were drawn for the sleeves)
     bearing_fit: float = 0.20  # diametral clearance on the bearing OD in the split pocket: it drops into the base;
     # the split closes by split_relief, which leaves a light clamp (at 2.5 s: the cap closes, no rattle; 0.13 stopped
     # the cap)
-    sleeve_wall: float = 0.8  # thinnest wall of the eccentric sleeve
     # fits for ABS-Like Pro 2 at 2.5 s (docs/printing.md): outsides print true; the holes printed about as at 2.0 s
     # (the motor and the magnet came out loose with 0.05 added), except the bearing pockets in the blocks
-    sleeve_fit: float = 0.17  # diametral clearance sleeve in seat: turns smoothly (both are printed); the split
-    # closes by split_relief, the one-piece rings clamp
     pillar_wall: float = 1.0  # around the glued cap-screw inserts
     plate_t: float = 2.4  # outer plate skin where it is pocketed from the inboard side
     pocket_rim: float = 1.0  # solid rim around the pockets, along the plate's outline
     pocket_margin: float = 0.8  # pockets stay this far from the rings, screw columns and housing web
-    split_relief: float = 0.05  # taken off the cap's split face: tightening the cap clamps bearings and sleeve
+    split_relief: float = 0.05  # taken off the cap's split face: tightening the cap clamps bearings and motor
     # (0.15 with the holes printing small crushed the bearings: the split blocks fitted worst)
-    motor_fit: float = 0.10  # diametral, the reference the sleeve's outside is drawn for (so the seats for it don't
-    # move when the fits below change)
-    # the motor's own fits (diametral; the clamp or the cap holds it), from the parts printed at 2.5 s:
-    sleeve_motor_fit: float = 0.06  # in the sleeve (0.10 was a little loose)
+    # the motor's fits (diametral; the clamp or the cap holds it), from the parts printed at 2.5 s:
     ring_motor_fit_split: float = 0.06  # no sleeves, split blocks: the level (left) motor, clamped by the cap (0.10
     # was a little loose)
     ring_motor_fit_split_upper: float = 0.15  # no sleeves, split blocks: the raised (right) motor in its slit ring
     # (0.10, printed in round 4, should be bigger; the slit clamp closes the rest)
     ring_motor_fit_solid: float = 0.15  # no sleeves, one-piece blocks (0.10 needed too much force: the ring has no
     # cap to open)
-    sleeve_lip: float = 0.6  # front lip that stops the motor axially
-    seat_min_y: float = 7.6  # seats stay outboard of the encoder daughterboards
+    seat_front: float = 0.6  # the ring runs on this far past the motor's front face
+    stop_ledge: float = 1.0  # radial: the flat ring the motor's front face sits on, then the 50 deg cone (a wider flat
+    # end would be a ceiling inside the bore as it prints, and sag)
+    seat_min_y: float = 1.0  # the rings run inboard past the encoder daughterboards (slotted round them) to just short
+    # of the centre line (the two rings would meet past it); 7.6, outboard of the encoder boards, gripped 7.4 mm
+    clamp_min_y: float = 7.6  # the clamp ears and their nuts stay outboard of the encoder boards (the nut goes in
+    # from below)
     pad_inset: float = 0.3  # stay inside the silkscreen contact outline
     lift: float = 1.8  # everything except the pads starts this far above the board top
     pad_h: float = 3.0  # contact plate thickness
@@ -68,11 +67,10 @@ class DriveParams:
     cap_screw_front_x: float = 5.2  # clear of the fan mount feet; the rear screw's x is found per side (cap_screws)
     frame_screw_depth: float = 3.8  # M2x5 through a 1.2 frame floor
     frame_boss_top_left: float = 22.0  # keeps the screw tip 0.5 above the left seat bore
-    tray_bottom_z: float = 29.0  # frame tray underside, sits on the right boss
+    tray_bottom_z: float = 28.0  # frame tray underside, sits on the right boss (0.22 over the raised motor's ring;
+    # 29.0 with the rings drawn for the sleeves)
     slit: float = 0.8  # clamp slit in the motor rings (the raised one; both in the one-piece blocks)
     ear: float = 2.2  # clamp ear thickness either side of the slit (M2x5 then engages 2 mm)
-    notch_d: float = 1.0  # spanner notches on the sleeve rim (width)
-    notch_depth: float = 0.6  # radial, on the sleeve's thick side
     # ear on each cap for the fan mount's arm: in front of the front cap screw (clear of its head), top level
     # with the left cap's front column; an M2 screw comes down through the arm's tab into a nut trapped under it
     fan_ear: tuple = (10.2, 14.2)  # (x, |y|) of the screw
@@ -155,57 +153,58 @@ def contact_zone(p: Params = P, inset=D.pad_inset):
     return make_face(wire)
 
 
-def outer(p=P):
-    """The params the blocks' outside is drawn with: always the eccentric layout (rings, bosses and screw
-    positions don't change with the backlash mode, only the bores do)."""
-    if p.layout.backlash_mode == "eccentric":
-        return p
-    return replace(p, layout=replace(p.layout, backlash_mode="eccentric"))
-
-
 def solid(p=P):
     return p.layout.blocks == "solid"
 
 
-def sleeve_od(p=P, d=D):
-    return p.motor.d + d.motor_fit + 2 * (d.sleeve_wall + p.layout.eccentricity)
-
-
 def seat_d(p=P, d=D, angle=None):
-    """The motor seat's bore (the sleeve's, or without sleeves the motor's); `angle` picks the raised (right)
-    motor's own fit in the split blocks."""
-    if p.layout.backlash_mode == "eccentric":
-        return sleeve_od(p, d) + d.sleeve_fit
+    """The motor seat's bore; `angle` picks the raised (right) motor's own fit in the split blocks."""
     if solid(p):
         return p.motor.d + d.ring_motor_fit_solid
     upper = angle is not None and angle == p.layout.motor_angle_right
     return p.motor.d + (d.ring_motor_fit_split_upper if upper else d.ring_motor_fit_split)
 
 
+def ring_r(angle, p=P, d=D):
+    """Outer radius of a motor ring."""
+    return seat_d(p, d, angle) / 2 + d.motor_wall
+
+
 def seat_span(p=P, d=D):
-    """|y| extent of a motor seat (inner, outer)."""
-    return d.seat_min_y, p.motor_front_y + d.sleeve_lip
+    """|y| extent of a motor ring (inner, outer)."""
+    return d.seat_min_y, p.motor_front_y + d.seat_front
 
 
 def seat_stop(p=P, d=D):
-    """|y| of the step at the seat's outboard end: the sleeve's front face rests on it (its lip holds the motor
-    at motor_front_y), or without sleeves the motor's own front face."""
-    return seat_span(p, d)[1] if p.layout.backlash_mode == "eccentric" else p.motor_front_y
+    """|y| of the motor's front face, where it stops in the seat."""
+    return p.motor_front_y
 
 
 def seat_cut(angle, p=P, d=D):
-    """Cutter for a motor seat: the bore, open inboard, ending in a cone (50 deg, so it prints without supports
-    inside the bore) that narrows to the pinion's clearance; the sleeve (or without sleeves the motor's front
-    face) stops on the cone's rim."""
-    sx, sz = seat_axis(angle, p)
+    """Cutter for a motor seat: the bore, open inboard, ending in a flat ledge (stop_ledge wide) that the motor's
+    front face sits on, then a cone (50 deg, so it prints without supports inside the bore) that narrows to the
+    pinion's clearance."""
     mx, mz = motor_axis(angle, p)
     sy0, _ = seat_span(p, d)
     stop = seat_stop(p, d)
     r0 = seat_d(p, d, angle) / 2
-    r1 = p.gears.tip_d(p.gears.pinion_z) / 2 + 0.4 - ((sx - mx) ** 2 + (sz - mz) ** 2) ** 0.5  # inside the clearance
-    length = (r0 - r1) * tan(radians(50))
-    cone = Pos(sx, stop - 0.01, sz) * Rot(-90, 0, 0) * Cone(r0, r1, length + 0.01, align=(Align.CENTER, Align.CENTER, Align.MIN))
-    return along_y(r0, sy0 - 1, stop, sx, sz) + cone
+    r_ledge = r0 - d.stop_ledge
+    r1 = p.gears.tip_d(p.gears.pinion_z) / 2 + 0.4  # the pinion's clearance
+    length = (r_ledge - r1) * tan(radians(50))
+    cone = Pos(mx, stop - 0.01, mz) * Rot(-90, 0, 0) * Cone(r_ledge, r1, length + 0.01, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    return along_y(r0, sy0 - 1, stop, mx, mz) + cone
+
+
+def encoder_slot(angle, p=P, d=D):
+    """Cutter for the slot a (left-frame) motor ring straddles its encoder daughterboard with, open below: the
+    board (with Layout.clearance round it), only within reach of the ring."""
+    from .layout import encoders
+    c = p.layout.clearance
+    bb = encoders(p)["encoder_pcb_L"].bounding_box()
+    slot = Pos(bb.min.X - c, bb.min.Y - c, p.board.top_z - 1) * Box(
+        bb.size.X + 2 * c, bb.size.Y + 2 * c, bb.max.Z + c - p.board.top_z + 1, align=(Align.MIN, Align.MIN, Align.MIN))
+    mx, mz = motor_axis(angle, p)
+    return slot & along_y(ring_r(angle, p, d) + 0.5, bb.min.Y - 1, bb.max.Y + 1, mx, mz)
 
 
 def motor_axis(angle, p=P):
@@ -213,16 +212,6 @@ def motor_axis(angle, p=P):
     a = radians(angle)
     cd = p.gears.center_distance
     return cd * cos(a), p.axle_z + cd * sin(a)
-
-
-def seat_axis(angle, p=P):
-    """Seat axis: the motor axis shifted by the sleeve eccentricity (perpendicular to the centre line),
-    so the neutral sleeve orientation puts the motor at the nominal centre distance."""
-    mx, mz = motor_axis(angle, p)
-    if p.layout.backlash_mode != "eccentric":
-        return mx, mz
-    a, e = radians(angle), p.layout.eccentricity
-    return mx + sin(a) * e, mz - cos(a) * e
 
 
 def housing_span(p=P):
@@ -272,17 +261,18 @@ def _left_block_solid(p: Params, d: DriveParams, motor_angle):
     rh = p.bearing.od / 2 + d.wall
     hy0, hy1 = housing_span(p)
     sy0, sy1 = seat_span(p, d)
-    rs = seat_d(outer(p), d) / 2 + d.wall
-    mx, mz = seat_axis(motor_angle, outer(p))
+    rs = ring_r(motor_angle, p, d)
+    mx, mz = motor_axis(motor_angle, p)
 
     # contact plate on the silkscreen zone (the board screws go into it from below)
     body = Pos(0, 0, b.top_z) * extrude(contact_zone(p, d.pad_inset), d.pad_h)
     # bearing housing and motor seat as one body: the hull of both rings over the length where they
     # overlap; beyond it each continues as its own ring, with flat, solid end faces
     ring_h, ring_s = (0, az, rh), (mx, mz, rs)
-    # (fuse: `+` dropped the seat ring's inboard part for some sleeve sizes)
+    # (fuse: `+` dropped the seat ring's inboard part for some ring sizes; the hull is drawn 0.05 inside the seat
+    # ring, as its faces tangent to the ring's dropped the ring's inboard part too)
     for piece in (along_y(rh, hy0, hy1, 0, az), along_y(rs, sy0, sy1, mx, mz),
-                  _belt((ring_h, ring_s), max(hy0, sy0), min(hy1, sy1))):
+                  _belt((ring_h, (mx, mz, rs - 0.05)), max(hy0, sy0), min(hy1, sy1))):
         body = body.fuse(piece).clean()
     # web from the housing down towards the pads (over the housing only: nothing next to the encoders)
     lz = b.top_z + d.lift
@@ -343,12 +333,21 @@ def _left_block_solid(p: Params, d: DriveParams, motor_angle):
     return body, motor_angle
 
 
+def cup_room(p: Params = P):
+    """Cutter for the magnet cup's room (it turns in it; drawn for the bigger magnet, so either cup fits): its head
+    inboard of the housing, its sleeve inside the housing up to the shoulder."""
+    st, az = p.stack, p.axle_z
+    hy0 = housing_span(p)[0]
+    y_shoulder = p.bearing_inner_y - st.bearing_play - st.shoulder
+    return (along_y(max(p.magnet.d, W.alt_magnet[0]) / 2 + st.cup_wall + st.holder_gap, 0, hy0, 0, az)
+            + along_y(st.sleeve_d / 2 + st.holder_gap, hy0 - 1, y_shoulder, 0, az))
+
+
 def _cut_left_bores(body, p: Params, d: DriveParams, motor_angle):
     b = p.board
     az = p.axle_z
     hy0, hy1 = housing_span(p)
     sy0, sy1 = seat_span(p, d)
-    sx, sz = seat_axis(motor_angle, p)
     mx, mz = motor_axis(motor_angle, p)
     st = p.stack
     # the inner bearing's bore, behind a lip at the block's outer face (its bore clears the inner race): the split
@@ -356,19 +355,17 @@ def _cut_left_bores(body, p: Params, d: DriveParams, motor_angle):
     # the room for the magnet cup's sleeve (wider than the bearing), up to the lip
     body -= along_y(st.shoulder_id / 2, hy0 - 1, hy1 + 1, 0, az)
     play = st.bearing_play
-    y_shoulder = p.bearing_inner_y - play - st.shoulder
     if solid(p):
         rb = (p.bearing.od + d.solid_bearing_fit) / 2
         body -= along_y(rb, hy0 - 1, p.bearing_inner_y + p.bearing.w, 0, az)
     else:
         rb = (p.bearing.od + d.bearing_fit) / 2
         body -= along_y(rb, p.bearing_inner_y - play, p.bearing_inner_y + p.bearing.w + play, 0, az)
-    # room for the magnet cup (rotating): its head inboard of the housing, its sleeve inside it up to the shoulder
-    body -= along_y(p.magnet.d / 2 + st.cup_wall + st.holder_gap, 0, hy0, 0, az)
-    body -= along_y(st.sleeve_d / 2 + st.holder_gap, hy0 - 1, y_shoulder, 0, az)
-    # motor seat bore, open inboard; its cone stops the sleeve (or the motor's front face)
+    body -= cup_room(p)
+    # motor seat bore, open inboard; the motor's front face stops on its ledge
     stop = seat_stop(p, d)
     body -= seat_cut(motor_angle, p, d)
+    body -= encoder_slot(motor_angle, p, d)
     # clearance for the pinion and the motor can beyond the seat
     body -= along_y(p.gears.tip_d(p.gears.pinion_z) / 2 + 0.4, stop - 0.01, 30, mx, mz)
     body -= along_y(p.motor.d / 2 + 0.4, -30, sy0, mx, mz)
@@ -393,11 +390,9 @@ def cap_screws(side, p: Params = P, d: DriveParams = D):
     """(x, |y|) of the two cap screws on one side. The front one sits in front of the housing; the rear one
     is moved back until its insert clears the motor seat bore and its screwdriver clears the pinion. (The
     one-piece blocks have no cap screws, but keep their columns in the plate.)"""
-    p = outer(p)
     angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right
-    sx, sz = seat_axis(angle, p)
-    mx, mz = motor_axis(angle, p)
-    rs = seat_d(p, d) / 2 + 0.3
+    sx, sz = mx, mz = motor_axis(angle, p)
+    rs = seat_d(p, d, angle) / 2 + 0.3
     r_ins = d.insert_d / 2
     r_pin = p.gears.tip_d(p.gears.pinion_z) / 2 + 0.3
     az = p.axle_z
@@ -410,8 +405,7 @@ def cap_screws(side, p: Params = P, d: DriveParams = D):
         clear_pinion = mz < az or abs(x - mx) >= r_pin + 1.3
         # ... and vs the seat ring (for z above the head), where the ring reaches over the screw's y
         z_head = az + d.screw_l - d.insert_l
-        ring_r = seat_d(p, d) / 2 + d.wall
-        clear_ring = ((x - sx) ** 2 + (max(z_head, sz) - sz) ** 2) ** 0.5 >= ring_r + 1.5
+        clear_ring = ((x - sx) ** 2 + (max(z_head, sz) - sz) ** 2) ** 0.5 >= ring_r(angle, p, d) + 1.5
         if clear_seat and clear_pinion and clear_ring:
             break
         x -= 0.1
@@ -421,24 +415,24 @@ def cap_screws(side, p: Params = P, d: DriveParams = D):
 
 def frame_boss(side, p: Params = P, d: DriveParams = D):
     """(x, |y|, top z) of the frame mounting boss on each cap."""
-    p = outer(p)
     angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right
-    sx, sz = seat_axis(angle, p)
+    sx, sz = motor_axis(angle, p)
     if side > 0:  # on top of the level motor's seat
         return sx, 11.0, d.frame_boss_top_left
     # behind the raised motor's ring, far enough out that the hole misses the bore
-    return sx - (seat_d(p, d) / 2 + d.insert_d / 2 + 0.6), 11.0, d.tray_bottom_z
+    return sx - (seat_d(p, d, angle) / 2 + d.insert_d / 2 + 0.6), 11.0, d.tray_bottom_z
 
 
 def _ring_clamp(top, p, d, angle, out=1, y_max=None):
     """Slit a motor ring on its `out` side (+1 front, -1 rear) at the bore's centre height and add a vertical
-    clamp screw across the slit, just outside the ring, into an M2 nut trapped under the lower ear. `y_max`: the slit and its ear stop short of it (the
-    outer plate there would make the clamp too stiff to close)."""
-    bx, bz = seat_axis(angle, p)  # the bore (the motor's in the fixed mode, the sleeve's otherwise)
-    cx, _ = seat_axis(angle, outer(p))  # the ring
+    clamp screw across the slit, just outside the ring, into an M2 nut trapped under the lower ear. The slit runs
+    the ring's length, the ear only outboard of the encoder board (clamp_min_y). `y_max`: the slit and its ear stop
+    short of it (the outer plate there would make the clamp too stiff to close)."""
+    bx, bz = motor_axis(angle, p)
     sy0, sy1 = seat_span(p, d)
+    ey0 = max(sy0, d.clamp_min_y)
     rb = seat_d(p, d, angle) / 2
-    ro = seat_d(outer(p), d) / 2 + d.wall
+    ro = ring_r(angle, p, d)
     if y_max is None:
         # the ear stops short of the front cap screw, so a screwdriver reaches that screw past it
         ey1 = min(sy1, cap_screws(-1, p, d)[0][1] - 1.5)
@@ -447,12 +441,12 @@ def _ring_clamp(top, p, d, angle, out=1, y_max=None):
     else:
         # the ear runs almost to the slit's end (walls round its nut; ending level with the slit breaks the cut)
         ey1, y_lo, y_hi = y_max - 0.5, sy0 - 1, y_max - 0.3
-    ymid = (sy0 + ey1) / 2
-    ex = cx + out * (ro + d.nut_af / 2 + 0.1)  # screw axis, just outside the ring (the nut's flat faces it)
+    ymid = (ey0 + ey1) / 2
+    ex = bx + out * (ro + d.nut_af / 2 + 0.1)  # screw axis, just outside the ring (the nut's flat faces it)
     ear_h = 2 * d.ear + d.slit
     # the ear starts inside the bore (re-cut below): a face tangent to the bore breaks the union
     xa, xb = bx + out * (rb - 0.3), ex + out * (d.nut_af / 2 + d.wall)
-    top = top.fuse(Pos((xa + xb) / 2, ymid, bz) * Box(abs(xb - xa), ey1 - sy0, ear_h)).clean()
+    top = top.fuse(Pos((xa + xb) / 2, ymid, bz) * Box(abs(xb - xa), ey1 - ey0, ear_h)).clean()
     top -= Pos(bx + out * (rb - 0.5), (y_lo + y_hi) / 2, bz) * Box(
         20, y_hi - y_lo, d.slit, align=(Align.MIN if out > 0 else Align.MAX, Align.CENTER, Align.CENTER))
     # the nut goes in from below, into a hex trap in the lower ear's underside, a flat towards the ring
@@ -511,7 +505,7 @@ def block(side, p: Params = P, d: DriveParams = D):
     else:
         base = body & Pos(0, 0, az) * Box(big, big, big, align=MAX)
         top = body & Pos(0, 0, az) * Box(big, big, big, align=MIN)
-        # the cap's split face is relieved, so tightening it clamps the bearings and the level motor's sleeve
+        # the cap's split face is relieved, so tightening it clamps the bearings and the level motor
         top -= Pos(0, 0, az) * Box(big, big, d.split_relief, align=MIN)
         z_split = az + d.split_relief
         # cap screws: countersunk through the cap, insert in the base below the split
@@ -521,10 +515,9 @@ def block(side, p: Params = P, d: DriveParams = D):
             base -= Pos(sx, sy, az) * Cylinder(d.insert_d / 2, d.cap_insert_depth, align=MAX)
             base -= Pos(sx, sy, az) * Cylinder(d.screw_clear_d / 2, d.screw_l, align=MAX)
             top -= Pos(sx, sy, seat) * countersunk(d, depth=d.screw_l)
-    # frame mounting boss with an insert, on the cap (drawn for the sleeves in every mode: see outer())
-    pe = outer(p)
+    # frame mounting boss with an insert, on the cap
     fx, fy, ftop = frame_boss(side, p, d)
-    fz0 = seat_axis(angle, pe)[1]
+    fz0 = motor_axis(angle, p)[1]
     rf = d.insert_d / 2 + d.wall
     top += Pos(fx, fy, fz0) * Cylinder(rf, ftop - fz0, align=MIN)
     # ... joined to the outer plate by a web over its full height (one piece with the plate); the web
@@ -537,22 +530,28 @@ def block(side, p: Params = P, d: DriveParams = D):
     web = _belt([(fx - rf + 0.01, wz0, 0.01), (fx + rf - 0.01, wz0, 0.01),
                  (fx - rf + 0.01, ftop - 0.01, 0.01), (fx + rf - 0.01, ftop - 0.01, 0.01)], fy, wy1 - 0.02)
     top = top.fuse(web).clean()  # (`+` drops part of the web here)
-    # ... and blended into the motor seat's ring along the boss (hull of both), from the boss's centre out
-    ring = (*seat_axis(angle, pe), seat_d(pe, d) / 2 + d.wall - 0.05)  # (inside the ring: coincident faces break it)
+    # ... and blended into the motor seat's ring along the boss (hull of both), from the boss's centre out; on the
+    # right from the ring's inboard end: that boss stands clear of the thin ring, so its inboard side would start in
+    # mid-air as the cap prints (inboard face down). (On the left the boss stands in its ring, and a blend inboard
+    # of it would meet the right motor.)
+    ring = (*motor_axis(angle, p), ring_r(angle, p, d) - 0.05)  # (inside the ring: coincident faces break it)
     sy0, sy1 = seat_span(p, d)
     top = top.fuse(_belt([ring, (fx - rf + 0.01, wz0, 0.01), (fx + rf - 0.01, wz0, 0.01),
                           (fx - rf + 0.01, ftop - 0.01, 0.01), (fx + rf - 0.01, ftop - 0.01, 0.01)],
-                         max(fy, sy0), min(wy1, sy1) - 0.02)
+                         sy0 if side < 0 else max(fy, sy0), min(wy1, sy1) - 0.02)
                    & Pos(0, 0, z_split) * Box(200, 200, 100, align=MIN)).clean()
     mx, mz = motor_axis(angle, p)
     top -= along_y(p.gears.tip_d(p.gears.pinion_z) / 2 + 0.4, seat_stop(p, d) - 0.01, 30, mx, mz)
     top -= along_y(p.gears.tip_d(p.gears.wheel_z) / 2 + 0.5, p.gear_y - p.stack.lip_gap, 40, 0, az)
     top -= Pos(fx, fy, ftop) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
     top -= Pos(fx, fy, ftop) * Cylinder(d.screw_clear_d / 2, d.frame_screw_depth, align=MAX)
-    # re-cut the seat bore in case the boss reached into it
+    # re-cut the seat bore, the encoder slot and the cup's room in case the boss or its blend reached into them (the
+    # blend into the sleeve-sized rings filled the room's outer end, where the Ø6 cup's head turns)
     top -= seat_cut(angle, p, d)  # (as the first cut)
+    top -= encoder_slot(angle, p, d)
+    top -= cup_room(p)
     if side < 0:
-        # the raised motor's ring is all above the split: a slit clamp holds the sleeve (or the motor)
+        # the raised motor's ring is all above the split: a slit clamp holds the motor
         top = _ring_clamp(top, p, d, angle)
     elif one:
         # the level motor's ring has no cap to clamp it: a slit on its rear side, inboard of the outer plate
@@ -579,39 +578,11 @@ def block(side, p: Params = P, d: DriveParams = D):
     return parts
 
 
-def sleeve(side, p: Params = P, d: DriveParams = D):
-    """Eccentric motor sleeve, placed at its nominal orientation (eccentricity pointing at the axle)."""
-    angle = p.layout.motor_angle_left if side > 0 else p.layout.motor_angle_right
-    mx, mz = motor_axis(angle, p)
-    sx, sz = seat_axis(angle, p)
-    sy0, sy1 = seat_span(p, d)
-    s = along_y(sleeve_od(p, d) / 2, sy0, sy1, sx, sz)
-    # the bore is offset by e: turning the sleeve moves the motor by up to +-e along the centre line
-    s -= along_y((p.motor.d + d.sleeve_motor_fit) / 2, sy0 - 1, sy1 - d.sleeve_lip, mx, mz)
-    s -= along_y(p.motor.boss_d / 2 + 0.3, sy0, sy1 + 1, mx, mz)
-    # two spanner notches in the inner rim, to turn the sleeve with tweezers: on the sleeve's thick side
-    # (away from the bore offset), 60 deg either side of it
-    r_n = sleeve_od(p, d) / 2 - d.notch_depth / 2
-    thick = degrees(atan2(-(mz - sz), -(mx - sx)))
-    for k in (-60, 60):
-        a = radians(thick + k)
-        s -= Pos(sx + r_n * cos(a), sy0, sz + r_n * sin(a)) * Rot(0, -(thick + k), 0) * Box(
-            d.notch_depth, 2 * d.notch_d, d.notch_d)
-    if side < 0:
-        s = mirror(s, Plane.XZ)
-    s.label = f"sleeve_{'L' if side > 0 else 'R'}"
-    s.color = (0.3, 0.7, 0.9)
-    return s
-
-
 def printed(p: Params = P, d: DriveParams = D):
     parts = {}
     for side in (1, -1):
         for part in block(side, p, d):
             parts[part.label] = part
-        if p.layout.backlash_mode == "eccentric":
-            sl = sleeve(side, p, d)
-            parts[sl.label] = sl
     return parts
 
 
@@ -627,11 +598,9 @@ class WheelParams:
     axle_fit: float = 0.04  # diametral, the wheel's bore on the axle: a light push, glued (0.08 was a little loose,
     # 0.15 loose; the thin resin bosses would split on a press fit)
     cup_axle_fit: float = 0.04  # the magnet cup's bore on the axle: a light push, glued (0.08 was a little loose)
-    # the alternative cup for the smaller magnet (components.md: Ø4x2, diametric): same outside, so it fits the same
-    # housing and axle. small_gap: its face from the chip; the owner's choice is the Ø6's 0.5 mm (the README's field
-    # estimate for the Ø4 there is 103-113 mT, over the AS5047U's 35-70 mT window: 1.3 mm would give about 54-59 mT)
-    small_magnet: tuple = (4.0, 2.0)  # (d, t)
-    small_gap: float = 0.5
+    # the alternative cup for the Ø6x2 magnet (magnet_cup6_X; the Ø4x2 is the default, Params.magnet): the same
+    # sleeve and the same gap to the chip; the blocks' room is drawn for it, so either cup fits
+    alt_magnet: tuple = (6.0, 2.0)  # (d, t)
     magnet_fit: float = 0.02  # diametral, the magnet's pocket: a light press (0.06 at 2.5 s and 0.04 at 2.0 s let it
     # out too easily)
 
@@ -639,24 +608,22 @@ class WheelParams:
 W = WheelParams()
 
 
-def magnet_cup(side, p: Params = P, w: WheelParams = W, small=False):
+def magnet_cup(side, p: Params = P, w: WheelParams = W, alt=False):
     """Cup holding the magnet on the inner axle end, with a long sleeve along the axle (in the housing's room) that
-    ends in the cone bearing on the inner race only. small=True: the alternative for the Ø4x2 magnet (magnet_cup4_X),
-    with the same 0.75 mm wall round the Ø4 (its head is smaller; the sleeve is the same), the magnet's face small_gap from the chip (sunk into the cup when
-    small_gap is bigger than Magnet.gap: the axle, which stops on the magnet, is then shorter by the difference)."""
+    ends in the cone bearing on the inner race only. alt=True: the alternative for the Ø6x2 magnet (magnet_cup6_X),
+    with the same wall round it and its face at the same gap from the chip."""
     st = p.stack
     y0 = p.magnet_y
-    y1 = y0 + p.magnet.t + st.holder_wall
-    md, mt = w.small_magnet if small else (p.magnet.d, p.magnet.t)
+    md, mt = w.alt_magnet if alt else (p.magnet.d, p.magnet.t)
+    y1 = y0 + mt + st.holder_wall
     cup = along_y(md / 2 + st.cup_wall, y0, y1)  # the same wall round either magnet
     inside = st.bearing_play + st.shoulder + 0.1  # from the race out past the shoulder's face
     cone = Pos(0, p.bearing_inner_y, 0) * Rot(90, 0, 0) * race_cone(inside, p.bearing_inner_y - inside - y1 + 0.01, p)
     cup += cone & along_y(st.sleeve_d / 2, y1 - 0.01, p.bearing_inner_y)
-    sink = (w.small_gap - p.magnet.gap) if small else 0.0  # how much deeper the magnet's face sits
-    cup -= along_y((md + w.magnet_fit) / 2, y0 - 1, y0 + sink + mt)
-    cup -= along_y((p.wheel.axle_d + w.cup_axle_fit) / 2, y0 + sink + mt, p.bearing_inner_y + 1)
+    cup -= along_y((md + w.magnet_fit) / 2, y0 - 1, y0 + mt)
+    cup -= along_y((p.wheel.axle_d + w.cup_axle_fit) / 2, y0 + mt, p.bearing_inner_y + 1)
     cup = Pos(0, 0, p.axle_z) * cup
-    return _side(cup, side, "magnet_cup4" if small else "magnet_cup", (0.9, 0.9, 0.3))
+    return _side(cup, side, "magnet_cup6" if alt else "magnet_cup", (0.9, 0.9, 0.3))
 
 
 def wheel(side, p: Params = P, w: WheelParams = W):

@@ -234,13 +234,13 @@ def block_cases(side):
     """The block assembled (base and cap bonded: the screws clamp them), on its two pads."""
     s = 1 if side == "L" else -1
     angle = P.layout.motor_angle_left if s > 0 else P.layout.motor_angle_right
-    sx, sz = drive.seat_axis(angle)
+    sx, sz = drive.motor_axis(angle)
     rb = (P.bearing.od + drive.D.bearing_fit) / 2
     ys = sorted((s * P.bearing_inner_y, s * P.bearing_outer_y))
     housing = bore_y(0, P.axle_z, rb, ys[0] - 1, ys[1] + 1)
-    seat = bore_y(sx, sz, drive.seat_d() / 2)
+    seat = bore_y(sx, sz, drive.seat_d(angle=angle) / 2)
     pads = down(P.board.top_z)
-    wheel, motor = 6.0e-3, 7.0e-3  # kg: wheel + gear + axle + bearings; motor (+ sleeve)
+    wheel, motor = 6.0e-3, 7.0e-3  # kg: wheel + gear + axle + bearings; motor
     return "resin", [
         Case("crash", pads, [(housing, (wheel * CRASH, 0, 0)), (seat, (motor * CRASH, 0, 0))], (-CRASH, 0, 0)),
         Case("drop", pads, [(housing, (0, 0, 30.0)), (seat, (0, 0, -motor * DROP))], (0, 0, DROP)),

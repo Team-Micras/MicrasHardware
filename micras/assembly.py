@@ -7,7 +7,6 @@ MATERIALS = {
     "block_cap": ("resin", "Photon Mono 4", "inboard (hidden) face down on supports: bores vertical, the split face, fan ear and basket seats come out as clean walls; glue the inserts; an M2 nut goes in the fan ear's trap before the cap is fitted"),
     "block_base": ("resin", "Photon Mono 4", "inboard (hidden) face down on supports: bores vertical, the pads and the split face come out as clean walls; glue the M2 inserts; press the outer bearing into the tube's end up to its step"),
     "block_": ("resin", "Photon Mono 4", "one-piece block: inboard face down (all bores vertical: round), supports on that hidden face; glue the inserts; press the inner bearing in from the inboard end up to the lip, the outer one into the tube's end up to its step; an M2 nut goes in the fan ear's trap"),
-    "sleeve": ("resin", "Photon Mono 4", "axis vertical, notched rim up; drill the motor bore if tight"),
     "magnet_cup": ("resin", "Photon Mono 4", "axis vertical, magnet pocket up; glue the magnet with the correct pole direction, and the sleeve to the axle"),
     "wheel": ("resin", "Photon Mono 4", "gear, drum and end web in one piece: axis vertical, end web down (its vents keep the drum from acting as a suction cup), the gear's teeth on top, away from the supports; glue it to the axle; the tire (cut to the channel's width) is stretched over the outer flange into its channel, no glue"),
     "impeller": ("resin", "Photon Mono 4", "tilted 45 deg, hub side towards the plate, supports on the backplate and hub only (the flat shroud face is the inlet seal: keep it support-free); its bore is the pinion's shape: slide it on, wick in thin CA, balance it"),
@@ -29,7 +28,6 @@ PRINT = {
     "block_base": ((0, -1, 0), 0, 1),
     "block_cap": ((0, -1, 0), 0, 1),
     "block_": ((0, -1, 0), 0, 1),  # one-piece block: inboard face down, all bores vertical
-    "sleeve": ((0, 1, 0), 0, 1),  # notched rim up
     "magnet_cup": ((0, 1, 0), 0, 1),  # magnet pocket up
     "wheel": ((0, 1, 0), 0, 1),  # end web down, the gear on top
     "impeller": ((0, 0, 1), 45, 1),  # hub side towards the plate, tilted (the shroud's inside supportable)

@@ -1,5 +1,5 @@
 """Check the printed gear pair (micras/gears.py): no interference through a full tooth pitch, the backlash, how
-much the eccentric sleeves may close the centre distance before the teeth bind, and the tooth root stress.
+much the centre distance may close (print error) before the teeth bind, and the tooth root stress.
 
 Tooth root stress, ISO 6336 style: sigma = Ft / (b m) * Y_F * Y_S, with the form and stress-correction factors
 read off the ISO charts for a 7-tooth pinion shifted +0.45 (Y_F ~2.9, Y_S ~1.6: the pinion is the weaker one) and

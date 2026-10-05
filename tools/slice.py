@@ -9,15 +9,15 @@ with the profiles in tools/slicing/. Output in build/sliced/:
   <plate>.pm4n         Photon Mono 4 (copy to its USB stick)
   <plate>.gcode        Ender 3 V3 SE (copy to its SD card)
 
-Plates: calibration, resin, sensor_caps, drive_<sleeve|nosleeve>_<split|solid> (one per drive variant),
+Plates: calibration, resin, sensor_caps, drive_<split|solid> (one per drive variant),
 basket. A plate that doesn't fit the build area is split in two (<plate>_1, <plate>_2).
 
 Usage:
   uv run tools/slice.py                          # every plate
   uv run tools/slice.py calibration              # some plates
-  uv run tools/slice.py resin drive_sleeve_split --copy-to E:    # and copy the files to the drive at E:
+  uv run tools/slice.py resin drive_split --copy-to E:    # and copy the files to the drive at E:
   uv run tools/slice.py calibration --resin standard              # another resin (tools/slicing/resin_<name>.ini)
-  uv run tools/slice.py resin sensor_caps drive_sleeve_split --merge robot   # several plates as one print
+  uv run tools/slice.py resin sensor_caps drive_split --merge robot   # several plates as one print
 Needs prusa-slicer and UVtoolsCmd on the PATH (tools/setup_print_tools.sh installs them).
 """
 import argparse

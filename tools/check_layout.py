@@ -2,7 +2,7 @@
 
 Board components are checked as their bounding boxes (conservative), from the ref/board_boxes.json cache.
 
-Usage: uv run tools/check_layout.py [layout.backlash_mode=fixed] [layout.blocks=solid]
+Usage: uv run tools/check_layout.py [layout.blocks=solid]
 """
 import sys
 import time
@@ -41,13 +41,11 @@ for s in "LR":
         allowed.add(frozenset((f"{a}_{s}", f"{b}_{s}")))
     # parts that seat in each other by design
     for a, b in [("block_base", "block_cap"), ("block_base", "bearing_inner"), ("block_base", "bearing_outer"),
-                 ("block_cap", "bearing_inner"), ("block_cap", "bearing_outer"), ("sleeve", "block_base"),
-                 ("sleeve", "block_cap"), ("sleeve", "motor"),
+                 ("block_cap", "bearing_inner"), ("block_cap", "bearing_outer"),
                  # one-piece blocks (Layout.blocks = "solid")
-                 ("block", "bearing_inner"), ("block", "bearing_outer"), ("sleeve", "block"),
-                 # fixed-bore variant (Layout.backlash_mode = "fixed"): the motor sits in the blocks
-                 *((("motor", "block_base"), ("motor", "block_cap"), ("motor", "block"))
-                   if P.layout.backlash_mode == "fixed" else ()),
+                 ("block", "bearing_inner"), ("block", "bearing_outer"),
+                 # the motors sit in the blocks
+                 ("motor", "block_base"), ("motor", "block_cap"), ("motor", "block"),
                  # running gaps set by params (stack.lip_gap)
                  ("wheel_gear", "block_base"), ("wheel_gear", "block_cap"), ("wheel_gear", "block"),
                  ("wheel", "block_base"), ("wheel", "block_cap"), ("wheel", "block"),
@@ -122,15 +120,19 @@ for name, part in {**printed, **front_parts, **{k: v for k, v in fan_parts.items
     if not part.is_valid or len(part.solids()) != 1:
         res.append((name, "invalid shape", 0.0, len(part.solids())))
         print("SHAPE", f"{name}: valid {part.is_valid}, {len(part.solids())} solids")
-# parts seated in the blocks touch them by design (allowed above) but must not sink into them: the bearings, the
-# sleeves, and the motors in the fixed-bore variant
+# parts seated in the blocks, and the rotating parts with a running gap to them, may touch them (allowed above) but
+# must not sink into them: the bearings, the motors, the magnet cups (the alternative Ø6 cup too: it isn't in the
+# assembly) and the wheels
+alt_cups = {c.label: c for c in (drive.magnet_cup(s, alt=True) for s in (1, -1))}
 for sd in "LR":
     blocks = [k for k in parts if k.startswith("block") and k.endswith(f"_{sd}")]
-    for k in (f"bearing_inner_{sd}", f"bearing_outer_{sd}", f"sleeve_{sd}", f"motor_{sd}"):
-        if k not in parts:
+    for k in (f"bearing_inner_{sd}", f"bearing_outer_{sd}", f"motor_{sd}", f"magnet_cup_{sd}", f"magnet_cup6_{sd}",
+              f"wheel_{sd}"):
+        part = parts.get(k) or alt_cups.get(k)
+        if part is None:
             continue
         for b in blocks:
-            common = parts[k] & parts[b]
+            common = part & parts[b]
             v = common.volume if common is not None else 0.0
             if v > 1e-3:
                 res.append((k, b, 0.0, round(v, 3)))
