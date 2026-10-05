@@ -1,0 +1,43 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  OpenFOAM v2512 (opencfd/openfoam-default). Template: tools/cfd/make_case.py fills the @@-placeholders.
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      fvSolution;
+}
+solvers
+{
+    p
+    {
+        solver          GAMG;
+        smoother        GaussSeidel;
+        tolerance       1e-8;
+        relTol          0.05;
+        nCellsInCoarsestLevel 50;
+    }
+    "(U|k|omega)"
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance       1e-9;
+        relTol          0.1;
+        nSweeps         2;
+    }
+}
+
+SIMPLE
+{
+    nNonOrthogonalCorrectors 0;
+    consistent      yes;   // SIMPLEC: steadier than SIMPLE p 0.3 / U 0.6 here (same answer)
+    pRefValue       0;   // (open boundaries fix the level)
+}
+
+relaxationFactors
+{
+    fields          { p 0.7; }
+    equations       { U 0.7; k 0.7; omega 0.7; }
+}

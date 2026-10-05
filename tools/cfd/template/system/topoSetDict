@@ -1,0 +1,26 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  OpenFOAM v2512 (opencfd/openfoam-default). Template: tools/cfd/make_case.py fills the @@-placeholders.
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      topoSetDict;
+}
+actions
+(
+    // MRF zone: the impeller up to above its backplate (zone A) and the hub up into the plate hole (zone B); only
+    // axisymmetric stationary walls (board top, hole, plate underside) lie inside it: nonRotatingPatches
+    { name rotorCells; type cellSet; action new; source cylinderToCell; p1 @@ZONEA_P1@@; p2 @@ZONEA_P2@@; radius @@ZONEA_R@@; }
+    { name rotorCells; type cellSet; action add; source cylinderToCell; p1 @@ZONEB_P1@@; p2 @@ZONEB_P2@@; radius @@ZONEB_R@@; }
+    { name rotor; type cellZoneSet; action new; source setToCellZone; set rotorCells; }
+
+    // flow through the hole at z 1.8, oriented +z (up, towards the impeller): inside the neck = eye flow,
+    // whole hole = net flow (= the inlet flow); the difference is the seal leak coming down the neck gap
+    { name eyeZone; type faceZoneSet; action new; source searchableSurfaceToFaceZone; surfaceType disk;
+      origin @@MEAS_ORIGIN@@; normal (0 0 1); radius @@EYE_R@@; }
+    { name holeZone; type faceZoneSet; action new; source searchableSurfaceToFaceZone; surfaceType disk;
+      origin @@MEAS_ORIGIN@@; normal (0 0 1); radius @@HOLE_R@@; }
+);

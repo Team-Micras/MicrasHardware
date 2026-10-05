@@ -49,9 +49,12 @@ for kv in sys.argv[1:]:
         params.override(kv)
 if "--simple" in sys.argv:  # components as boxes (faster)
     pcb, comps = layout.board_simple()
-    board = Compound(children=[pcb, comps], label="board")
+    comps = Compound(list(comps.solids()), label="components")
 else:  # the real populated board from ref/board.step, every component as modelled (~0.6 GB, ~25 s)
-    board = layout.board()
+    children = layout.board().children
+    pcb = next(c for c in children if c.label.endswith("_PCB"))
+    # all the components as one flat shape: as separate objects (hundreds) the viewer lags
+    comps = Compound([s for c in children if c is not pcb for s in c.solids()], label="components")
 # one group per assembly (drive left/right, fan, front, battery), like the board's components
 grouped = []
 from micras import gears  # noqa: E402
@@ -61,4 +64,6 @@ for group, parts in assembly.groups().items():
     for name, shape in parts.items():
         shape.label = name
     grouped.append(Compound(children=list(parts.values()), label=group))
-show(board, *grouped, names=["board", *[g.label for g in grouped]])
+silk = layout.silkscreen()  # the board's top silkscreen, as lines on the board top
+pcb.color, comps.color, silk.color = (0.12, 0.37, 0.18), (0.45, 0.45, 0.45), (0.95, 0.95, 0.95)
+show(pcb, comps, silk, *grouped, names=["pcb", "components", "silkscreen", *[g.label for g in grouped]])

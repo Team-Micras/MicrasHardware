@@ -11,7 +11,12 @@ from math import cos, radians, sin
 
 @dataclass(frozen=True)
 class Board:
-    bottom_z: float = 1.0  # floor gap under the board
+    # floor gap under the board: the axle sits at the encoder chip's height above the board, so this sets the
+    # wheel size (Ø 2 x (bottom_z + thickness + encoder_chip_h)). 1.2 (was 1.0, Ø22.08 wheels) leaves room for
+    # the tires' 0.35-0.5 mm squash under the fan's 4 N, with the 0.7 mm skates just clear (skids.py). The heights
+    # given above the floor elsewhere (Battery.floor_z, DriveParams.tray_bottom_z and frame_boss_top_left,
+    # FanParams.arm_z0 and leg_knee_z) were raised with it.
+    bottom_z: float = 1.2
     thickness: float = 1.0412
     fan_hole_x: float = 17.5
     fan_hole_d: float = 15.0
@@ -35,9 +40,10 @@ class Board:
 
 @dataclass(frozen=True)
 class Motor:
-    """Coreless 1020: 9.61 x 20.30 measured (components.md; motor.png's nominal is 10 x 20)."""
-    d: float = 9.61
-    body_l: float = 20.3
+    """Coreless 1020 drive motor: Ø10 x 20 with a Ø1 x 6 shaft (motor.png, the datasheet; the owner confirmed the can
+    is Ø10). The fan motor is another size (Params.fan_motor)."""
+    d: float = 10.0
+    body_l: float = 20.0
     shaft_d: float = 1.0
     shaft_l: float = 6.0
     rear_l: float = 2.0  # solder tabs behind the can (rear shaft is cut off; measure)
@@ -81,7 +87,7 @@ class Gears:
 class Bearing:
     od: float = 5.0
     id: float = 2.0
-    w: float = 2.5
+    w: float = 2.57  # 2.5 nominal; the bought ones measure 2.57 (a 2.5 pocket would not take them)
 
 
 @dataclass(frozen=True)
@@ -121,25 +127,44 @@ class Wheel:
 
 @dataclass(frozen=True)
 class AxialStack:
-    """Axial stack along the axle, from the magnet outwards (all along y)."""
+    """Axial stack along the axle, from the magnet outwards (all along y).
+
+    magnet cup (its sleeve runs in a room in the housing) | shoulder | inner bearing | lip = the block's outer face |
+    tube, out through the wheel's gear into its hollow drum | outer bearing at the tube's end | the wheel's end web.
+    The wheel (gear, drum and end web, one piece) turns round the tube; the two bearings sit about 6 mm apart.
+    """
     holder_wall: float = 0.5  # magnet cup wall behind the magnet
-    holder_gap: float = 0.25  # magnet cup to housing shoulder (rotating vs static)
+    cup_wall: float = 0.75  # magnet cup wall round the magnet (0.5 looked fragile)
+    holder_gap: float = 0.25  # magnet cup to housing (rotating vs static), axial and radial
+    sleeve_d: float = 5.3  # the magnet cup's sleeve along the axle (it glues the cup to the axle)
+    sleeve_l: float = 3.0  # the housing's room for the sleeve, from the housing's inboard face to the shoulder
     shoulder: float = 0.4  # housing shoulder in front of the inner bearing
     shoulder_id: float = 3.6  # clears the inner race
-    boss_d: float = 2.7  # bosses that touch only the inner races (MR52 inner race OD ~2.9: measure)
-    lip: float = 0.3  # housing lip outside the outer bearing
-    bearing_ridge: float = 0.5  # housing ridge between the two bearings (spreads them for support)
-    lip_gap: float = 0.25  # lip to wheel gear
+    bearing_play: float = 0.1  # axial room in each bearing pocket (the race cones push the bearings against the
+    # lip and the tube's step)
+    # the parts that bear on a bearing's inner race (the magnet cup and the wheel) end in a cone: boss_d where it
+    # touches the race (inner race OD 2.9 measured; the shields are metal), cone_d where it leaves the housing's
+    # bore, then a 45 deg flare to the part behind (a plain Ø2.7 boss left a 0.3 mm wall round the axle, which broke)
+    boss_d: float = 2.8
+    cone_d: float = 3.3
+    lip: float = 0.3  # housing lip outside the inner bearing
+    lip_gap: float = 0.25  # block's outer face to the wheel's gear
+    tube_od: float = 7.2  # the outer bearing's tube (1 mm wall over the bearing)
+    tube_gap: float = 0.3  # radial, tube to the wheel's bore
+    tube_step: float = 0.6  # the step the outer bearing is pressed against (from the tube's inboard side)
+    end_web: float = 0.8  # the wheel's outer web (it carries the axle boss and the cone onto the outer bearing)
+    end_gap: float = 2.0  # tube's end to the end web: the wheel's axle boss fills it (2.9 mm of grip on the axle;
+    # at 0.5 it gripped 1.4 mm and the wheel could tilt)
 
 
 @dataclass(frozen=True)
 class Battery:
-    cell: tuple = (47.16, 11.32, 6.45)  # length, width, thickness
+    cell: tuple = (51.0, 11.32, 6.45)  # length (the 47.16 body and its leads), width, thickness
     cell_mass: float = 6.0
     arrangement: str = "edge"  # "pyramid" | "edge" | "flat" | "stack" (tools/battery_study.py)
     gap: float = 0.3
-    x: float = -9.52  # pack centre (tools/mass_report.py: CoM over the axle)
-    floor_z: float = 30.0  # bottom of the cells (tray floor top)
+    x: float = -7.8  # pack centre (tools/mass_report.py: CoM over the axle)
+    floor_z: float = 30.2  # bottom of the cells (tray floor top)
 
 
 @dataclass(frozen=True)
@@ -147,7 +172,7 @@ class Layout:
     # Motor axis angle around its wheel axle, measured from +x (forward) towards +z (up).
     motor_angle_left: float = 180.0  # low, straight behind the axle
     motor_angle_right: float = 112.0  # above the left motor, clears the encoder boards
-    backlash_mode: str = "eccentric"  # "eccentric" | "fixed"
+    backlash_mode: str = "fixed"  # "eccentric" | "fixed" (the owner's choice: split blocks without sleeves)
     blocks: str = "split"  # "split" (base + cap) | "solid" (one-piece bearing blocks)
     eccentricity: float = 0.3
     clearance: float = 0.3  # minimum air gap to board components
@@ -157,6 +182,9 @@ class Layout:
 class Params:
     board: Board = field(default_factory=Board)
     motor: Motor = field(default_factory=Motor)
+    # fan motor (measured): Ø9.97 x 23.08, 54k rpm at 7.6 V; its shaft carries a pressed-on 9T module 0.3 pinion
+    # (4.6 long) that doesn't come off, so the "shaft" here is that pinion (tip Ø3.3) and the impeller mounts on it
+    fan_motor: Motor = field(default_factory=lambda: Motor(d=9.97, body_l=23.08, shaft_d=3.3, shaft_l=4.6))
     gears: Gears = field(default_factory=Gears)
     bearing: Bearing = field(default_factory=Bearing)
     magnet: Magnet = field(default_factory=Magnet)
@@ -208,19 +236,39 @@ class Params:
 
     @property
     def bearing_inner_y(self):
-        """Inner face of the inner bearing."""
-        return self.shoulder_y + self.stack.shoulder
+        """Inner face of the inner bearing (against the lip, bearing_play from the shoulder)."""
+        st = self.stack
+        return self.shoulder_y + st.sleeve_l + st.shoulder + st.bearing_play
 
     @property
-    def bearing_outer_y(self):
-        """Outer face of the outer bearing."""
-        return self.bearing_inner_y + 2 * self.bearing.w + self.stack.bearing_ridge
+    def housing_end_y(self):
+        """The block's outer face: the lip outside the inner bearing (the tube starts here)."""
+        st = self.stack
+        return self.bearing_inner_y + self.bearing.w + st.bearing_play + st.lip
 
     @property
     def gear_y(self):
-        """Inner face of the wheel gear."""
-        return max(self.bearing_outer_y + self.stack.lip + self.stack.lip_gap,
-                   self.board.notch_inner_y + self.wheel.gear_gap_min)
+        """Inner face of the wheel's gear."""
+        return max(self.housing_end_y + self.stack.lip_gap, self.board.notch_inner_y + self.wheel.gear_gap_min)
+
+    @property
+    def wheel_outer_y(self):
+        """Outer face of the wheel (its outer flange and end web)."""
+        return self.tire_outer_y + self.wheel.flange_out
+
+    @property
+    def tube_end_y(self):
+        return self.wheel_outer_y - self.stack.end_web - self.stack.end_gap
+
+    @property
+    def bearing_outer_y(self):
+        """Outer face of the outer bearing (bearing_play inside the tube's end)."""
+        return self.tube_end_y - self.stack.bearing_play
+
+    @property
+    def wheel_hole_d(self):
+        """The wheel's bore round the tube."""
+        return self.stack.tube_od + 2 * self.stack.tube_gap
 
     @property
     def tire_outer_y(self):

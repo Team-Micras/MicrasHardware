@@ -12,6 +12,42 @@ tools/capped.sh uv run tools/slice.py               # build/sliced/*.pm4n, *.gco
 tools/capped.sh uv run tools/slice.py calibration --copy-to E:   # one plate, copied to the USB stick at E:
 ```
 
+## 0. Exposure test (first, and whenever the resin changes)
+
+The first parts came out with every hole too tight, much tighter than the flat calibration coupon predicted: the
+exposure was too long for parts this thick. `tools/rerf.py` makes `R_E_R_F.pm4n` (about 45 min, 21 ml): with exactly
+that file name, the Mono 4 runs Anycubic's exposure range finder and exposes 8 zones of the screen at 2.0, 2.25 …
+3.75 s. Each zone gets one coupon (`fit_test.exposure_coupon`), printed on supports like the parts: a 14 × 38 × 3
+block with holes at the exact sizes of the bought parts (motor Ø10, magnet Ø6, bearing Ø5, M2 nut, insert Ø3.2,
+axle Ø2, motor shaft Ø1), a comb of 0.2–0.5 slots, and its number on top.
+
+```sh
+tools/capped.sh uv run tools/rerf.py --copy-to E:
+```
+
+Prepare, wash and cure it like the calibration print below. Then, for each coupon, try the real parts in its holes,
+caliper its outside (14.00 × 38.00) and see which slots are open, and fill in the exposure table in
+`docs/print_check.md`. The best exposure has the outside closest to size and its holes the least undersize while
+the slots and edges are still sharp; the fits are then set at that exposure.
+
+**Result (2026-10-03):** the outsides printed true at every exposure (37.94-38.02 x 13.93-14.04); the slots closed as
+the exposure rose (all four open at 2.0 s, one at 3.75 s); at 2.0 s the bearing, motor, magnet, insert and motor shaft
+each pressed into its nominal hole with some force (the axle hardest: its cut ends were rough). The parts now print
+at 2.0 s and the fits in the code are set from that block.
+
+**Second round (2026-10-03):** at 2.0 s the fits were good, but the parts were weak: some layers parted, the
+impellers warped, the sensor caps and magnet cups felt fragile. The parts now print at 2.5 s, with every hole in the
+code 0.05 bigger than the fits that worked at 2.0 s (at 3.0 s the holes had closed by about 0.1 more than at 2.0 s).
+
+## 1. Calibration print (optional: to check the fits)
+
+The fits are set from the exposure test above. The fit bars (`fit_test.fit_blocks`: one bar per fit, the bought
+part tried in holes at several clearances, printed on supports like the parts; `build/sliced/calibration.pm4n`,
+1.5 h, 38 ml, with the five sensor-cap variants) are there to check them if a fit turns out wrong. The older flat
+coupon described below misled: printed flat with thin walls, its holes came out much looser than the parts'.
+
+### The first, flat coupon (superseded)
+
 ## 1. Calibration print (once, before any part)
 
 One resin print, `build/sliced/calibration.pm4n` (about 30 min, 7 ml), flat on the build plate with no supports. It holds every fit the robot uses at a
@@ -122,21 +158,20 @@ figure-of-eight strokes):
 
 - Cut the supports at their tips with flush cutters while the parts are soft, before the cure; the braced supports
   come away as one piece. Clip any nub flush with a blade.
-- Bearing blocks: look into each bearing bore before fitting a bearing and scrape the ridge's lower face flat (a
-  nub there stops the bearing seating); deburr the housing's inboard end (it runs 0.25 mm from the magnet cup).
+- Bearing blocks: look into each bearing bore before fitting a bearing and scrape the lip's and the tube step's
+  faces flat (a nub there stops the bearing seating); deburr the housing's inboard end (it runs 0.25 mm from the
+  magnet cup).
 - Sleeves: lap the front face (it rests on the seat's cone).
-- Magnet cups: lap the boss end that bears on the inner race to 3.15 mm overall (short is safe: the magnet only
-  moves away from the chip); deburr the flange face.
-- Wheel hubs: lap the web (it's glued to the gear face).
-- Printed wheel gears: lap the inner face (the race spacer bears on it).
-- Fan mount: clear the nubs on the foot and the tabs' undersides (they set the impeller's 0.3 mm seal gap).
+- Magnet cups: clean the cone's tip (it bears on the inner race); deburr the flange face.
+- Wheels: clean the cone on the end web's inner side (it bears on the outer bearing's inner race).
+- Fan mount: clear the nubs on the tabs' undersides (they set the impeller's 0.3 mm seal gap).
 - Inserts: their holes print sideways in the blocks; dry-fit an insert first, and run a 3.3 mm drill through if
   tight, then glue it with a drop of CA or epoxy (resin is a thermoset: heat-setting cracks it).
-- Race spacers print on edge (both faces clean); check they're 0.55 mm thick. A 2 mm shim washer that clears the
-  outer race works too.
-- Impeller: it prints tilted, so its bore is undersize on purpose: check the Ø0.9 hole is open, ream it to
-  0.97-0.98 mm and balance it.
-- Gears: the bores are sized from the calibration (press the pinion on, push the wheel gear on); glue them.
+- Impeller: its bore is the 9T pinion's outline with 0.06 mm all round: it slides onto the pinion, the teeth key
+  it; wick in thin CA. If it's tight, clean the bore by twisting the pinion in and out (don't drill it). Balance it
+  afterwards (README, assembly).
+- Pinions: two bores (the number on the file is the bore in hundredths): use the one that slides on the shaft with
+  the least play, and glue it.
 - **Sensor caps:** most black paints let infrared through. Use a carbon-black paint (matte black acrylic or
   enamel with carbon/lamp black pigment, or a black permanent marker for the bores), two thin coats outside and in
   the bores, and check it before fitting: shine the emitter at the receiver through a painted cap wall. The
@@ -147,12 +182,10 @@ figure-of-eight strokes):
 
 | File | What | Notes |
 | --- | --- | --- |
-| `basket.gcode` | battery basket, PLA, upside down, no supports | about 30 min; the floor bridges between the end walls |
-| `bumper.gcode` | bumper, TPU 95A, 100 % infill | about 6 min; dry the TPU first (4 h at 50 °C) |
+| `basket.gcode` | battery basket, PLA, upside down, the floor on supports from the bed | the supports sit inside the box and come out through its open side |
 
 Before the first print: run the printer's auto-levelling and set the Z offset on a first-layer test (the stock
-start G-code loads the stored mesh with `M420 S1`). Clean the PEI sheet with IPA. For TPU, loosen the extruder's
-tension a little if it skips, and print with the spool where the filament runs freely.
+start G-code loads the stored mesh with `M420 S1`). Clean the PEI sheet with IPA.
 
 ## How the settings were chosen
 
@@ -162,18 +195,17 @@ Resin (`tools/slicing/mono4.ini`, `resin_abs_pro2.ini`):
   the 17 µm pixel resolution; tilted bores come out stepped, oval and skewed by the light that cures through to the
   layer below). Supports go on hidden faces; blind pockets open towards the plate or are vented (a cavity opening
   towards the film becomes a suction cup). The impeller is the exception: tilted 45° so its shroud's inner
-  overhangs can be supported; its bore is reamed.
+  overhangs can be supported; its bore is shaped like the pinion, with a small clearance, and glued.
 - **Supports:** 0.4 mm tips (0.3 is borderline on an FEP film), dense, 3 mm above a pad (the bottom layers'
   over-cure stays in the pad).
-- **Exposure:** Anycubic's settings table for ABS-Like Pro 2 on the Mono 4 (3.0 s; the bottom layers at 45 s x 6, harder than its 35 s x 5, for the pad's grip), at
+- **Exposure:** 2.5 s, from the exposure test and the parts printed at 2.0 s (section 0; Anycubic's table says 3.0 s, which closed every hole too far, and 2.0 s left the layers weak; the bottom layers at 45 s x 6, harder than its 35 s x 5, for the pad's grip), at
   25-30 °C. ABS-like resin is tough enough for the press fits, slit clamps and the 0.5 module gears; Standard is brittle.
   Anti-aliasing off (its grey edge pixels mostly don't cure and shift the edges; at 17 µm it gains nothing here).
 - **Motion:** slow lifts (1 mm/s up, 2 mm/s down) so the soft fresh layers and the support tips bend less, and a
   2 s rest before each exposure so the resin film settles (even layers).
 
-FDM (`ender3v3se.ini`, `pla.ini`, `tpu.ini`): the V3 SE's machine values and start G-code from Creality's
-OrcaSlicer profile; Arachne perimeters; PLA at 210 °C with full cooling and 25 mm/s bridges; TPU at 228 °C,
-slow (3.5 mm³/s), short retraction.
+FDM (`ender3v3se.ini`, `pla.ini`): the V3 SE's machine values and start G-code from Creality's
+OrcaSlicer profile; Arachne perimeters; PLA at 210 °C with full cooling and 25 mm/s bridges.
 
 Sources: [cross-layer curing and layer bulging](https://blog.honzamrazek.cz/2022/11/cross-layer-curing-and-layer-bulging-on-resin-printers-enemy-of-overall-dimensional-accuracy-and-printed-threads/),
 [resin shrinkage and exposure bleeding](https://blog.honzamrazek.cz/2022/06/getting-perfectly-crisp-and-dimensionally-accurate-3d-prints-on-a-resin-printer-fighting-resin-shrinkage-and-exposure-bleeding/),
@@ -194,5 +226,4 @@ Sources: [cross-layer curing and layer bulging](https://blog.honzamrazek.cz/2022
 | layers split, soft or sticky surface | under-exposed or cold resin | warm the room/resin to 25 °C; then +0.3 s exposure (reprint the coupon) |
 | slots closed, holes small, details bloated | over-exposed | -0.3 s exposure (reprint the coupon) |
 | printer won't list the file | the converted .pm4n | open the plate's `.3mf` in Lychee and slice it there with the settings above |
-| basket floor sags or strings | bridges | check cooling (100 %), lower `bridge_speed` in `pla.ini` |
-| TPU skips or tangles | extruder pressure, wet filament | dry it; slower `filament_max_volumetric_speed` in `tpu.ini` |
+| basket floor sags or strings | bridges | check cooling (100 %) and that the supports printed; lower `bridge_speed` in `pla.ini` |

@@ -28,6 +28,72 @@ def board():
     return placed
 
 
+def _svg_arc(p0, rx, large, sweep, p1, n=12):
+    """Points along an SVG arc (circular: rx = ry, no rotation) from p0 to p1, p0 excluded."""
+    from math import atan2, cos, pi, sin, sqrt
+    (x0, y0), (x1, y1) = p0, p1
+    mx, my = (x0 - x1) / 2, (y0 - y1) / 2
+    r = max(rx, sqrt(mx * mx + my * my))
+    h = sqrt(max(r * r - mx * mx - my * my, 0.0)) / max(sqrt(mx * mx + my * my), 1e-12)
+    sign = -1 if large == sweep else 1
+    cx, cy = (x0 + x1) / 2 + sign * h * my, (y0 + y1) / 2 - sign * h * mx  # (SVG spec, F.6.5)
+    a0, a1 = atan2(y0 - cy, x0 - cx), atan2(y1 - cy, x1 - cx)
+    da = a1 - a0
+    if sweep and da < 0:
+        da += 2 * pi
+    elif not sweep and da > 0:
+        da -= 2 * pi
+    return [(cx + r * cos(a0 + da * k / n), cy + r * sin(a0 + da * k / n)) for k in range(1, n + 1)]
+
+
+@lru_cache
+def silkscreen(p: Params = P):
+    """The board's top silkscreen (ref/board_silk.svg, tools/export_board.py) as lines on the board top, in the
+    robot frame: for the viewer."""
+    import re
+
+    from build123d import Circle, Polyline
+
+    ax, ay = json.loads((REF / "board_mech.json").read_text())["axle_kicad"]
+    z = p.board.top_z + 0.01
+    to_robot = lambda kx, ky: (ay - ky, ax - kx, z)  # noqa: E731
+    text = (REF / "board_silk.svg").read_text()
+    edges = []
+    for d in re.findall(r'\sd="([^"]*)"', text, re.S):
+        tokens = re.findall(r"[MLAZ]|-?\d+(?:\.\d*)?", d)
+        paths, cur, i, cmd = [], [], 0, "L"
+        while i < len(tokens):
+            t = tokens[i]
+            if t in "MLAZ":
+                cmd, i = t, i + 1
+                if t == "M":
+                    if len(cur) > 1:
+                        paths.append(cur)
+                    cur = []
+                elif t == "Z" and cur:
+                    cur.append(cur[0])
+                continue
+            if cmd == "A":
+                rx, _, _, large, sweep, x, y = (float(v) for v in tokens[i:i + 7])
+                cur += _svg_arc(cur[-1], rx, int(large), int(sweep), (x, y))
+                i += 7
+            else:
+                cur.append((float(t), float(tokens[i + 1])))
+                i += 2
+        if len(cur) > 1:
+            paths.append(cur)
+        for pts in paths:
+            pts = [q for k, q in enumerate(pts) if k == 0 or abs(q[0] - pts[k - 1][0]) + abs(q[1] - pts[k - 1][1]) > 1e-4]
+            if len(pts) > 1:
+                edges += Polyline(*[to_robot(*q) for q in pts]).edges()
+    for cx, cy, r in re.findall(r'<circle cx="([-\d.]+)" cy="([-\d.]+)" r="([-\d.]+)"', text):
+        if float(r) > 0:
+            edges += (Pos(*to_robot(float(cx), float(cy))) * Circle(float(r))).edges()
+    silk = Compound(edges, label="silkscreen")  # one flat shape (as children, the viewer lags on 9000 objects)
+    silk.color = (0.95, 0.95, 0.95)
+    return silk
+
+
 @lru_cache
 def board_boxes():
     """Axis-aligned bounding box of every board component (not the bare PCB), in the robot frame.
@@ -62,7 +128,7 @@ def outboard(side):
 
 
 def drive_side(side, p: Params = P):
-    """Axle, bearings, magnet, wheel gear, tire, motor and pinion for one side."""
+    """Axle, bearings, magnet, tire, motor and pinion for one side."""
     s, out = side, outboard(side)
     az = p.axle_z
     parts = {}
@@ -75,10 +141,10 @@ def drive_side(side, p: Params = P):
     at(p.magnet_y + p.magnet.t, pp.magnet(p.magnet), "magnet")
     at(p.bearing_outer_y, pp.bearing(p.bearing), "bearing_outer")
     at(p.bearing_inner_y + p.bearing.w, pp.bearing(p.bearing), "bearing_inner")
-    at(p.gear_y + p.gears.wheel_w, pp.wheel_gear(p.gears), "wheel_gear")
+    # (the wheel gear is part of the printed wheel, drive.wheel: no bought gear here)
     at(p.tire_outer_y, pp.tire(p.hub_d, p.tire_w, p.wheel), "tire")
     axle_in = p.magnet_y + p.magnet.t
-    at(p.tire_outer_y - 0.3, pp.axle(p.tire_outer_y - 0.3 - axle_in, p.wheel), "axle")
+    at(p.wheel_outer_y - 0.2, pp.axle(p.wheel_outer_y - 0.2 - axle_in, p.wheel), "axle")  # through the end web
 
     mx, mz = p.motor_axis(side)
     at(p.motor_front_y, pp.motor(p.motor), "motor", mx, mz)

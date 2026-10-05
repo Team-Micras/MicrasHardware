@@ -1,0 +1,139 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  OpenFOAM v2512 (opencfd/openfoam-default). Template: tools/cfd/make_case.py fills the @@-placeholders.
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+application     simpleFoam;
+startFrom       latestTime;
+startTime       0;
+stopAt          endTime;
+endTime         3000;     // run_case.sh sets it per stage
+deltaT          1;
+writeControl    timeStep;
+writeInterval   100000;   // run_case.sh writes the end of each stage
+purgeWrite      0;
+writeFormat     binary;
+writePrecision  8;
+writeCompression off;
+timeFormat      general;
+timePrecision   8;
+runTimeModifiable true;
+
+functions
+{
+    residuals
+    {
+        type            solverInfo;
+        libs            (utilityFunctionObjects);
+        fields          (U p k omega);
+        writeResidualFields no;
+    }
+    impellerForces   // moment about the axis (fan axis at the origin): shaft torque = -Mz (rotation +z)
+    {
+        type            forces;
+        libs            (forces);
+        patches         (impeller);
+        rho             rhoInf;
+        rhoInf          1.2;
+        CofR            (0 0 0);
+        executeControl  timeStep;
+        executeInterval 5;
+        writeControl    timeStep;
+        writeInterval   5;
+        log             false;
+    }
+    mountForces
+    {
+        $impellerForces;
+        patches         (mount motor);
+    }
+    inletFlow   // the useful through-flow from the cavity (phi < 0 = into the domain)
+    {
+        type            surfaceFieldValue;
+        libs            (fieldFunctionObjects);
+        regionType      patch;
+        name            inlet;
+        operation       sum;
+        fields          (phi);
+        writeFields     false;
+        log             false;
+        executeControl  timeStep;
+        executeInterval 5;
+        writeControl    timeStep;
+        writeInterval   5;
+    }
+    ambientFlow
+    {
+        $inletFlow;
+        name            ambient;
+    }
+    inletPressure
+    {
+        $inletFlow;
+        operation       areaAverage;
+        fields          (p);
+    }
+    eyeFlow     // up through the neck at z 1.8 (oriented +z)
+    {
+        $inletFlow;
+        regionType      faceZone;
+        name            eyeZone;
+    }
+    holeFlow    // up through the whole hole at z 1.8: eye flow - seal leak down the neck gap
+    {
+        $inletFlow;
+        regionType      faceZone;
+        name            holeZone;
+    }
+    probes
+    {
+        type            probes;
+        libs            (sampling);
+        fields          (p U);
+        probeLocations  (@@PROBE_PLENUM_A@@ @@PROBE_PLENUM_B@@ @@PROBE_HOLE@@ @@PROBE_EYE@@ @@PROBE_GAP@@ @@PROBE_TIP@@);
+        executeControl  timeStep;
+        executeInterval 5;
+        writeControl    timeStep;
+        writeInterval   5;
+        log             false;
+    }
+    gapLines    // cell centres across the face gap (r 9) and the neck gap (z 1.8): resolution and profiles
+    {
+        type            sets;
+        libs            (sampling);
+        writeControl    writeTime;
+        interpolationScheme cell;
+        setFormat       raw;
+        fields          (U p k nut);
+        sets
+        {
+            faceGap  { type midPoint; axis xyz; start @@GAPLINE_A0@@; end @@GAPLINE_A1@@; }
+            neckGap  { type midPoint; axis xyz; start @@GAPLINE_B0@@; end @@GAPLINE_B1@@; }
+            tipGap   { type midPoint; axis xyz; start @@GAPLINE_C0@@; end @@GAPLINE_C1@@; }
+        }
+    }
+    yPlus
+    {
+        type            yPlus;
+        libs            (fieldFunctionObjects);
+        writeControl    writeTime;
+    }
+    Umax
+    {
+        type            fieldMinMax;
+        libs            (fieldFunctionObjects);
+        fields          (U p);
+        mode            magnitude;
+        executeControl  timeStep;
+        executeInterval 10;
+        writeControl    timeStep;
+        writeInterval   10;
+        log             false;
+    }
+}

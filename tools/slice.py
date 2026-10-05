@@ -9,8 +9,8 @@ with the profiles in tools/slicing/. Output in build/sliced/:
   <plate>.pm4n         Photon Mono 4 (copy to its USB stick)
   <plate>.gcode        Ender 3 V3 SE (copy to its SD card)
 
-Plates: calibration, resin, sensor_caps, drive_<sleeve|nosleeve>_<split|solid> (one per drive variant), basket,
-bumper. A plate that doesn't fit the build area is split in two (<plate>_1, <plate>_2).
+Plates: calibration, resin, sensor_caps, drive_<sleeve|nosleeve>_<split|solid> (one per drive variant),
+basket. A plate that doesn't fit the build area is split in two (<plate>_1, <plate>_2).
 
 Usage:
   uv run tools/slice.py                          # every plate
@@ -39,7 +39,8 @@ PRINT = ROOT / "build/print"
 OUT = ROOT / "build/sliced"  # (outside build/print: export.py clears that)
 PROFILES = ROOT / "tools/slicing"
 # printer: (build area x, y, margin, gap between parts' outlines)
-RESIN_BED = (153.4, 87.0, 3.5, 4.0)  # the gap leaves room for the pads' 1.6 mm brims
+RESIN_BED = (153.4, 87.0, 5.0, 4.0)  # the gap leaves room for the pads' brims; the margin for their lifted
+# borders, which reach about 4.6 mm out from a part at the pad's top
 FDM_BED = (220.0, 220.0, 10.0, 8.0)
 PM4N_VERSION = 517  # what Lychee 7.5 writes for the Mono 4
 
@@ -56,11 +57,8 @@ def plates(resin=RESIN):
         files = sorted(d.glob("*.stl"))
         if d.name == "fdm_pla":
             out["basket"] = ("fdm", ["ender3v3se.ini", "pla.ini"], files)
-        elif d.name == "fdm_tpu":
-            out["bumper"] = ("fdm", ["ender3v3se.ini", "tpu.ini"], files)
         else:
-            extra = ["flat.ini"] if d.name == "calibration" else []  # (flat on the plate, no supports)
-            out[d.name] = ("resin", ["mono4.ini", f"resin_{resin}.ini", *extra], files)
+            out[d.name] = ("resin", ["mono4.ini", f"resin_{resin}.ini"], files)
     return out
 
 

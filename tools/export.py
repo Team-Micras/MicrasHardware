@@ -3,11 +3,11 @@
   build/print/<group>/<part>.stl   every printed part, already turned to its print orientation and standing on the
                                    plate (assembly.PRINT), grouped by printer and material:
                                      resin/        Photon Mono 4 (Anycubic ABS-Like Pro 2)
-                                     sensor_caps/  Photon Mono 4, the four wall-sensor caps and five test variants
-                                                   (painted black after printing)
-                                     calibration/  Photon Mono 4, the fit-test coupon (print it first)
+                                     sensor_caps/  Photon Mono 4, the four wall-sensor caps (painted black after
+                                                   printing)
+                                     calibration/  Photon Mono 4, the fit bars (optional, to check the fits)
+                                     alternatives/ Photon Mono 4, the magnet cups for the Ø4x2 magnet (optional)
                                      fdm_pla/      Ender 3 V3 SE, PLA
-                                     fdm_tpu/      Ender 3 V3 SE, TPU
                                      drive_<sleeve|nosleeve>_<split|solid>/
                                                    the bearing blocks (and sleeves) of the four drive variants:
                                                    with or without the eccentric motor sleeves, blocks split into
@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Compound, export_step, export_stl  # noqa: E402
 
-from micras import assembly, drive, fit_test, gears, skirt  # noqa: E402
+from micras import assembly, drive, fan, fit_test, gears, skirt  # noqa: E402
 from micras.mass import DENSITY  # noqa: E402
 from micras.params import P, override  # noqa: E402
 
@@ -42,7 +42,7 @@ def variant_dir(mode, blocks):
 def group(name, mat):
     if name.startswith("sensor_cap"):
         return "sensor_caps"
-    return {"resin": "resin", "pla": "fdm_pla", "petg": "fdm_petg", "tpu": "fdm_tpu"}[mat]
+    return {"resin": "resin", "pla": "fdm_pla", "petg": "fdm_petg"}[mat]
 
 
 def write(part, folder, rows, fine=False):
@@ -64,14 +64,21 @@ def main():
     rows = []
     printed = assembly.printed()
     for name, part in printed.items():
-        if not name.startswith(("block", "sleeve")):
+        if not name.startswith(("block", "sleeve", "impeller")):
             write(part, group(name, assembly.material(name)[0]), rows)
-    # printed stand-ins for the brass gears (until the bought ones arrive)
-    for part in (gears.pinion(), gears.wheel_gear()):
+    # the three impeller blade styles, to compare on the scale (docs/fan_study.md)
+    for part in fan.impeller_variants().values():
         write(part, "resin", rows, fine=True)
-    write(fit_test.coupon(), "calibration", rows)
-    for part in fit_test.led_caps().values():
-        write(part, "sensor_caps", rows)
+    # the alternative magnet cups for the Ø4x2 magnet (optional: build/print/alternatives)
+    for side in (1, -1):
+        write(drive.magnet_cup(side, small=True), "alternatives", rows)
+    # the printed pinions, in two bores (the wheel's gear is part of the wheel)
+    for part in gears.pinions().values():
+        write(part, "resin", rows, fine=True)
+    # calibration (optional): the fit bars, on supports like the parts; the bearing's goes with the robot, and the
+    # sensor-cap variants (fit_test.led_caps) are left out: the last print had them
+    for part in fit_test.fit_blocks().values():
+        write(part, "resin" if part.label == "fit_BRG" else "calibration", rows)
     for mode, blocks in VARIANTS:
         override(f"layout.backlash_mode={mode}")
         override(f"layout.blocks={blocks}")
@@ -92,9 +99,9 @@ def main():
         lines.append(f"| {folder} | {name} | {mat} | {printer} | {copies} | {m:.2f} | {note} |")
     # the robot as built with the default drive variant (the stand-in gears are left out)
     vd = variant_dir(*default)
-    total = sum(r[5] for r in rows if not r[1].startswith(("gear_", "sensor_cap_test")) and not r[0].startswith("calibration")
-                and (not r[0].startswith("drive_") or r[0] == vd))
-    lines.append(f"| | **total printed, {vd}** (without the stand-in gears and test caps) | | | | **{total:.1f}** | |")
+    total = sum(r[5] for r in rows if not r[1].startswith(("gear_pinion_103", "fit_", "impeller_radial", "impeller_backward"))
+                and not r[0].startswith(("calibration", "alternatives")) and (not r[0].startswith("drive_") or r[0] == vd))
+    lines.append(f"| | **total printed, {vd}** (one pinion, one impeller, no fit bars) | | | | **{total:.1f}** | |")
     (PRINT / "parts.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
 

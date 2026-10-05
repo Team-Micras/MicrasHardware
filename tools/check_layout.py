@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Align, Box, Cylinder, Plane, Pos, Rot, extrude, mirror  # noqa: E402
-from micras import checks, drive, fan, frame, front, layout  # noqa: E402
+from micras import checks, drive, fan, frame, front, layout, skids  # noqa: E402
 from micras.params import P, override  # noqa: E402
 
 for a in sys.argv[1:]:
@@ -21,7 +21,7 @@ printed = drive.all_parts()
 parts.update(printed)
 fan_parts = fan.parts()
 parts.update(fan_parts)
-front_parts = {**front.parts(), **frame.parts()}
+front_parts = {**front.parts(), **frame.parts(), **skids.parts()}
 parts.update(frame.straps())
 parts.update(front_parts)
 # every printed part obeys the zone rule; the agreed extra contact areas are added as zones below
@@ -50,10 +50,11 @@ for s in "LR":
                    if P.layout.backlash_mode == "fixed" else ()),
                  # running gaps set by params (stack.lip_gap)
                  ("wheel_gear", "block_base"), ("wheel_gear", "block_cap"), ("wheel_gear", "block"),
+                 ("wheel", "block_base"), ("wheel", "block_cap"), ("wheel", "block"),
                  # assembled on the axle
                  ("magnet_cup", "magnet"), ("magnet_cup", "axle"), ("magnet_cup", "bearing_inner"),
-                 ("race_spacer", "axle"), ("race_spacer", "bearing_outer"), ("race_spacer", "wheel_gear"),
-                 ("wheel_hub", "axle"), ("wheel_hub", "wheel_gear"), ("wheel_hub", "tire"),
+                 ("wheel", "axle"), ("wheel", "bearing_outer"), ("wheel", "wheel_gear"), ("wheel", "tire"),
+                 ("wheel", "pinion"),  # the wheel's teeth reach into the pinion's tip circle (check_gears.py meshes them)
                  ("magnet", "axle"),
                  # running gap set by params (stack.holder_gap)
                  ("magnet_cup", "block_base"), ("magnet_cup", "block_cap"), ("magnet_cup", "block")]:
@@ -70,12 +71,11 @@ allowed |= {frozenset((f"velcro_{j}", k)) for j in range(2) for k in ("basket", 
 # screwed / seated joints
 # the fan mount's front foot rests on the MCU
 allowed |= {frozenset(("fan_mount", k)) for k in others if k.startswith("brd:STM32")}
-# the bumper passes under the diagonal sensors; the board model's sensor box reaches down to the legs,
-# so the bumper is checked against the LED bodies in check_sensors.py instead
-allowed |= {frozenset(("bumper", k)) for k in others if k.startswith("brd:WALL_SENSOR")}
 # the caps wrap the LEDs; the board model only offers the sensor bounding box here (exact check below)
 # (check_sensors.py checks each cap against every sensor's LEDs exactly)
 allowed |= {frozenset((f"sensor_cap_{w}", k)) for w in front.SENSORS for k in others if k.startswith("brd:WALL_SENSOR")}
+# the USB receptacle's box reaches down into the PCB; the rear skid is glued under the PCB, between its shell tabs
+allowed |= {frozenset(("skid_rear", k)) for k in others if k.startswith("brd:USB4105")}
 
 res = checks.clashes(parts, others, allowed, margin=P.layout.clearance)
 for r in res:
@@ -87,14 +87,6 @@ zones = zone + mirror(zone, Plane.XZ)
 # the sensor caps stand on the casing outlines the sensor footprints draw
 for w in front.SENSORS:
     zones += front.outline(w)
-# the bumper's lip rests on the free strip behind the board's front edge
-# (the strip is taken from the board: from 0.2 past the last component to the straight front edge)
-x_edge = max(v.X for v in layout.pcb_face().vertices())
-edge_y = max(abs(v.Y) for v in layout.pcb_face().vertices() if abs(v.X - x_edge) < 1e-6)
-x_free = max(b["max"][0] for b in layout.board_boxes()
-             if not b["label"].startswith("WALL_SENSOR") and abs(b["min"][1] + b["max"][1]) / 2 < edge_y) + 0.2
-zones += Pos((x_free + x_edge) / 2, 0, P.board.top_z) * Box(x_edge - x_free, 2 * (edge_y - 1.0), 0.3,
-                                                             align=(Align.CENTER, Align.CENTER, Align.MIN))
 # the fan mount's feet, on the free board spots chosen for them
 fcx, fcy = fan.centre(P)
 for ang, r, z_foot in fan.F.feet:
@@ -119,7 +111,7 @@ for name, part in {**printed, **front_parts,
         res.append((name, "outside contact zone", 0.0, round(v, 3)))
         print("ZONE ", name, f"{v:.3f} mm3 near the board top outside the contact zone")
 # the cells must fit their box (their contact with the floor ribs is allowed above)
-for a, b in [("wheel_hub_L", "tire_L"), ("wheel_hub_R", "tire_R")]:  # the tire sits on the hub, not in it
+for a, b in [("wheel_L", "tire_L"), ("wheel_R", "tire_R")]:  # the tire sits on the hub, not in it
     common = parts[a] & parts[b]
     v = common.volume if common is not None else 0.0
     if v > 1e-3:
@@ -164,5 +156,21 @@ for i in range(3):
     if v > 1e-3:
         res.append((f"cell{i}", "basket", 0.0, round(v, 3)))
         print("CELLS", f"cell{i} overlaps the battery box by {v:.3f} mm3")
+# pitch: the body tips about the tires' contact line (x = 0) until a skate touches the floor; nothing else may come
+# within FLOOR_GAP of the floor (the tires' sink lowers everything alike). The skirt's margin brushes the floor by design; the THT leads under the board are trimmed flush.
+FLOOR_GAP = 0.05
+low = [(f"board edge ({v.X:.1f}, {v.Y:.1f})", v.X, P.board.bottom_z) for v in layout.pcb_face().vertices()]
+for name, part in parts.items():
+    if name.startswith(("tire", "skid")) or part.bounding_box().min.Z > 3.0:
+        continue
+    low += [(name, v.X, v.Z) for v in part.tessellate(0.02)[0] if v.Z < 3.0]
+z_c = skids.contact_z()
+for side, (x_c, _) in (("front", skids.SK.front), ("rear", skids.SK.rear)):
+    name, x, z = min(((n, x, z) for n, x, z in low if x * x_c > 0), key=lambda q: q[2] - z_c * q[1] / x_c)
+    g = z - z_c * x / x_c
+    print("FLOOR", f"tipped onto the {side} skid (contact {z_c:.2f}): lowest other point {name} at x {x:.1f}, "
+                   f"{g:.3f} above the floor")
+    if g < FLOOR_GAP:
+        res.append((name, f"floor, tipped onto the {side} skid", 0.0, round(g, 3)))
 print(f"{len(res)} issues | parts {t_parts - t:.1f}s, board {t_board - t_parts:.1f}s, "
       f"checks {time.time() - t_board:.1f}s")

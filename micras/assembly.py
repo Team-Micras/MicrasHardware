@@ -1,23 +1,22 @@
 """Every designed part, with its material and print notes, for rendering, viewing and export."""
 
-from . import drive, fan, frame, front
+from . import drive, fan, frame, front, skids
 
 # part-name prefix -> (material, printer, orientation / notes)
 MATERIALS = {
-    "block_base": ("resin", "Photon Mono 4", "inboard (hidden) face down on supports: bores vertical, the pads and the split face come out as clean walls; glue the M2 inserts"),
     "block_cap": ("resin", "Photon Mono 4", "inboard (hidden) face down on supports: bores vertical, the split face, fan ear and basket seats come out as clean walls; glue the inserts; an M2 nut goes in the fan ear's trap before the cap is fitted"),
-    "block_": ("resin", "Photon Mono 4", "one-piece block: inboard face down (all bores vertical: round), supports on that hidden face; glue the inserts; press the bearings in from either end up to the ridge; an M2 nut goes in the fan ear's trap"),
-    "sleeve": ("resin", "Photon Mono 4", "axis vertical, notched rim up; ream the motor bore if tight"),
-    "magnet_cup": ("resin", "Photon Mono 4", "axis vertical, magnet pocket up; glue the magnet with the correct pole direction"),
-    "race_spacer": ("resin", "Photon Mono 4", "on edge (axis horizontal): both faces are clean, the support touches the rim; measure 0.55 thick; a 2 mm shim washer that clears the outer race also works"),
-    "wheel_hub": ("resin", "Photon Mono 4", "axis vertical, web down (its vents keep the drum from acting as a suction cup); glue to the gear face; the tire (cut to the channel's width) is stretched over the outer flange into its channel, no glue"),
-    "impeller": ("resin", "Photon Mono 4", "tilted 45 deg, hub side towards the plate, supports on the backplate and hub only (the flat shroud face is the inlet seal: keep it support-free); ream the bore to 0.97-0.98, balance"),
-    "fan_mount": ("resin", "Photon Mono 4", "collar up, supports under the foot, the arms' undersides and the plate; put an M2 nut in the clamp ear's trap"),
+    "block_base": ("resin", "Photon Mono 4", "inboard (hidden) face down on supports: bores vertical, the pads and the split face come out as clean walls; glue the M2 inserts; press the outer bearing into the tube's end up to its step"),
+    "block_": ("resin", "Photon Mono 4", "one-piece block: inboard face down (all bores vertical: round), supports on that hidden face; glue the inserts; press the inner bearing in from the inboard end up to the lip, the outer one into the tube's end up to its step; an M2 nut goes in the fan ear's trap"),
+    "sleeve": ("resin", "Photon Mono 4", "axis vertical, notched rim up; drill the motor bore if tight"),
+    "magnet_cup": ("resin", "Photon Mono 4", "axis vertical, magnet pocket up; glue the magnet with the correct pole direction, and the sleeve to the axle"),
+    "wheel": ("resin", "Photon Mono 4", "gear, drum and end web in one piece: axis vertical, end web down (its vents keep the drum from acting as a suction cup), the gear's teeth on top, away from the supports; glue it to the axle; the tire (cut to the channel's width) is stretched over the outer flange into its channel, no glue"),
+    "impeller": ("resin", "Photon Mono 4", "tilted 45 deg, hub side towards the plate, supports on the backplate and hub only (the flat shroud face is the inlet seal: keep it support-free); its bore is the pinion's shape: slide it on, wick in thin CA, balance it"),
+    "fan_mount": ("resin", "Photon Mono 4", "collar up, supports under the arms' undersides and the plate; put an M2 nut in the clamp ear's trap"),
     "sensor_cap": ("resin", "Photon Mono 4", "front face down (bores vertical, fork up), on supports; paint it black with an IR-opaque (carbon-black) paint, outside and in the bores, and check it on the sensor (docs/printing.md)"),
-    "bumper": ("tpu", "Ender 3 V3 SE", "upside down, flat top on the bed (the rounded lower edge then needs no supports); 100 % infill"),
-    "gear_": ("resin", "Photon Mono 4", "stand-ins for the brass gears, print 2 of each: axis vertical, lifted on supports (on the plate the first layers flare the teeth); tough / ABS-like resin if available; drill the bore (1.0 pinion, 2.0 wheel) and glue; a pair only, don't mix with a brass gear"),
+    "gear_": ("resin", "Photon Mono 4", "printed pinions, 2 of each bore (the number is the bore in hundredths): axis vertical, lifted on supports (on the plate the first layers flare the teeth); glue the one that fits best onto the motor shaft; they mesh only with the wheel's printed gear"),
+    "fit_": ("resin", "Photon Mono 4", "calibration bar: holes vertical, on supports like the parts; try the bought part in each hole (docs/printing.md)"),
     "fit_test": ("resin", "Photon Mono 4", "calibration coupon: flat, on supports like the parts; print it first (docs/printing.md)"),
-    "basket": ("pla", "Ender 3 V3 SE", "upside down (wall tops on the bed), no supports: the floor bridges ~21 mm between the front and rear walls (bridge settings on); the feet and posts print as short columns, the strap lugs are 45 deg wedges"),
+    "basket": ("pla", "Ender 3 V3 SE", "upside down (wall tops on the bed), the floor on supports from the bed (the bridges alone sagged); the feet and posts print as short columns, the strap lugs are 45 deg wedges"),
 }
 
 
@@ -32,16 +31,15 @@ PRINT = {
     "block_": ((0, -1, 0), 0, 1),  # one-piece block: inboard face down, all bores vertical
     "sleeve": ((0, 1, 0), 0, 1),  # notched rim up
     "magnet_cup": ((0, 1, 0), 0, 1),  # magnet pocket up
-    "race_spacer": ((0, 0, -1), 0, 2),  # on edge: both faces (they space the bearing and the gear) are clean walls
-    "wheel_hub": ((0, -1, 0), 0, 1),  # web down
+    "wheel": ((0, 1, 0), 0, 1),  # end web down, the gear on top
     "impeller": ((0, 0, 1), 45, 1),  # hub side towards the plate, tilted (the shroud's inside supportable)
     "fan_mount": ((0, 0, -1), 0, 1),  # collar up
     "sensor_cap_test": ((1, 0, 0), 0, 1),  # calibration caps (W1's shape)
     "sensor_cap": ("look", 0, 1),  # front face down
-    "bumper": ((0, 0, 1), 0, 1),  # upside down
     "gear_": ((0, 0, -1), 0, 2),  # axis vertical (gears.py's frame: outer face up)
     "basket": ((0, 0, 1), 0, 1),  # upside down
     "fit_test": ((0, 0, -1), 0, 1),
+    "fit_": ((0, 0, -1), 0, 1),  # engraved top up, supports under the bottom
 }
 
 
@@ -89,7 +87,7 @@ GROUPS = {  # viewer groups: part-name prefix -> group (checked in order; per-si
     "cell": "battery",
     "basket": "battery", "velcro": "battery",
     "impeller": "fan", "fan_": "fan",
-    "sensor_cap": "front", "bumper": "front",
+    "sensor_cap": "front", "skid": "front",
     "encoder_": "encoders",
 }
 
@@ -115,4 +113,4 @@ def display():
 
 def bought():
     from .layout import reference
-    return {**reference(with_board=False), "fan_motor": fan.fan_motor(), **frame.straps()}
+    return {**reference(with_board=False), "fan_motor": fan.fan_motor(), **frame.straps(), **skids.parts()}

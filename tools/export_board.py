@@ -6,11 +6,13 @@ Produces, in ref/:
                    LEDs plus the old casing; --original-sensors keeps it)
   board.stl        same, as a mesh for rendering
   board_mech.json  outline, holes, slots and chassis contact zones, in the robot frame
+  board_silk.svg   the top silkscreen (F.Silkscreen), in KiCad's millimetres (layout.silkscreen() reads it for the
+                   viewer)
 
 Robot frame (same as the firmware): origin on the floor under the wheel-axle midpoint,
 x forward, y left, z up, millimetres.
 
-Usage: uv run tools/export_board.py [path/to/MicrasMainBoard.kicad_pcb] [--original-sensors]
+Usage: uv run tools/export_board.py [path/to/MicrasMainBoard.kicad_pcb] [--original-sensors] [--silk-only]
 """
 
 import base64
@@ -155,7 +157,23 @@ def export_step():
     shutil.copy(WIN_TMP / "board.stl", ROOT / "ref/board.stl")
 
 
+def export_silk():
+    """The top silkscreen as an SVG in KiCad's coordinates (mm, no drawing sheet)."""
+    WIN_TMP.mkdir(parents=True, exist_ok=True)
+    shutil.copy(PCB.with_suffix(".kicad_pro"), WIN_TMP / PCB.with_suffix(".kicad_pro").name)
+    shutil.copy(PCB, WIN_TMP / "silk.kicad_pcb")
+    subprocess.run(
+        [str(KICAD_CLI), "pcb", "export", "svg", "--mode-single", "--exclude-drawing-sheet", "--black-and-white",
+         "-l", "F.Silkscreen", "-o", "board_silk.svg", "silk.kicad_pcb"],
+        cwd=WIN_TMP, check=True, capture_output=True,
+    )
+    shutil.copy(WIN_TMP / "board_silk.svg", ROOT / "ref/board_silk.svg")
+
+
 def main():
+    if "--silk-only" in sys.argv:
+        export_silk()
+        return
     tree = parse_sexpr(PCB.read_text())
     thickness = float(child(child(tree, "general"), "thickness")[1])
     mech = {
@@ -173,6 +191,7 @@ def main():
     (ROOT / "ref").mkdir(exist_ok=True)
     (ROOT / "ref/board_mech.json").write_text(json.dumps(mech, indent=1))
     export_step()
+    export_silk()
     print(f"thickness {thickness}, {len(mech['holes'])} holes, "
           f"{len(mech['contact_zone_lines'])} contact-zone segments -> ref/")
 

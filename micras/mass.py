@@ -10,15 +10,14 @@ import numpy as np
 
 from .params import P, Params
 
-DENSITY = {"resin": 1.15e-3, "petg": 1.27e-3, "pla": 1.24e-3, "tpu": 1.21e-3}  # g/mm^3
+DENSITY = {"resin": 1.15e-3, "petg": 1.27e-3, "pla": 1.24e-3}  # g/mm^3
 
 # Estimates, replace with weighed values.
 MASSES = {
     "board": 15.0,  # populated main board (FR4 ~9 g + parts): weigh it
     "board_com": (6.0, 0.0, 1.5),
     "motor": 7.0,  # 1020 coreless, weighed
-    "wheel_gear": 4.3,  # brass 36T 0.5M x 2 mm (estimated from volume)
-    "pinion": 0.55,  # brass 7T x 5 mm
+    "pinion": 0.12,  # printed 7T x 5 mm (the wheel's gear is printed with the wheel: counted with the printed parts)
     "tire": 0.5,
     "bearing": 0.2,
     "axle": 0.32,  # 2 mm steel, 13 mm
@@ -86,9 +85,8 @@ def fixed_items(p: Params = P, printed=None, fan_z=None, placeholders=True, mate
         items += [
             Item(f"motor_{tag}", M["motor"], (mx, motor_cy, mz), box_izz(M["motor"], p.motor.d, p.motor.body_l)),
             Item(f"pinion_{tag}", M["pinion"], (mx, s * (p.pinion_y - 2.5), mz)),
-            Item(f"wheel_{tag}", M["wheel_gear"] + M["tire"] + M["axle"],
-                 (0, s * (p.gear_y + 3), p.axle_z)),
-            Item(f"bearings_{tag}", 2 * M["bearing"] + M["magnet"], (0, s * 13, p.axle_z)),
+            Item(f"tire_axle_{tag}", M["tire"] + M["axle"], (0, s * (p.gear_y + 3), p.axle_z)),
+            Item(f"bearings_{tag}", 2 * M["bearing"] + M["magnet"], (0, s * 17, p.axle_z)),
             Item(f"encoder_{tag}", M["encoder_board"], (0, s * p.board.encoder_slot_y, p.board.top_z + 6)),
         ]
     for name, part in (printed or {}).items():

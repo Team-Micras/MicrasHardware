@@ -2,7 +2,7 @@
 
 Each part is meshed with gmsh (quadratic tets) and solved with scikit-fem + pyamg. Loads come from simple physics
 (robot 89 g):
-  crash  1 m/s into a wall through the TPU bumper (~0.5 mm travel): 100 g deceleration
+  crash  1 m/s into a wall (~0.5 mm of give in the sensor caps and the board's nose): 100 g deceleration
   drop   30 cm onto the wheels (2.4 m/s, ~1 mm tire squash): 300 g
   plus handling pushes, the impeller's spin and the fan mount's clamp.
 Parts carry the inertia of what they hold as forces on their seats, and their own mass as a body force.
@@ -10,7 +10,7 @@ Parts carry the inertia of what they hold as forces on their seats, and their ow
 The stress reported is von Mises at the 99.9 % volume percentile (the raw peak sits in sharp corners, where
 linear FEA does not converge), against a design strength already knocked down for printing:
   resin 35 MPa (standard / ABS-like, UTS 35-50), PLA 37 MPa along its layers (0.75 x 50) and 15 MPa of tension
-  across them (PETG 35 and 12; checked with each part's print orientation), TPU 8.6 MPa.
+  across them (PETG 35 and 12; checked with each part's print orientation).
 Short events need a safety factor of 2, sustained loads 3 (resin and PLA creep). A FLAG means "look here":
 the loads are estimates.
 
@@ -45,7 +45,7 @@ OUT = Path(__file__).resolve().parents[1] / "build/fea"
 G = 9.81
 CRASH, DROP = 100 * G, 300 * G  # m/s2
 # E MPa, Poisson, design strength MPa, density g/mm3
-MAT = {"resin": (1800, 0.38, 35, 1.15e-3), "petg": (1500, 0.39, 35, 1.27e-3), "pla": (2300, 0.36, 37, 1.24e-3), "tpu": (26, 0.45, 8.6, 1.21e-3)}
+MAT = {"resin": (1800, 0.38, 35, 1.15e-3), "petg": (1500, 0.39, 35, 1.27e-3), "pla": (2300, 0.36, 37, 1.24e-3)}
 LAYER = {"petg": 12.0, "pla": 15.0}  # tension across the layers, MPa (FDM)
 # build direction (up in the printer) of the FDM parts, in the robot frame (assembly.MATERIALS)
 BUILD = {"basket": np.array((0.0, 0, -1))}  # printed upside down
@@ -342,20 +342,13 @@ def basket_cases():
     return "pla", cases
 
 
-def bumper_cases(m):
-    xmax = m.p[0].max()
-    grip = lambda c, n: (c[2] > P.board.bottom_z + 0.05) & (c[2] < P.board.top_z + 0.65) & (n[0] < -0.3)
-    nose = lambda c, n: (c[0] > xmax - 1.0) & (n[0] > 0.7)
-    return "tpu", [Case("crash 85 N on the nose", grip, [(nose, (-85.0, 0, 0))])]
-
-
-def wheel_hub_cases(name):
+def wheel_cases(name):
     s = 1 if name.endswith("_L") else -1
-    y_web = s * (P.gear_y + P.gears.wheel_w)
-    web = lambda c, n: (np.abs(c[1] - y_web) < 0.05) & (n[1] * s < -0.9)
+    r_bore = (P.wheel.axle_d + drive.W.axle_fit) / 2
+    bore = lambda c, n: np.abs(np.hypot(c[0], c[2] - P.axle_z) - r_bore) < 0.05  # glued to the axle
     r = P.hub_d / 2
     rim = lambda c, n: (np.abs(np.hypot(c[0], c[2] - P.axle_z) - r) < 0.08) & (c[2] < P.axle_z - 0.87 * r)
-    return "resin", [Case("drop, tire load on the rim", web, [(rim, (0, 0, 30.0))])]
+    return "resin", [Case("drop, tire load on the rim", bore, [(rim, (0, 0, 30.0))])]
 
 
 def analyses(names):
@@ -370,7 +363,7 @@ def analyses(names):
             ("sensor_cap_W1", parts["sensor_cap_W1"], 1.0, sensor_cap_cases("sensor_cap_W1")),
             ("sensor_cap_W2", parts["sensor_cap_W2"], 1.0, sensor_cap_cases("sensor_cap_W2")),
             ("basket", parts["basket"], 1.2, basket_cases()),
-            ("bumper", parts["bumper"], 1.0, bumper_cases), ("wheel_hub_L", parts["wheel_hub_L"], 1.0, wheel_hub_cases("wheel_hub_L"))]
+            ("wheel_L", parts["wheel_L"], 1.0, wheel_cases("wheel_L"))]
     return [a for a in out if not names or any(a[0].startswith(n) for n in names)]
 
 

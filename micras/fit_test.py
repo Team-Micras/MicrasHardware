@@ -23,6 +23,11 @@ hundredths of a mm (raised digits), joined by thin bars (small layer areas: low 
 Tubes and pins are 5 mm tall: measure them above their first 1 mm (the layers on the supports are distorted),
 after the post-cure and a day's rest (or an hour at 50 °C).
 
+exposure_coupon(n): the exposure test (tools/rerf.py): a 14 x 38 x 3 block, like a part's thick walls, with
+holes at the exact nominal sizes of the bought parts (motor Ø10, magnet Ø6, bearing Ø5, M2 nut 4.0 AF, insert
+Ø3.2, axle Ø2, motor shaft Ø1), a comb of slots 0.2-0.5 on one side and its number n engraved on top. Printed
+on supports in the printer's exposure-test mode, one per zone at increasing exposure.
+
 led_caps(): a wall-sensor cap per variant of the LED grip and the emitter's pitch, marked with
 1-5 dots on top: 1-3 crush ribs 0.05 / 0.10 / 0.15 (FrontParams.rib_interf), 4-5 emitter pitched 1 and 2 deg
 (FrontParams.emitter_tilt, ribs 0.10; compare the readings on the bench).
@@ -30,7 +35,7 @@ led_caps(): a wall-sensor cap per variant of the LED grip and the emitter's pitc
 
 from dataclasses import replace
 
-from build123d import Align, Box, Cylinder, FontStyle, Pos, RegularPolygon, Text, extrude
+from build123d import Align, Axis, Box, Cylinder, FontStyle, Pos, RegularPolygon, Text, extrude
 
 from .params import P
 
@@ -125,6 +130,80 @@ def coupon():
     body = body.clean()
     body.label = "fit_test"
     return body
+
+
+EXPOSURE_HOLES = (  # (label, kind, nominal, x, y) on the 14 x 38 block
+    ("MOT", "round", 10.0, 7.0, 7.5),
+    ("MG6", "round", 6.0, 3.8, 18.0), ("BRG", "round", 5.0, 10.2, 18.0),
+    ("NUT", "hex", 4.0, 3.8, 25.0), ("INS", "round", 3.2, 10.2, 25.0),
+    ("AXL", "round", 2.0, 3.8, 30.5), ("SHF", "round", 1.0, 10.2, 30.5),
+)
+EXPOSURE_SLOTS = (0.2, 0.3, 0.4, 0.5)  # in the block's right side, 2 deep, from y 28.5 up
+
+
+def exposure_coupon(n):
+    """The exposure-test block for zone n (see the module doc)."""
+    w, d, h = 14.0, 38.0, 3.0
+    body = Box(w, d, h, align=MIN)
+    for _, kind, nominal, x, y in EXPOSURE_HOLES:
+        if kind == "hex":
+            body -= Pos(x, y, -1) * extrude(RegularPolygon(nominal / 3 ** 0.5, 6), h + 2)
+        else:
+            body -= Pos(x, y, -1) * Cylinder(nominal / 2, h + 2, align=CMIN)
+    y = 28.5
+    for g in EXPOSURE_SLOTS:
+        body -= Pos(w - 2.0, y, -1) * Box(3.0, g, h + 2, align=MIN)
+        y += g + 1.6
+    body -= Pos(6.0, d - 2.6, h - 0.4) * extrude(Text(str(n), 3.2, font_style=FontStyle.BOLD,
+                                                        align=(Align.CENTER, Align.CENTER)), 1.0)
+    body = body.clean()
+    body.label = f"exposure_{n}"
+    return body
+
+
+FIT_ROWS = (  # (code, nominal, kind, diametral offsets) for fit_blocks(); the bought part is tried in each hole.
+    # The exposure test (2.0 s) still needed force at nominal in every hole, so the rows start above nominal.
+    ("BRG", 5.0, "round", (0.0, 0.03, 0.05, 0.08, 0.10)),  # bearing (5.10 at 2.5 s: slid in with no force)
+    ("MOT", 10.0, "round", (0.05, 0.10, 0.15, 0.20, 0.25)),  # drive motor (Ø10) and fan motor (Ø9.97)
+    ("SLV", 11.9, "round", (0.05, 0.10, 0.15, 0.20, 0.25)),  # a printed sleeve (from the first print, OD 11.9) turning in its seat
+    ("MG6", 6.0, "round", (0.04, 0.08, 0.12, 0.16)),  # magnet
+    ("NUT", 4.0, "hex", (0.05, 0.10, 0.15, 0.20, 0.25)),  # M2 nut, across flats
+    ("INS", 3.2, "round", (0.05, 0.10, 0.15, 0.20, 0.25)),  # M2 insert (glued)
+    ("PIN", 3.3, "round", (-0.05, 0.0, 0.05, 0.10)),  # the fan motor's 9T pinion tips (the impeller's bore, glued)
+    ("AXL", 2.0, "round", (0.05, 0.10, 0.15, 0.20, 0.25)),  # axle: magnet cup, hub, wheel gear (glued)
+    ("SHF", 1.0, "round", (0.03, 0.06, 0.10, 0.14, 0.18)),  # drive motor shaft: the printed pinion (press, glued)
+)
+FIT_WALL = 2.0  # round each hole: thick like the parts' walls (thin tubes printed looser, and misled the first coupon)
+FIT_H = 3.0
+FIT_LABEL = 3.0  # strip along the front with each hole's offset engraved, in hundredths
+
+
+def fit_blocks():
+    """{label: block}: the calibration print (printed on supports like the parts, at the chosen exposure): one bar
+    per fit, its holes at the nominal size plus each offset (engraved below the hole, in hundredths of a mm; "m"
+    marks a negative one), its code engraved at the left end."""
+    out = {}
+    for code, nominal, kind, offsets in FIT_ROWS:
+        pitch = nominal + max(offsets) + 2 * FIT_WALL
+        lead = 7.0  # the code's end
+        w, d = lead + pitch * len(offsets), pitch + FIT_LABEL
+        body = Box(w, d, FIT_H, align=MIN)
+        for i, c in enumerate(offsets):
+            x, y = lead + pitch * (i + 0.5), FIT_LABEL + pitch / 2
+            size = nominal + c
+            if kind == "hex":
+                body -= Pos(x, y, -1) * extrude(RegularPolygon(size / 3 ** 0.5, 6), FIT_H + 2)
+            else:
+                body -= Pos(x, y, -1) * Cylinder(size / 2, FIT_H + 2, align=CMIN)
+            label = f"{'m' if c < 0 else ''}{abs(round(c * 100)):d}"
+            body -= Pos(x, FIT_LABEL / 2 + 0.2, FIT_H - 0.35) * extrude(
+                Text(label, min(2.2, pitch * 0.5), font_style=FontStyle.BOLD, align=(Align.CENTER, Align.CENTER)), 1.0)
+        body -= Pos(lead / 2, d / 2, FIT_H - 0.35) * extrude(
+            Text(code, 2.0, font_style=FontStyle.BOLD, align=(Align.CENTER, Align.CENTER)), 1.0).rotate(Axis.Z, 90)
+        body = body.clean()
+        body.label = f"fit_{code}"
+        out[body.label] = body
+    return out
 
 
 def led_caps():
