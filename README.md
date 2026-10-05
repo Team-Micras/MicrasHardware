@@ -2,7 +2,7 @@
 
 A parametric chassis for the Micras micromouse, written as [build123d](https://github.com/gumyr/build123d) code. Every dimension lives in `micras/params.py` and in the `*Params` dataclasses at the top of each part module. Change a value, then rerun the checks and the exports.
 
-The old SolidWorks files in the repository root belong to the previous design and are kept only for reference.
+The previous design (SolidWorks parts and assembly) was removed from the tree; it is in the git history (`git show 1307880:MicrasAssembly.STEP`).
 
 ## Workflow
 

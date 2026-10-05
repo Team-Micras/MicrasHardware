@@ -52,8 +52,7 @@ coupon described below misled: printed flat with thin walls, its holes came out 
 
 One resin print, `build/sliced/calibration.pm4n` (about 30 min, 7 ml), flat on the build plate with no supports. It holds every fit the robot uses at a
 range of clearances, so the parts can be printed right the first time. The fits it measures belong to this resin
-at this exposure (Anycubic ABS-Like Pro 2, 3.0 s): change either and it has to be printed again. (A first
-coupon in Anycubic Standard, `--resin standard`, tests the pipeline but its fits don't carry over.)
+at this exposure (Anycubic ABS-Like Pro 2, 3.0 s): change either and it has to be printed again.
 
 ### Before printing
 
