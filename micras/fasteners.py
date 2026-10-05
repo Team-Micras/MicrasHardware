@@ -84,7 +84,7 @@ def _placed(p: Params = P, d=D):
     # the fan motor's clamp: across the collar's split, head in one ear, the nut trapped in the other
     f = fan.F
     cx, cy = fan.centre(p)
-    ex, ez = fan.collar_r(p, f) + 2.2, fan.heights(p, f)["collar_top"] - f.clamp_h / 2
+    ex, ez = fan.clamp_screw(p, f, d)
     t1, t2 = f.clamp_ear_t
     out.append(("screw_fan_clamp", Pos(cx + ex, cy - f.clamp_slit / 2 - t1, ez) * Rot(90, 0, 0) * screw(d),
                 ("fan_mount", "nut_fan_clamp")))

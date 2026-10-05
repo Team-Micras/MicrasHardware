@@ -51,8 +51,7 @@ class DriveParams:
     # end would be a ceiling inside the bore as it prints, and sag)
     seat_min_y: float = 1.0  # the rings run inboard past the encoder daughterboards (slotted round them) to just short
     # of the centre line (the two rings would meet past it); 7.6, outboard of the encoder boards, gripped 7.4 mm
-    clamp_min_y: float = 7.6  # the clamp ears and their nuts stay outboard of the encoder boards (the nut goes in
-    # from below)
+    clamp_min_y: float = 7.6  # the one-piece left clamp's ear starts here at most (further in if its nut needs it)
     pad_inset: float = 0.3  # stay inside the silkscreen contact outline
     lift: float = 1.8  # everything except the pads starts this far above the board top
     pad_h: float = 3.0  # contact plate thickness
@@ -71,6 +70,8 @@ class DriveParams:
     # 29.0 with the rings drawn for the sleeves)
     slit: float = 0.8  # clamp slit in the motor rings (the raised one; both in the one-piece blocks)
     ear: float = 2.2  # clamp ear thickness either side of the slit (M2x5 then engages 2 mm)
+    clamp_nut_wall: float = 0.6  # resin between a ring clamp's nut trap and the motor bore: the screw as close to the
+    # motor as that allows (its nut was all outside the ring: the ears reached 1.1 mm further out)
     # ear on each cap for the fan mount's arm: in front of the front cap screw (clear of its head), top level
     # with the left cap's front column; an M2 screw comes down through the arm's tab into a nut trapped under it
     fan_ear: tuple = (10.2, 14.2)  # (x, |y|) of the screw
@@ -90,9 +91,12 @@ class DriveParams:
     board_nut_roof: float = 0.6
     # the battery basket's feet (frame.py): (side, x) on each cap's outer plate, on its mid-plane; a peg on the
     # foot drops into a socket in the cap (it places the basket before its screws go in), "pad" feet only rest
-    basket_feet: tuple = ((1, 0.0, "peg"), (1, -15.0, "peg"), (-1, -1.0, "pad"))
+    # (the rear peg sits on the left frame boss's flat top: at -15 its socket ran into the rear cap screw's countersink)
+    basket_feet: tuple = ((1, 0.0, "peg"), (1, -10.75, "peg"), (-1, -1.0, "pad"))
     socket_d: float = 2.4  # (2.2: the PLA pegs were tight)
     socket_depth: float = 2.0
+    socket_land_r: float = 2.2  # a flat landing each side of each socket, across the plate, at the lowest point of the
+    # top there (the foot, Ø4, stands on it; on a slope the socket opened lopsided)
     solid_bearing_fit: float = 0.05  # full rings (the tube, the one-piece block): the bearing presses in with a
     # firm thumb push (the fit bar fit_BRG at 2.5 s: it slid into 5.10 with no force)
 
@@ -294,10 +298,11 @@ def _left_block_solid(p: Params, d: DriveParams, motor_angle):
             gy = max(by0 - sy, 0, sy - by1)
             if (gx * gx + gy * gy) ** 0.5 < rp + 0.3 and not bb["label"].startswith("encoder"):
                 z0 = max(z0, bz1 + 0.3)
-        # the boss reaches up into the seat ring when the ring is raised above it
+        # the boss reaches up into the seat ring when the ring is raised above it and they overlap by more than the
+        # ring's wall (a near-tangent join left a sliver, which the clamp's slit then cut off as a flake)
         top = az + rh
         near = abs(sx - mx) - rp
-        if mz > top and near < rs:
+        if mz > top and near < rs - d.motor_wall:
             top = max(top, mz - (rs ** 2 - near ** 2) ** 0.5 + 0.8)
         # square bottom corners (they sit flat above the board), round top
         section += [(sx - rp + 0.01, z0 + 0.01, 0.01), (sx + rp - 0.01, z0 + 0.01, 0.01), (sx, top - rp, rp)]
@@ -313,7 +318,9 @@ def _left_block_solid(p: Params, d: DriveParams, motor_angle):
     # the base's top (the split) or have the rings above them, so they print without supports
     pocket = offset(_hull_2d(section), -d.pocket_rim)
     for keep in [Pos(0, az) * Circle(rh), Pos(mx, mz) * Circle(rs), Pos(0, (lz + az) / 2) * Rectangle(2 * rh, az - lz)] + [
-            Pos(sx, 50) * Rectangle(2 * rp, 200) for sx, _ in screws]:
+            Pos(sx, 50) * Rectangle(2 * rp, 200) for sx, _ in screws] + [
+            Pos(fx, 50) * Rectangle(2 * d.socket_land_r, 200) for fs, fx, kind in d.basket_feet  # under the sockets
+            if fs == side and kind == "peg"]:
         pocket -= offset(keep, d.pocket_margin)
     for f in pocket.faces():
         if f.area > 2.0:
@@ -408,9 +415,10 @@ def cap_screws(side, p: Params = P, d: DriveParams = D):
         clear_seat = ((x - sx) ** 2 + dz ** 2) ** 0.5 >= rs + r_ins
         # a Ø2.6 driver straight down onto the head vs the pinion above it
         clear_pinion = mz < az or abs(x - mx) >= r_pin + 1.3
-        # ... and vs the seat ring (for z above the head), where the ring reaches over the screw's y
+        # ... and its head's clearance (cut up from the head) 0.3 off the seat ring, where the ring reaches over the
+        # screw's y (1.5 from the axis let it clip a lens off the ring)
         z_head = az + d.screw_l - d.insert_l
-        clear_ring = ((x - sx) ** 2 + (max(z_head, sz) - sz) ** 2) ** 0.5 >= ring_r(angle, p, d) + 1.5
+        clear_ring = ((x - sx) ** 2 + (max(z_head, sz) - sz) ** 2) ** 0.5 >= ring_r(angle, p, d) + d.csk_d / 2 + 0.35
         if clear_seat and clear_pinion and clear_ring:
             break
         x -= 0.1
@@ -424,8 +432,12 @@ def frame_boss(side, p: Params = P, d: DriveParams = D):
     sx, sz = motor_axis(angle, p)
     if side > 0:  # on top of the level motor's seat
         return sx, 11.0, d.frame_boss_top_left
-    # behind the raised motor's ring, far enough out that the hole misses the bore
-    return sx - (seat_d(p, d, angle) / 2 + d.insert_d / 2 + 0.6), 11.0, d.tray_bottom_z
+    # behind the raised motor's ring, far enough out that the hole misses the bore, and inboard enough to stay 0.6 clear
+    # of the rear cap screw's head clearance (at 11.0 it shaved a lens off the boss's side)
+    fx = sx - (seat_d(p, d, angle) / 2 + d.insert_d / 2 + 0.6)
+    rx, ry = cap_screws(side, p, d)[1]
+    fy = min(11.0, ry - d.csk_d / 2 - 0.05 - 0.6 - (d.insert_d / 2 + d.wall))
+    return fx, fy, d.tray_bottom_z
 
 
 def ring_clamps(side, p: Params = P, d: DriveParams = D):
@@ -442,14 +454,25 @@ def ring_clamp_screw(angle, out, y_max, p: Params = P, d: DriveParams = D):
     left frame."""
     bx, bz = motor_axis(angle, p)
     sy0, sy1 = seat_span(p, d)
-    ey0 = max(sy0, d.clamp_min_y)
+    corner = d.nut_af / 3 ** 0.5  # the nut's corners point along y
     if y_max is None:
-        # the ear stops short of the front cap screw, so a screwdriver reaches that screw past it
-        ey1 = min(sy1, cap_screws(-1, p, d)[0][1] - 1.5)
+        # the nut goes in from below, before the cap is fitted: it stays inboard of the bearing housing, whose blend
+        # into the ring lies under the ear further out; the ear runs a wall past it each way, and stops short of the
+        # front cap screw, so a screwdriver reaches that screw past it
+        ymid = housing_span(p)[0] - 0.3 - corner
+        ey0, ey1 = ymid - corner - d.wall, min(ymid + corner + d.wall, sy1, cap_screws(-1, p, d)[0][1] - 1.5)
     else:
-        ey1 = y_max - 0.5  # almost to the slit's end (walls round its nut; ending level with the slit breaks the cut)
-    ex = bx + out * (ring_r(angle, p, d) + d.nut_af / 2 + 0.1)  # just outside the ring (the nut's flat faces it)
-    return (ex, (ey0 + ey1) / 2, bz), (ey0, ey1, 2 * d.ear + d.slit)
+        # almost to the slit's end (ending level with the slit breaks the cut), the nut a wall in from that end and
+        # the ear a wall past it inboard too
+        ey1 = y_max - 0.5
+        ymid = ey1 - corner - d.wall
+        ey0 = min(max(sy0, d.clamp_min_y), ymid - corner - d.wall)
+    ear_h = 2 * d.ear + d.slit
+    # the nut's flat faces the motor; its top (the nearest the bore comes, from below) is clamp_nut_wall off the bore
+    dz = ear_h / 2 - d.nut_t
+    rb = seat_d(p, d, angle) / 2
+    ex = bx + out * ((rb * rb - dz * dz) ** 0.5 + d.clamp_nut_wall + d.nut_af / 2)
+    return (ex, ymid, bz), (ey0, ey1, ear_h)
 
 
 def _ring_clamp(top, p, d, angle, out=1, y_max=None):
@@ -471,8 +494,12 @@ def _ring_clamp(top, p, d, angle, out=1, y_max=None):
     top = top.fuse(Pos((xa + xb) / 2, ymid, bz) * Box(abs(xb - xa), ey1 - ey0, ear_h)).clean()
     top -= Pos(bx + out * (rb - 0.5), (y_lo + y_hi) / 2, bz) * Box(
         20, y_hi - y_lo, d.slit, align=(Align.MIN if out > 0 else Align.MAX, Align.CENTER, Align.CENTER))
-    # the nut goes in from below, into a hex trap in the lower ear's underside, a flat towards the ring
-    top -= Pos(ex, ymid, bz - ear_h / 2 - 0.01) * Rot(0, 0, 30) * nut_trap(d, d.nut_t + 0.01)
+    # the nut goes in from below, into a hex trap in the lower ear's underside, a flat towards the ring; the trap runs
+    # on down through the ring's outside under it (the nut sits partly over the ring)
+    xn = abs(ex - bx) - d.nut_af / 2
+    ro = ring_r(angle, p, d)
+    drop = max(0.0, (ro * ro - xn * xn) ** 0.5 - ear_h / 2 + 0.3) if xn < ro else 0.0
+    top -= Pos(ex, ymid, bz - ear_h / 2 - drop - 0.01) * Rot(0, 0, 30) * nut_trap(d, d.nut_t + drop + 0.01)
     top -= Pos(ex, ymid, bz - ear_h / 2 - 1) * Cylinder(d.screw_clear_d / 2, ear_h + 2, align=MIN)
     top -= Pos(ex, ymid, bz + ear_h / 2) * countersunk(d, depth=d.screw_l + 0.5)
     top -= seat_cut(angle, p, d)
@@ -487,6 +514,16 @@ def plate_mid_y(side, p: Params = P, d: DriveParams = D):
 
 def fan_ear_top(p: Params = P, d: DriveParams = D):
     return p.axle_z + p.bearing.od / 2 + d.wall
+
+
+def cap_screw_head(sx, sy, p: Params = P, d: DriveParams = D):
+    """Cutter for a cap screw's head: the countersink, and above it the clearance open out through the outer face
+    (the screws sit 2.3 mm in from it: a skin over the head would print as a 0.25 mm ceiling and break off)."""
+    seat = p.axle_z + d.screw_l - d.insert_l  # so the M2x5 reaches the bottom of the insert (full thread engagement)
+    r = d.csk_d / 2 + 0.05
+    # one slot-shaped prism (a cylinder and a box meeting tangentially left a sliver along the seam)
+    slot = extrude(make_hull(Circle(r).edges() + (Pos(0, 10) * Rectangle(2 * r, 20)).edges()).face(), 20)
+    return Pos(sx, sy, seat) * (countersunk(d, depth=d.screw_l, up=0.01) + slot)
 
 
 def nut_trap(d: DriveParams = D, depth=None):
@@ -510,7 +547,7 @@ def _fan_ear(cap, side, p, d):
     cap -= Pos(tx, ty, zt - d.fan_ear_t - 1) * Cylinder(d.screw_clear_d / 2, d.fan_ear_t + 2, align=MIN)
     cap -= Pos(tx, ty, zt - d.fan_ear_t - 0.01) * nut_trap(d, d.nut_t + 0.01)
     if not solid(p):
-        cap -= Pos(sx, sy, p.axle_z + d.screw_l - d.insert_l) * countersunk(d, depth=d.screw_l)
+        cap -= cap_screw_head(sx, sy, p, d)
     return cap
 
 
@@ -532,55 +569,60 @@ def block(side, p: Params = P, d: DriveParams = D):
         z_split = az + d.split_relief
         # cap screws: countersunk through the cap, insert in the base below the split
         for sx, sy in cap_screws(side, p, d):
-            # head seat chosen so the M2x5 reaches the bottom of the insert (full thread engagement)
-            seat = az + d.screw_l - d.insert_l
             base -= Pos(sx, sy, az) * Cylinder(d.insert_d / 2, d.cap_insert_depth, align=MAX)
             base -= Pos(sx, sy, az) * Cylinder(d.screw_clear_d / 2, d.screw_l, align=MAX)
-            top -= Pos(sx, sy, seat) * countersunk(d, depth=d.screw_l)
-    # frame mounting boss with an insert, on the cap
+            top -= cap_screw_head(sx, sy, p, d)
+    # frame mounting boss with an insert, on the cap: blended into the motor seat's ring along the boss (hull of both),
+    # from the boss's centre out; on the right from the ring's inboard end: that boss stands clear of the thin ring, so
+    # its inboard side would start in mid-air as the cap prints (inboard face down). (On the left the boss stands in
+    # its ring, and a blend inboard of it would meet the right motor.) Then a web joins it to the outer plate over its
+    # full height (one piece with the plate), stopping short of a cap screw's head when that screw is next to the boss
+    # (screwdriver access), and the boss itself goes on last. (The hull and the web are drawn 0.05 outside the boss's
+    # sides, so the boss stands inside them: faces nearly tangent to it made the fuse fail, and a boss proud of them
+    # showed as a strip; the order matters for the fuse too.)
     fx, fy, ftop = frame_boss(side, p, d)
     fz0 = motor_axis(angle, p)[1]
     rf = d.insert_d / 2 + d.wall
-    top += Pos(fx, fy, fz0) * Cylinder(rf, ftop - fz0, align=MIN)
-    # ... joined to the outer plate by a web over its full height (one piece with the plate); the web
-    # stops short of a cap screw's head when that screw is next to the boss (screwdriver access)
     wy1 = housing_span(p)[1]
     for sx, sy in cap_screws(side, p, d):
         if abs(sx - fx) < rf + d.csk_d / 2 + 0.3:
             wy1 = min(wy1, sy - d.csk_d / 2 - 0.3)
     wz0 = fz0 + 0.3  # (off the seat bore's seam, where the fuse fails)
-    web = _belt([(fx - rf + 0.01, wz0, 0.01), (fx + rf - 0.01, wz0, 0.01),
-                 (fx - rf + 0.01, ftop - 0.01, 0.01), (fx + rf - 0.01, ftop - 0.01, 0.01)], fy, wy1 - 0.02)
-    top = top.fuse(web).clean()  # (`+` drops part of the web here)
-    # ... and blended into the motor seat's ring along the boss (hull of both), from the boss's centre out; on the
-    # right from the ring's inboard end: that boss stands clear of the thin ring, so its inboard side would start in
-    # mid-air as the cap prints (inboard face down). (On the left the boss stands in its ring, and a blend inboard
-    # of it would meet the right motor.)
+    corners = [(fx - rf - 0.05, wz0, 0.01), (fx + rf + 0.05, wz0, 0.01),
+               (fx - rf - 0.05, ftop - 0.01, 0.01), (fx + rf + 0.05, ftop - 0.01, 0.01)]
     ring = (*motor_axis(angle, p), ring_r(angle, p, d) - 0.05)  # (inside the ring: coincident faces break it)
     sy0, sy1 = seat_span(p, d)
-    top = top.fuse(_belt([ring, (fx - rf + 0.01, wz0, 0.01), (fx + rf - 0.01, wz0, 0.01),
-                          (fx - rf + 0.01, ftop - 0.01, 0.01), (fx + rf - 0.01, ftop - 0.01, 0.01)],
-                         sy0 if side < 0 else max(fy, sy0), min(wy1, sy1) - 0.02)
+    top = top.fuse(_belt([ring] + corners, sy0 if side < 0 else max(fy, sy0), min(wy1, sy1) - 0.02)
                    & Pos(0, 0, z_split) * Box(200, 200, 100, align=MIN)).clean()
+    top = top.fuse(_belt(corners, fy, wy1 - 0.02)).clean()  # (`+` drops part of the web here)
+    # (from the hull's floor up: a boss down at fz0 showed its bottom 0.3 under the hull)
+    top += Pos(fx, fy, wz0 + 0.01) * Cylinder(rf, ftop - wz0 - 0.01, align=MIN)
     mx, mz = motor_axis(angle, p)
     top -= along_y(p.gears.tip_d(p.gears.pinion_z) / 2 + 0.4, seat_stop(p, d) - 0.01, 30, mx, mz)
     top -= along_y(p.gears.tip_d(p.gears.wheel_z) / 2 + 0.5, p.gear_y - p.stack.lip_gap, 40, 0, az)
     top -= Pos(fx, fy, ftop) * Cylinder(d.insert_d / 2, d.insert_l, align=MAX)
     top -= Pos(fx, fy, ftop) * Cylinder(d.screw_clear_d / 2, d.frame_screw_depth, align=MAX)
-    # re-cut the seat bore, the encoder slot and the cup's room in case the boss or its blend reached into them (the
-    # blend into the sleeve-sized rings filled the room's outer end, where the Ø6 cup's head turns)
+    # re-cut the seat bore, the encoder slot, the cup's room and the cap screws' heads in case the boss or its blend
+    # reached into them (the blend into the sleeve-sized rings filled the room's outer end, where the Ø6 cup's head turns)
     top -= seat_cut(angle, p, d)  # (as the first cut)
     top -= encoder_slot(angle, p, d)
     top -= cup_room(p)
+    if not one:  # (the blend into the ring refilled a sliver of the rear cap screw's countersink)
+        for sx, sy in cap_screws(side, p, d):
+            top -= cap_screw_head(sx, sy, p, d)
     for a, out, y_max in ring_clamps(side, p, d):
         top = _ring_clamp(top, p, d, a, out, y_max)
     top = _fan_ear(top, side, p, d)
-    # sockets for the basket's pegs, straight down into the plate's top
+    # sockets for the basket's pegs, straight down into a flat landing on the plate's top
     for fs, fx, kind in d.basket_feet:
         if fs == side and kind == "peg":
             fy = plate_mid_y(side, p, d)
-            ztop = (top & Pos(fx, fy, 0) * Box(0.2, 0.2, 100, align=MIN)).bounding_box().max.Z
-            top -= Pos(fx, fy, ztop - d.socket_depth) * Cylinder(d.socket_d / 2, 10, align=MIN)
+            r = d.socket_land_r
+            probes = [(0.0, 0.0)] + [(r * cos(radians(a)), r * sin(radians(a))) for a in range(0, 360, 30)]
+            zland = min((top & Pos(fx + dx, fy + dy, 0) * Box(0.1, 0.1, 100, align=MIN)).bounding_box().max.Z
+                        for dx, dy in probes)
+            top -= Pos(fx, fy, zland) * Box(2 * r, 20, 20, align=MIN)  # across the plate (a round one left skins)
+            top -= Pos(fx, fy, zland - d.socket_depth) * Cylinder(d.socket_d / 2, 10, align=MIN)
     # the outer bearing's tube: one piece with the base (a full ring, not split)
     if one:
         top = top.fuse(tube(p, d)).clean()

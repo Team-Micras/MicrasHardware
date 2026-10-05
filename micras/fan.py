@@ -93,7 +93,9 @@ class FanParams:
     # the ears' top and bottom, and the nut turned with the screw)
     clamp_slit: float = 0.8
     clamp_ear_t: tuple = (1.6, 2.2)  # head side (-y), nut side (+y)
-    clamp_len: float = 5.4  # radial length of the ears
+    clamp_nut_wall: float = 0.6  # resin between the nut trap's nearest corner and the motor bore: the screw as close
+    # to the motor as that allows (it was 0.5 mm further out)
+    clamp_end: float = 2.6  # the ears run this far past the screw's axis (0.2 mm past the trap's corner)
     # arms to the drive caps' ears (drive.DriveParams.fan_ear)
     arm_t: float = 2.6  # arm width
     arm_z0: float = 11.2  # arm underside at the collar (it rises to the cap ear)
@@ -123,6 +125,16 @@ def heights(p: Params = P, f: FanParams = F):
 
 def collar_r(p: Params = P, f: FanParams = F):
     return (p.fan_motor.d + f.motor_fit) / 2 + f.collar_wall
+
+
+def clamp_screw(p: Params = P, f: FanParams = F, d=None):
+    """(x, z) of the collar clamp's crosswise screw, in the fan's frame (x forward from its axis)."""
+    from .drive import D
+    d = d or D
+    corner = d.nut_af / 3 ** 0.5  # the trap's flats are up and down: a corner points at the motor
+    y_in = f.clamp_slit / 2 + f.clamp_ear_t[1] - d.nut_t  # the nut's inner face, off the slit's middle
+    rw = (p.fan_motor.d + f.motor_fit) / 2 + f.clamp_nut_wall
+    return corner + (rw * rw - y_in * y_in) ** 0.5, heights(p, f)["collar_top"] - f.clamp_h / 2
 
 
 def _revolved(points):
@@ -293,10 +305,10 @@ def mount(p: Params = P, f: FanParams = F, d=None):
     # clamp at the front, over the leg: a split through the collar's top and two ears with a crosswise screw
     t1, t2 = f.clamp_ear_t
     z0 = ct - f.clamp_h
-    body += Pos(rc - 0.6, -f.clamp_slit / 2 - t1, z0) * Box(f.clamp_len, t1 + f.clamp_slit + t2, f.clamp_h,
-                                                           align=(Align.MIN, Align.MIN, Align.MIN))
+    ex, ez = clamp_screw(p, f, d)
+    body += Pos(rc - 0.6, -f.clamp_slit / 2 - t1, z0) * Box(ex + f.clamp_end - (rc - 0.6), t1 + f.clamp_slit + t2,
+                                                           f.clamp_h, align=(Align.MIN, Align.MIN, Align.MIN))
     body -= Pos(rc - 2, 0, z0) * Box(10, f.clamp_slit, 10, align=(Align.MIN, Align.CENTER, Align.MIN))
-    ex, ez = rc + 2.2, ct - f.clamp_h / 2
     body -= Pos(ex, -f.clamp_slit / 2 - t1, ez) * Rot(90, 0, 0) * countersunk(d, depth=10, up=5)
     body -= Pos(ex, f.clamp_slit / 2 + t2 + 0.01, ez) * Rot(90, 0, 0) * nut_trap(d, d.nut_t + 0.01)  # flats up and down
     # motor bore, boss hole
