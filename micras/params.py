@@ -65,6 +65,11 @@ class Gears:
     pinion_bore: float = 0.98
     wheel_bore: float = 1.98
     center_adjust: float = 0.0  # added to the nominal centre distance (fixed-bore tuning)
+    # the wheel's gear: "brass", the bought 36T (a plain 2 mm disc), its bore drilled out to Params.wheel_hole_d and
+    # three countersunk M2 holes drilled (with gear_guide.py's guide), screwed to the printed wheel (the owner's
+    # default since the brass gears arrived; the motors carry the brass 7T pinions) | "printed", the wheel's own
+    # printed gear (gears.py)
+    wheel_gear: str = "brass"
     # printed stand-in pair (gears.py): profile shift +shift on the pinion, -shift on the wheel (same centre
     # distance), pinion addendum cut by tip_cut (module)
     shift: float = 0.45
@@ -81,6 +86,10 @@ class Gears:
 
     def pitch_d(self, z):
         return self.module * z
+
+    def brass_root_d(self, z):
+        """Root diameter of a bought (standard, unshifted) gear: 1.25 module of dedendum."""
+        return self.module * (z - 2.5)
 
 
 @dataclass(frozen=True)
@@ -174,7 +183,7 @@ class Layout:
     # Motor axis angle around its wheel axle, measured from +x (forward) towards +z (up).
     motor_angle_left: float = 180.0  # low, straight behind the axle
     motor_angle_right: float = 112.0  # above the left motor, clears the encoder boards
-    blocks: str = "split"  # "split" (base + cap) | "solid" (one-piece bearing blocks)
+    blocks: str = "solid"  # "solid" (one-piece bearing blocks: the owner's default after round 6) | "split" (base + cap)
     clearance: float = 0.3  # minimum air gap to board components
 
 

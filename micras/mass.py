@@ -17,7 +17,8 @@ MASSES = {
     "board": 15.0,  # populated main board (FR4 ~9 g + parts): weigh it
     "board_com": (6.0, 0.0, 1.5),
     "motor": 7.0,  # 1020 coreless, weighed
-    "pinion": 0.12,  # printed 7T x 5 mm (the wheel's gear is printed with the wheel: counted with the printed parts)
+    "pinion": 0.37,  # brass 7T x 5 mm (pressed on the motor; a printed one was 0.12)
+    "wheel_gear": 3.3,  # brass 36T x 2 mm, drilled (Gears.wheel_gear = "brass"; a printed one is part of the wheel)
     "tire": 0.5,
     "bearing": 0.2,
     "axle": 0.32,  # 2 mm steel, 13 mm
@@ -89,6 +90,8 @@ def fixed_items(p: Params = P, printed=None, fan_z=None, placeholders=True, mate
         items += [
             Item(f"motor_{tag}", M["motor"], (mx, motor_cy, mz), box_izz(M["motor"], p.motor.d, p.motor.body_l)),
             Item(f"pinion_{tag}", M["pinion"], (mx, s * (p.pinion_y - 2.5), mz)),
+            *([Item(f"wheel_gear_{tag}", M["wheel_gear"], (0, s * (p.gear_y + p.gears.wheel_w / 2), p.axle_z))]
+              if p.gears.wheel_gear == "brass" else []),
             Item(f"tire_axle_{tag}", M["tire"] + M["axle"], (0, s * (p.gear_y + 3), p.axle_z)),
             Item(f"bearings_{tag}", 2 * M["bearing"] + M["magnet"], (0, s * 17, p.axle_z)),
             Item(f"encoder_{tag}", M["encoder_board"], (0, s * p.board.encoder_slot_y, p.board.top_z + 6)),

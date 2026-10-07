@@ -6,7 +6,7 @@ with two screws into inserts in the base. The right cap also carries the clamp r
 on the base (one piece with it, not split) reaches out from the block through the wheel's gear into its hollow drum
 and holds the outer bearing at its end, pressed in from the end up to a step (Params.AxialStack).
 
-Layout.blocks = "solid" makes each block one piece instead: the inner bearing presses in from the inboard end
+Layout.blocks = "solid" (the default) makes each block one piece instead: the inner bearing presses in from the inboard end
 (through the magnet cup's room) up to the lip, and both motor rings are slit clamps (the left one on its rear side).
 The motors sit straight in their rings (the eccentric sleeves are gone: the thin rings let the battery sit lower).
 """
@@ -14,8 +14,8 @@ The motors sit straight in their rings (the eccentric sleeves are gone: the thin
 from dataclasses import dataclass
 from math import atan2, cos, degrees, radians, sin, tan
 
-from build123d import (Align, Box, Circle, Cone, Cylinder, Line, Plane, Pos, Rectangle, Rot, ThreePointArc, Wire,
-                       extrude, make_face, make_hull, mirror, offset)
+from build123d import (Align, Box, Circle, Cone, Cylinder, Line, Plane, Pos, Rectangle, RegularPolygon, Rot,
+                       ThreePointArc, Wire, extrude, make_face, make_hull, mirror, offset)
 
 from .layout import board_boxes
 from .params import P, Params
@@ -663,6 +663,12 @@ class WheelParams:
     alt_magnet: tuple = (6.0, 2.0)  # (d, t)
     magnet_fit: float = 0.02  # diametral, the magnet's pocket: a light press (0.06 at 2.5 s and 0.04 at 2.0 s let it
     # out too easily)
+    # the brass gear (Gears.wheel_gear = "brass"): three M2x5 countersunk screws from the gear's inboard face (the
+    # heads flush in 90 deg countersinks drilled in the brass: the gear runs 0.25 mm from the block) into nuts in
+    # pockets that open on the wheel's outer face, on the circle halfway between the gear's bore and its tooth roots
+    gear_screws: int = 3
+    gear_screw_hole: float = 2.1  # in the wheel: the screw passes snug, so with the countersunk heads it centres the gear
+    gear_boss_wall: float = 0.7  # the columns' wall round the nut pockets' corners
 
 
 W = WheelParams()
@@ -686,19 +692,68 @@ def magnet_cup(side, p: Params = P, w: WheelParams = W, alt=False):
     return _side(cup, side, "magnet_cup6" if alt else "magnet_cup", (0.9, 0.9, 0.3))
 
 
+def gear_screw_r(p: Params = P):
+    """Radius of the brass gear's screw circle: halfway between its bore and its tooth roots."""
+    g = p.gears
+    return (p.wheel_hole_d / 2 + g.brass_root_d(g.wheel_z) / 2) / 2
+
+
+def gear_screws(p: Params = P, w: "WheelParams" = None):
+    """[(x, z, a)]: the brass gear's screws (robot frame, left; a: deg about the axle, from +x towards +z)."""
+    w = w or W
+    r = gear_screw_r(p)
+    out = []
+    for k in range(w.gear_screws):
+        a = 90 + 360 * k / w.gear_screws
+        out.append((r * cos(radians(a)), p.axle_z + r * sin(radians(a)), a))
+    return out
+
+
+def gear_nut_y(p: Params = P, w: "WheelParams" = None):
+    """|y| of the brass gear screws' nut seats: web thick into the wheel's columns from the gear."""
+    w = w or W
+    return p.gear_y + p.gears.wheel_w + w.web
+
+
+def brass_gear(side, p: Params = P, d: DriveParams = D):
+    """The bought 36T as drilled (bought: in the layout, not printed): a disc to its tip circle, the bore opened to
+    the wheel's hole, three countersunk M2 holes (the heads on its inboard face)."""
+    g = p.gears
+    gear = along_y(g.tip_d(g.wheel_z) / 2, p.gear_y, p.gear_y + g.wheel_w) - along_y(p.wheel_hole_d / 2, 0, 40)
+    gear = Pos(0, 0, p.axle_z) * gear
+    for x, z, _ in gear_screws(p):
+        gear -= Pos(x, p.gear_y, z) * Rot(90, 0, 0) * countersunk(d, depth=5, up=1)
+    if side < 0:
+        gear = mirror(gear, Plane.XZ)
+    gear.label, gear.color = f"wheel_gear_{'L' if side > 0 else 'R'}", (0.85, 0.7, 0.3)
+    return gear
+
+
 def wheel(side, p: Params = P, w: WheelParams = W):
-    """The wheel, one piece: the gear (its bore clears the tube), a web joining it to the drum that carries the
-    tire, and the end web at the outer face with the axle boss and the cone onto the outer bearing's inner race."""
+    """The wheel: the drum that carries the tire, and the end web at the outer face with the axle boss and the cone
+    onto the outer bearing's inner race. The gear is the brass one screwed on (Gears.wheel_gear = "brass": three
+    columns inside the drum, one round each screw's nut pocket, run from the gear out to the end web, and their ends
+    are all that touches the gear) or printed in one piece with the wheel ("printed", joined to the drum by a web on
+    its outer face); either way its bore clears the tube."""
     from . import gears
     st, g, wh = p.stack, p.gears, p.wheel
+    brass = g.wheel_gear == "brass"
     y_g1 = p.gear_y + g.wheel_w  # the gear's outer face
     y1, y_out = p.tire_outer_y, p.wheel_outer_y
     r, r_hole = p.hub_d / 2, p.wheel_hole_d / 2
-    # gear (gears.py: axis +Z, outer face at z = 0) turned onto +y
-    part = Pos(0, y_g1, 0) * Rot(-90, 0, 0) * gears.wheel_gear(p=p)
     # web on the gear's outer face, inside the pinion's tip circle (the pinion's face is flush with the gear's)
     r_web = g.center_distance - g.tip_d(g.pinion_z) / 2 - 0.3
-    part += along_y(r_web, y_g1 - 0.01, y_g1 + w.web) - along_y(r_hole, 0, 40)
+    y_web = y_out - st.end_web
+    if brass:
+        # the columns: a wall round each nut pocket (cut below), inside the drum (and so inside the pinion's tip
+        # circle where they meet the gear), clear of the tube's bore
+        part = None
+        for x, z, _ in gear_screws(p, w):
+            col = along_y(D.nut_af / 3 ** 0.5 + w.gear_boss_wall, y_g1, y_web + 0.01, x, z - p.axle_z)
+            part = col if part is None else part + col
+        part = part & along_y(r_web - 0.3 + 0.01, y_g1, y_web + 0.01) - along_y(r_hole, 0, 40)
+    else:  # the printed gear (gears.py: axis +Z, outer face at z = 0) turned onto +y, and the web
+        part = Pos(0, y_g1, 0) * Rot(-90, 0, 0) * gears.wheel_gear(p=p) + along_y(r_web, y_g1 - 0.01, y_g1 + w.web) - along_y(r_hole, 0, 40)
     # drum and the tire's channel (the seat between two flanges; the tire is stretched over the outer one), clear
     # of the gear face, hollow round the tube
     ya = y_g1 + wh.hub_relief
@@ -707,7 +762,6 @@ def wheel(side, p: Params = P, w: WheelParams = W):
     drum -= along_y(r_web - 0.3, ya - 1, y_out + 1)
     part += drum
     # end web, the axle boss and the cone onto the outer bearing
-    y_web = y_out - st.end_web
     part += along_y(r_web - 0.29, y_web, y_out)
     # the axle boss runs in from the end web to just past the tube's end (inside the tube's bore radius), and ends
     # in the cone on the race: a long grip on the axle keeps the wheel square to it
@@ -715,11 +769,23 @@ def wheel(side, p: Params = P, w: WheelParams = W):
     inside = st.bearing_play + 0.1  # from the race to 0.1 past the tube's end
     cone = Pos(0, p.bearing_outer_y, 0) * Rot(-90, 0, 0) * race_cone(inside, y_web - p.bearing_outer_y - inside + 0.01, p)
     part += cone & along_y(w.boss_d / 2, p.bearing_outer_y - 1, y_out)
-    # vents through the end web: printed end web down, the drum would otherwise be a cup facing the resin film
-    rv = (w.boss_d / 2 + r_web - 0.3) / 2
-    for k in range(w.vents):
-        a = radians(360 * k / w.vents + 45)
-        part -= along_y(w.vent_d / 2, y_web - 1, y_out + 1, rv * cos(a), rv * sin(a))
+    if brass:
+        # the nut pockets: each a hex (a flat facing out) from the nut's seat (gear_nut_y: the column's end is that
+        # thick) out through the end web, open inwards to the bore (its inner flat would leave a 0.16 mm skin over
+        # the bore). The drum is open at the gear's side, so it needs no vents
+        y_seat = gear_nut_y(p, w)
+        rs = gear_screw_r(p)
+        for x, z, a in gear_screws(p, w):
+            hexagon = Rot(0, 0, 30) * extrude(RegularPolygon(D.nut_af / 3 ** 0.5, 6), y_out + 1 - y_seat)
+            slot = Pos(-(rs - r_hole + 0.5) / 2, 0, 0) * Box(rs - r_hole + 0.5, 2.0, y_out + 1 - y_seat, align=(Align.CENTER, Align.CENTER, Align.MIN))
+            part -= Pos(x, y_seat, z - p.axle_z) * Rot(-90, 0, 0) * Rot(0, 0, -a) * (hexagon + slot)
+            part -= along_y(w.gear_screw_hole / 2, y_g1 - 1, y_seat + 0.01, x, z - p.axle_z)
+    else:
+        # vents through the end web: printed end web down, the drum would otherwise be a cup facing the resin film
+        rv = (w.boss_d / 2 + r_web - 0.3) / 2
+        for k in range(w.vents):
+            a = radians(360 * k / w.vents + 45)
+            part -= along_y(w.vent_d / 2, y_web - 1, y_out + 1, rv * cos(a), rv * sin(a))
     part -= along_y((wh.axle_d + w.axle_fit) / 2, 0, 40)
     return _side(Pos(0, 0, p.axle_z) * part, side, "wheel", (0.95, 0.95, 0.95))
 

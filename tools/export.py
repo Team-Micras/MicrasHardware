@@ -3,8 +3,8 @@
   build/print/<group>/<part>.stl   every printed part, already turned to its print orientation and standing on the
                                    plate (assembly.PRINT), grouped by printer and material:
                                      resin/        Photon Mono 4 (Anycubic ABS-Like Pro 2)
-                                     sensor_caps/  Photon Mono 4, the four wall-sensor caps (painted black after
-                                                   printing)
+                                     sensor_caps/  Ender 3 V3 SE, black PLA: the four wall-sensor caps and the
+                                                   three test caps (fit_test.led_caps)
                                      calibration/  Photon Mono 4, the fit bars (optional, to check the fits)
                                      alternatives/ Photon Mono 4, optional: the magnet cups for the Ø6x2 magnet and
                                                    the two other impeller styles
@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Compound, export_step, export_stl  # noqa: E402
 
-from micras import assembly, drive, fan, fit_test, gears, skirt  # noqa: E402
+from micras import assembly, drive, fan, fit_test, gear_guide, skirt  # noqa: E402
 from micras.mass import DENSITY  # noqa: E402
 from micras.params import P, override  # noqa: E402
 
@@ -74,11 +74,22 @@ def main():
     # the alternative magnet cups for the Ø6x2 magnet (optional: build/print/alternatives)
     for side in (1, -1):
         write(drive.magnet_cup(side, alt=True), "alternatives", rows)
-    # the printed pinions, in two bores (the wheel's gear is part of the wheel)
-    for part in gears.pinions().values():
-        write(part, "resin", rows, fine=True)
-    # calibration (optional): the fit bars, on supports like the parts (the sensor-cap variants, fit_test.led_caps,
-    # are left out: the bench test chose the ribs and the pitch)
+    # the brass gear's drill guide (gear_guide.py); the pinions are the bought brass ones
+    for part in gear_guide.parts().values():
+        write(part, "resin", rows)
+    # the wheels with their own printed gear (Gears.wheel_gear = "printed", optional: they mesh with the brass
+    # pinions too)
+    default_gear = P.gears.wheel_gear
+    override("gears.wheel_gear=printed")
+    for side in (1, -1):
+        part = drive.wheel(side)
+        part.label = part.label.replace("wheel_", "wheel_printed_gear_")
+        write(part, "alternatives", rows)
+    override(f"gears.wheel_gear={default_gear}")
+    # the sensor caps' grip in FDM (fit_test.led_caps): printed with the caps, on the same plate
+    for part in fit_test.led_caps().values():
+        write(part, "sensor_caps", rows)
+    # calibration (optional): the fit bars, on supports like the parts
     for part in fit_test.fit_blocks().values():
         write(part, "calibration", rows)
     for blocks in VARIANTS:
@@ -99,9 +110,9 @@ def main():
         lines.append(f"| {folder} | {name} | {mat} | {printer} | {copies} | {m:.2f} | {note} |")
     # the robot as built with the default drive variant (the stand-in gears are left out)
     vd = variant_dir(default)
-    total = sum(r[5] for r in rows if not r[1].startswith("gear_pinion_103")
+    total = sum(r[5] for r in rows if not r[1].startswith(("drill_guide", "sensor_cap_test"))
                 and not r[0].startswith(("calibration", "alternatives")) and (not r[0].startswith("drive_") or r[0] == vd))
-    lines.append(f"| | **total printed, {vd}** (one pinion, one impeller, no fit bars) | | | | **{total:.1f}** | |")
+    lines.append(f"| | **total printed, {vd}** (one impeller, no fit bars, no drill guide) | | | | **{total:.1f}** | |")
     (PRINT / "parts.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
 

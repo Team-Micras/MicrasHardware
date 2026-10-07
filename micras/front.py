@@ -1,4 +1,4 @@
-"""Front: the wall-sensor caps (resin, painted black).
+"""Front: the wall-sensor caps (black PLA on the Ender: the painted resin ones did not work).
 
 Each wall sensor is a stacked pair of THT parts with bent legs: an SFH 4550 emitter (5 mm epoxy, half angle
 3 deg) above a TPS601A receiver (TO-18 can with a lens and a key tab, 10 deg); leds.py models both from their
@@ -51,10 +51,12 @@ OUTLINE = ((7.62, 3.429), (-2.032, 3.429), (-2.032, 2.413), (-6.731, 2.413),
 
 @dataclass(frozen=True)
 class FrontParams:
-    fit: float = 0.175  # radial clearance of the bores (the ribs grip): 0.15 at 2.0 s, + 0.025 for 2.5 s
-    rib_w: float = 0.5
-    rib_interf: float = 0.10  # crush-rib interference on the LED: the test caps' 1-3 dots compared 0.05 / 0.10 / 0.15
-    # at 2.5 s, and 2 dots (0.10) gripped best
+    # FDM (black PLA, 0.4 nozzle, printed front face down: the bores vertical). Holes in FDM come out small, and a
+    # rib that sticks into a hole prints fatter, so the bores get more room and the ribs less interference than in
+    # resin (0.175 / 0.10 at 2.5 s); the test caps (fit_test.led_caps, 1-3 dots) compare 0 / 0.05 / 0.10
+    fit: float = 0.25  # radial clearance of the bores (the ribs grip)
+    rib_w: float = 0.6  # about one extrusion line and a half (0.5 in resin)
+    rib_interf: float = 0.05  # crush-rib interference on the LED, from the nominal diameter
     rib_low: float = 135.0  # deg from the top: the two lower ribs (the emitter's)
     rib_low_receiver: float = 110.0  # the receiver's stay above the opening under it
     wall: float = 0.8  # around the flange bore (0.6 looked fragile)
@@ -73,10 +75,11 @@ class FrontParams:
     slot_lead: float = 0.6  # lead-in flare at the slot mouths
     leg_gap: float = 0.3  # side walls to the legs
     side_wall: float = 0.8  # the fork's side walls (above the board, so they may reach past the outline)
-    key_cover: float = 0.6  # wall over the keyway
+    key_cover: float = 0.8  # wall over the keyway (two extrusion lines; 0.6 in resin)
     flat_gap: float = 0.15  # the emitter flange bore's flat (for the flange's flat), clear of it by this much beyond
     # the fit: a loose key (the flat isn't dimensioned on the datasheet)
-    key_fit: float = 0.125  # around the receiver's tab (1.2 max wide): its roll is then held to about +-3 deg
+    key_fit: float = 0.15  # around the receiver's tab (1.2 max wide): its roll is then held to about +-3.5 deg (0.125
+    # in resin; FDM slots print narrow)
 
 
 FP = FrontParams()

@@ -1,7 +1,8 @@
 """The bought fasteners in place: M2x5 countersunk screws, M2 nuts and M2x2 glued inserts (README "Fasteners").
 
 Each one is placed where the part that holds it cuts its hole, from the same helpers (drive.board_holes,
-drive.cap_screws, drive.ring_clamps, drive.frame_boss, the fan mount's tabs and clamp), so they follow the layout.
+drive.cap_screws, drive.ring_clamps, drive.frame_boss, drive.gear_screws, the fan mount's tabs and clamp), so they
+follow the layout.
 HOSTS names the parts each one sits in: check_layout lets them touch those, but not overlap them.
 """
 
@@ -65,6 +66,14 @@ def _placed(p: Params = P, d=D):
             left.append((f"screw_clamp_{tag}{i}", Pos(ex, ey, ez + ear_h / 2) * screw(d), (cap, f"nut_clamp_{tag}{i}")))
             left.append((f"nut_clamp_{tag}{i}", Pos(ex, ey, ez - ear_h / 2) * Rot(0, 0, 30) * nut(d),
                          (cap, f"screw_clamp_{tag}{i}")))
+        # the brass gear's screws: countersunk in its inboard face, through the wheel's web into nuts in its pockets
+        if p.gears.wheel_gear == "brass":
+            ny = drive.gear_nut_y(p)
+            for i, (x, z, a) in enumerate(drive.gear_screws(p), 1):
+                left.append((f"screw_gear_{tag}{i}", Pos(x, p.gear_y, z) * Rot(90, 0, 0) * screw(d),
+                             (f"wheel_gear_{tag}", f"wheel_{tag}", f"nut_gear_{tag}{i}")))
+                left.append((f"nut_gear_{tag}{i}", Pos(x, ny, z) * Rot(-90, 0, 0) * Rot(0, 0, 30 - a) * nut(d),
+                             (f"wheel_{tag}", f"screw_gear_{tag}{i}")))
         # the basket's insert in the cap's frame boss
         fx, fy, ftop = drive.frame_boss(side, p, d)
         left.append((f"insert_frame_{tag}", Pos(fx, fy, ftop) * insert(d), (cap, f"screw_basket_{tag}")))

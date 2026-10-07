@@ -42,6 +42,9 @@ PROFILES = ROOT / "tools/slicing"
 RESIN_BED = (153.4, 87.0, 5.0, 4.0)  # the gap leaves room for the pads' brims; the margin for their lifted
 # borders, which reach about 4.6 mm out from a part at the pad's top
 FDM_BED = (220.0, 220.0, 10.0, 8.0)
+# plates printed one part at a time (complete_objects in their profile): the gap clears the print head
+# (extruder_clearance_radius) round the parts already printed
+SEQUENTIAL_BED = {"sensor_caps": (220.0, 220.0, 10.0, 46.0)}
 PM4N_VERSION = 517  # what Lychee 7.5 writes for the Mono 4
 
 
@@ -57,6 +60,8 @@ def plates(resin=RESIN):
         files = sorted(d.glob("*.stl"))
         if d.name == "fdm_pla":
             out["basket"] = ("fdm", ["ender3v3se.ini", "pla.ini"], files)
+        elif d.name == "sensor_caps":  # black PLA, finer, no supports
+            out[d.name] = ("fdm", ["ender3v3se.ini", "pla.ini", "pla_caps.ini"], files)
         else:
             out[d.name] = ("resin", ["mono4.ini", f"resin_{resin}.ini"], files)
     return out
@@ -269,7 +274,7 @@ def main():
     done, report = [], []
     for name in args.plates or all_plates:
         kind, profiles, files = all_plates[name]
-        bed = RESIN_BED if kind == "resin" else FDM_BED
+        bed = RESIN_BED if kind == "resin" else SEQUENTIAL_BED.get(name, FDM_BED)
         items = []
         for f in files:
             v, t = load(f)

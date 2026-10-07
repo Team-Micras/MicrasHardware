@@ -60,6 +60,10 @@ for s in "LR":
                  # running gap set by params (stack.holder_gap)
                  ("magnet_cup", "block_base"), ("magnet_cup", "block_cap"), ("magnet_cup", "block")]:
         allowed.add(frozenset((f"{a}_{s}", f"{b}_{s}")))
+    # the brass gear's screw heads are flush with its inboard face: the same running gap to the block as the gear
+    for i in range(1, drive.W.gear_screws + 1):
+        for b in ("block_base", "block_cap", "block"):
+            allowed.add(frozenset((f"screw_gear_{s}{i}", f"{b}_{s}")))
 allowed |= {frozenset(("impeller", "fan_motor")), frozenset(("fan_mount", "fan_motor")),
             frozenset(("fan_mount", "block_cap_L")), frozenset(("fan_mount", "block_cap_R")),  # arm tabs on the ears
             frozenset(("basket", "block_cap_L")), frozenset(("basket", "block_cap_R")),  # posts on the bosses
@@ -114,7 +118,10 @@ for name, part in {**printed, **front_parts,
         res.append((name, "outside contact zone", 0.0, round(v, 3)))
         print("ZONE ", name, f"{v:.3f} mm3 near the board top outside the contact zone")
 # the cells must fit their box (their contact with the floor ribs is allowed above)
-for a, b in [("wheel_L", "tire_L"), ("wheel_R", "tire_R")]:  # the tire sits on the hub, not in it
+for a, b in [("wheel_L", "tire_L"), ("wheel_R", "tire_R"),  # the tire sits on the hub, not in it
+             ("wheel_L", "wheel_gear_L"), ("wheel_R", "wheel_gear_R")]:  # the brass gear sits on the wheel's web
+    if a not in parts or b not in parts:
+        continue
     common = parts[a] & parts[b]
     v = common.volume if common is not None else 0.0
     if v > 1e-3:
@@ -132,7 +139,7 @@ alt_cups = {c.label: c for c in (drive.magnet_cup(s, alt=True) for s in (1, -1))
 for sd in "LR":
     blocks = [k for k in parts if k.startswith("block") and k.endswith(f"_{sd}")]
     for k in (f"bearing_inner_{sd}", f"bearing_outer_{sd}", f"motor_{sd}", f"magnet_cup_{sd}", f"magnet_cup6_{sd}",
-              f"wheel_{sd}"):
+              f"wheel_{sd}", f"wheel_gear_{sd}", *(f"screw_gear_{sd}{i}" for i in range(1, drive.W.gear_screws + 1))):
         part = parts.get(k) or alt_cups.get(k)
         if part is None:
             continue

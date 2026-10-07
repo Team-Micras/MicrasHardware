@@ -121,17 +121,18 @@ coupon when you can, and on the parts.
 
 ## 3. Resin parts (Photon Mono 4, Anycubic ABS-Like Pro 2)
 
-Everything fits in one print, with the one-piece drive blocks as an optional second (same preparation and
+Everything fits in one print, with the split drive blocks as an optional second (same preparation and
 post-processing as the calibration print):
 
 | File | What | Time, resin |
 | --- | --- | --- |
-| `robot.pm4n` | the whole robot's resin parts with the default drive (split blocks): blocks, wheels, magnet cups (Ø4), fan mount, radial impeller, 4 printed pinions (two bores), the 4 sensor caps | 2.1 h, 23 ml |
-| `drive_solid.pm4n` | the other drive variant (one-piece blocks) | 2.1 h, 11 ml |
+| `robot.pm4n` | the whole robot's resin parts with the default drive (one-piece blocks): blocks, wheels (for the brass 36T: nut pockets on the outer face), magnet cups (Ø4), fan mount, radial impeller, the brass gear's drill guide (base and lid). No pinions: the motors carry the brass ones | 2.1 h, 25 ml |
+| `drive_split.pm4n` | the other drive variant (base + cap blocks) | 2.1 h, 11 ml |
 
 ```sh
-tools/capped.sh uv run tools/slice.py resin sensor_caps drive_split --merge robot
-tools/capped.sh uv run tools/slice.py drive_solid
+tools/capped.sh uv run tools/slice.py resin drive_solid --merge robot
+tools/capped.sh uv run tools/slice.py sensor_caps basket   # FDM
+tools/capped.sh uv run tools/slice.py drive_split
 ```
 
 The parts stand on braced supports (they come off as one piece: cut the tips with flush cutters, don't twist the
@@ -144,8 +145,8 @@ print gives).
 
 | Variant | Blocks | Motors | Screws |
 | --- | --- | --- | --- |
-| `drive_split` (default) | base + cap per side; the cap clamps the bearings and the left motor | the right one in a slit ring clamp | 4 cap screws + 1 ring clamp |
-| `drive_solid` | one piece per side; the bearings press in from either end against the ridge | each in a slit ring clamp | 2 ring clamps |
+| `drive_solid` (default) | one piece per side; the bearings press in from either end against the ridge | each in a slit ring clamp | 2 ring clamps |
+| `drive_split` | base + cap per side; the cap clamps the bearings and the left motor | the right one in a slit ring clamp | 4 cap screws + 1 ring clamp |
 
 ### Finishing the resin parts
 
@@ -169,17 +170,18 @@ figure-of-eight strokes):
   afterwards (README, assembly).
 - Pinions: two bores (the number on the file is the bore in hundredths): use the one that slides on the shaft with
   the least play, and glue it.
-- **Sensor caps:** most black paints let infrared through. Use a carbon-black paint (matte black acrylic or
-  enamel with carbon/lamp black pigment, or a black permanent marker for the bores), two thin coats outside and in
-  the bores, and check it before fitting: shine the emitter at the receiver through a painted cap wall. The
-  reading should not change from that with the cap removed and the path blocked by a finger. The crush ribs take
-  the paint's thickness.
 
 ## 4. FDM parts (Ender 3 V3 SE)
 
 | File | What | Notes |
 | --- | --- | --- |
 | `basket.gcode` | battery basket, PLA, upside down, the floor on supports from the bed | the supports sit inside the box and come out through its open side |
+| `sensor_caps.gcode` | the four wall-sensor caps and three test caps (1-3 dots: crush ribs 0 / 0.05 / 0.10), black PLA, front face down, no supports, solid (100 % infill), 0.08 mm layers (`pla_caps.ini`) | trim the brim flush with the hood's mouth; push a spare emitter and receiver into the test caps and keep the grip that holds them firmly without forcing (`FrontParams.rib_interf`) |
+
+**Sensor caps (the resin ones, painted, did not work):** black PLA, and check the filament first. Some black
+pigments let infrared through: print a 0.8 mm plate (the caps' wall), shine the emitter at the receiver through
+it, and the reading should be the same as with the path blocked by a finger. If it isn't, try another black
+filament (carbon-black pigmented).
 
 Before the first print: run the printer's auto-levelling and set the Z offset on a first-layer test (the stock
 start G-code loads the stored mesh with `M420 S1`). Clean the PEI sheet with IPA.

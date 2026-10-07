@@ -128,7 +128,7 @@ def outboard(side):
 
 
 def drive_side(side, p: Params = P):
-    """Axle, bearings, magnet, tire, motor and pinion for one side."""
+    """Axle, bearings, magnet, tire, motor, pinion (and the brass wheel gear) for one side."""
     s, out = side, outboard(side)
     az = p.axle_z
     parts = {}
@@ -141,7 +141,12 @@ def drive_side(side, p: Params = P):
     at(p.magnet_y + p.magnet.t, pp.magnet(p.magnet), "magnet")
     at(p.bearing_outer_y, pp.bearing(p.bearing), "bearing_outer")
     at(p.bearing_inner_y + p.bearing.w, pp.bearing(p.bearing), "bearing_inner")
-    # (the wheel gear is part of the printed wheel, drive.wheel: no bought gear here)
+    # the wheel's gear: the bought brass one, drilled and screwed to the wheel (Gears.wheel_gear = "brass"), or part
+    # of the printed wheel (drive.wheel)
+    if p.gears.wheel_gear == "brass":
+        from .drive import brass_gear
+        gear = brass_gear(side, p)
+        parts[gear.label] = gear
     at(p.tire_outer_y, pp.tire(p.hub_d, p.tire_w, p.wheel), "tire")
     axle_in = p.magnet_y + p.magnet.t
     at(p.wheel_outer_y - 0.2, pp.axle(p.wheel_outer_y - 0.2 - axle_in, p.wheel), "axle")  # through the end web

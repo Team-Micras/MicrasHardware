@@ -26,9 +26,9 @@ holes at the exact nominal sizes of the bought parts (motor Ø10, magnet Ø6, be
 Ø3.2, axle Ø2, motor shaft Ø1), a comb of slots 0.2-0.5 on one side and its number n engraved on top. Printed
 on supports in the printer's exposure-test mode, one per zone at increasing exposure.
 
-led_caps(): a wall-sensor cap per variant of the LED grip and the emitter's pitch, marked with
-1-5 dots on top: 1-3 crush ribs 0.05 / 0.10 / 0.15 (FrontParams.rib_interf), 4-5 emitter pitched 1 and 2 deg
-(FrontParams.emitter_tilt, ribs 0.10; compare the readings on the bench).
+led_caps(): W1 caps for the LED grip in black PLA (FDM), marked with 1-3 dots on top: crush ribs 0 / 0.05 / 0.10
+(FrontParams.rib_interf), emitter pitched 2 deg like the caps. (The resin test caps compared 0.05 / 0.10 / 0.15 and
+the pitch: 0.10 and 2 deg were best there; the pitch carries over, the grip doesn't.)
 """
 
 from dataclasses import replace
@@ -198,9 +198,9 @@ def fit_blocks():
 
 
 def led_caps():
-    """{label: cap}: W1 caps in the five variants (see the module doc), marked with dots on top."""
+    """{label: cap}: W1 caps in the three variants (see the module doc), marked with dots on top."""
     from . import front
-    variants = [(0.05, 0.0), (0.10, 0.0), (0.15, 0.0), (0.10, 1.0), (0.10, 2.0)]
+    variants = [(rib, front.FP.emitter_tilt) for rib in (0.0, 0.05, 0.10)]
     out = {}
     (_, y), _ = front.SENSORS["W1"]
     for i, (rib, tilt) in enumerate(variants, 1):
