@@ -6,6 +6,8 @@
                                      sensor_caps/  Ender 3 V3 SE, black PLA: the four wall-sensor caps and the
                                                    three test caps (fit_test.led_caps)
                                      calibration/  Photon Mono 4, the fit bars (optional, to check the fits)
+                                     skirt_guide/  Photon Mono 4, the skirt's cutting templates and placing jig
+                                     skirt_guide_trim/
                                                    Photon Mono 4, optional: the cutting templates with the lip at
                                                    the trim line, for stiff films (acetate)
                                      alternatives/ Photon Mono 4, optional: the magnet cups for the Ø6x2 magnet and
@@ -18,6 +20,7 @@
   build/print/parts.md             what to print: folder, file, material, copies, mass, notes
   build/micras.step                printed + bought parts in place (the default variant; open with ref/board.step)
   build/skirt.dxf|svg              skirt cutting pattern, 1:1
+  build/skirt_sheet.svg|pdf|png    skirt and nose doubler at 1:1 with rulers and a bank-card outline, to trace
 
 Usage: tools/capped.sh uv run tools/export.py
 """
@@ -28,7 +31,7 @@ from pathlib import Path
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 from build123d import Compound, export_step, export_stl  # noqa: E402
 
-from micras import assembly, drive, fan, fit_test, gear_guide, skirt, trials  # noqa: E402
+from micras import assembly, drive, fan, fit_test, gear_guide, skirt, skirt_guide, trials  # noqa: E402
 from micras.mass import DENSITY  # noqa: E402
 from micras.params import P, override  # noqa: E402
 
@@ -80,6 +83,12 @@ def main():
     # bought brass ones
     for part in gear_guide.parts().values():
         write(part, "alternatives", rows)
+    # the skirt's cutting templates and placing jig (skirt_guide.py), on a plate of their own; the templates with the
+    # lip at the trim line, for stiff films, are optional
+    for part in skirt_guide.parts().values():
+        write(part, "skirt_guide", rows)
+    for part in skirt_guide.trim_parts().values():
+        write(part, "skirt_guide_trim", rows)
     # the wheels for the drilled brass 36T (Gears.wheel_gear = "brass", optional): three nut columns, no teeth
     default_gear = P.gears.wheel_gear
     override("gears.wheel_gear=brass")
@@ -116,9 +125,9 @@ def main():
         lines.append(f"| {folder} | {name} | {mat} | {printer} | {copies} | {m:.2f} | {note} |")
     # the robot as built with the default drive variant (the stand-in gears are left out)
     vd = variant_dir(default)
-    total = sum(r[5] for r in rows if not r[1].startswith(("drill_guide", "sensor_cap_test"))
+    total = sum(r[5] for r in rows if not r[1].startswith(("drill_guide", "skirt_", "sensor_cap_test"))
                 and not r[0].startswith(("calibration", "alternatives", "trials")) and (not r[0].startswith("drive_") or r[0] == vd))
-    lines.append(f"| | **total printed, {vd}** (one impeller, no fit bars, no drill guide) | | | | **{total:.1f}** | |")
+    lines.append(f"| | **total printed, {vd}** (one impeller, no fit bars, no drill or skirt guides) | | | | **{total:.1f}** | |")
     (PRINT / "parts.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
 

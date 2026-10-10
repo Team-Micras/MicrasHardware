@@ -15,6 +15,9 @@ MATERIALS = {
     "sensor_cap": ("pla", "Ender 3 V3 SE", "black PLA, front face down (bores vertical), no supports; check that the filament blocks IR before printing them (docs/printing.md); the test caps (1-3 dots) choose the crush ribs"),
     "gear_": ("resin", "Photon Mono 4", "printed pinions, 2 of each bore (the number is the bore in hundredths): axis vertical, lifted on supports (on the plate the first layers flare the teeth); glue the one that fits best onto the motor shaft; they mesh only with the wheel's printed gear"),
     "drill_guide": ("resin", "Photon Mono 4", "the brass 36T's drill guide (gear_guide.py, optional: only for wheel_brass_gear_X; square outside for a vise): flat on supports, the base's gear-shaped pocket and the lid's holes vertical; drill the gear in it, then countersink its three holes by hand"),
+    "skirt_ring": ("resin", "Photon Mono 4", "the skirt's cutting template (skirt_guide.py; _trim: the lip at the trim line, for acetate): upside down, its top on supports, so the face that lies on the film and the two walls the scalpel runs along come out clean"),
+    "skirt_nose": ("resin", "Photon Mono 4", "the nose doubler's cutting template (_trim: for acetate): upside down like the ring, its top on supports"),
+    "skirt_jig": ("resin", "Photon Mono 4", "the skirt's placing jig: flat, its underside on supports (clip the nubs flush: it must sit flat), the island, fence and pins up"),
     "fit_": ("resin", "Photon Mono 4", "calibration bar: holes vertical, on supports like the parts; try the bought part in each hole (docs/printing.md)"),
     "fit_test": ("resin", "Photon Mono 4", "calibration coupon: flat, on supports like the parts; print it first (docs/printing.md)"),
     "tire_guide": ("resin", "Photon Mono 4", "the tire cutting guide (trials.py): the base post up, the ring flat; slide the tube onto the post down to the shoulder, drop the ring over it, a #11 blade through the slit down to the post, riding on the slit's lower edge, and turn the ring once"),
@@ -39,6 +42,9 @@ PRINT = {
     "sensor_cap": ("look", 0, 1),  # front face down
     "gear_": ((0, 0, -1), 0, 2),  # axis vertical (gears.py's frame: outer face up)
     "drill_guide": ((0, 0, -1), 0, 1),  # base: pocket up; lid: flat, its holes vertical
+    "skirt_ring": ((0, 0, 1), 0, 1),  # upside down: the film face and the cutting walls clean
+    "skirt_nose": ((0, 0, 1), 0, 1),
+    "skirt_jig": ((0, 0, -1), 0, 1),  # underside on the supports, the pins vertical
     "tire_guide": ((0, 0, -1), 0, 1),  # base: post up; ring: flat, the slit horizontal
     "basket": ((0, 0, 1), 0, 1),  # upside down
     "fit_test": ((0, 0, -1), 0, 1),

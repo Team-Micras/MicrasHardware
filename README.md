@@ -16,7 +16,8 @@ uv run tools/show.py                      # send the model to the OCP CAD Viewer
 uv run tools/render.py out.png --view iso --extra micras.assembly:printed          # the README's render (docs/render.png)
 uv run tools/render.py out.png --dir=0.5,1,0.75 --focus=-5,13,14 --zoom 3 --extra micras.assembly:printed \
     --hide cell,velcro,sensor_cap --ghost block,fan_mount,basket,wheel,magnet_cup,impeller,tire   # docs/render_inside.png
-uv run tools/export.py                    # build/print/<group>/*.stl (turned to print), build/print/parts.md, build/micras.step, build/skirt.dxf|svg
+uv run tools/export.py                    # build/print/<group>/*.stl (turned to print), build/print/parts.md, build/micras.step, build/skirt.dxf|svg, build/skirt_sheet.svg|pdf|png
+uv run python -m micras.skirt             # the skirt files alone (seconds): build/skirt.dxf|svg and the cutting sheet
 uv run tools/slice.py [plate ...]         # build/sliced/*.pm4n (Photon Mono 4) and *.gcode (Ender 3 V3 SE); see docs/printing.md
 uv run tools/mass_report.py               # mass, centre of mass, yaw inertia, battery position for balance
 uv run tools/battery_study.py             # compare battery arrangements
@@ -42,7 +43,8 @@ Run heavy jobs through `tools/capped.sh`, for example `tools/capped.sh uv run to
 | `gear_guide.py` | drill guide for the brass 36T (the alternative): its bore opened to Ø7.8 and three Ø2.2 holes on Ø12.3 | resin |
 | `trials.py` | trial parts on a plate of their own (`build/print/trials`), the default design untouched: impellers for a fan motor with a plain Ø1.5 shaft (bores 1.55 and 1.58, one or two dots), the tire cutting guide (a post and a turning ring with a blade slit at the channel's width), and wheel pairs with 0.20, 0.16, 0.12 and 0.08 mm of backlash with the brass pinion (the value engraved on the gear's inboard face, in hundredths) | resin |
 | `front.py` | four wall-sensor caps that stand on the footprint outlines and set the LEDs' aim | black PLA |
-| `skirt.py` | skirt cutting pattern (0.05–0.1 mm PET or Kapton film) | film |
+| `skirt.py`, `skirt_sheet.py` | skirt and nose doubler patterns, and a 1:1 cutting sheet with rulers and a bank-card outline to trace them from a screen | film: 10 µm polyethylene, 40 µm cellulose acetate or TPU, chosen by measured downforce |
+| `skirt_guide.py` | the skirt's cutting templates (a ring and a nose piece in the skirt's and the doubler's shapes: the scalpel runs along their walls) and its placing jig (an island under the band, a fence at the lip's edge, two pins in the board's screw holes) | resin |
 | `fasteners.py` | the M2 screws, nuts and inserts in place, from the same helpers that cut their holes (viewer, STEP, `check_layout.py`) | bought |
 | `skids.py` | where the two PTFE skates go under the board's centre line, front and rear, and their size | bought (mouse skates) |
 
@@ -116,7 +118,13 @@ No screw holds these; they're pressed, glued or clamped instead:
 
 ## Assembly
 
-1. **Board.** Trim the THT leads flush on the underside: the board is only 1 mm off the floor. Tape the skirt to the underside: the inner 3 mm band gets tape, and the outer margin is bent down.
+1. **Board.** Trim the THT leads flush on the underside: the board is only 1 mm off the floor. Then the skirt, with the printed guides (`build/print/skirt_guide/`; stiff films such as acetate use the `_trim` templates in `skirt_guide_trim/`, whose lip ends 1.5 mm past the board edge so it just reaches the floor):
+   1. **Cut.** Tape the film flat to a cutting mat by its corners. Lay `skirt_ring` on it, its smooth face down (the one without support marks), and hold it down with spread fingers; run a fresh #11 scalpel round its outer wall, then round its inner wall, upright with its flat against the wall (the walls stand 0.2 mm inside the lines, half the blade's thickness, so the cuts land on them). Cut the doubler from another piece with `skirt_nose`, its two end faces included. Without a printer, trace both from `build/skirt_sheet.pdf` instead: zoom the screen until its rulers and card outline match a real ruler and bank card.
+   2. **Tape the board.** Lay 3 mm strips of transfer tape round the underside along the edge (polyethylene needs an LSE tape such as 3M 9472LE), trim them flush with the edge, rub them down and peel the liner.
+   3. **Lay the film on `skirt_jig`**, turned so that it matches the island (the film has no top or bottom side): the doubler first, its band on the island's nose with a strip of tape on it, then the skirt, its band on the island (its inner edge on the island's inner edge) and its lip's edge at the fence (the outer step for the full lip, the inner one for the trimmed lip).
+   4. **Press.** Lower the board onto the jig's two pins (its front-left and rear-right screw holes) until it sits on the band, and press it down all round the edge. Lift it straight off and burnish the band from below with a fingernail. The lip folds at the board edge: a soft film hangs down by itself, bend a stiff one down over the edge. It trails outward on the floor, round the wheel notches too.
+
+   To replace the skirt later, unplug the motors, the fan and the battery and take the drive off with its four board screws (the pins use their holes); the sensor caps can stay on, and so can the skates if they sit clear of the band (the island stands 0.2 mm from them).
 2. **Inserts and nuts.** Glue an M2 insert into each block's frame boss with CA or epoxy (heat-setting does not work in resin). Put an M2 nut in the trap under each block's fan ear, one under each motor ring's clamp ear, and one in the fan mount's clamp ear.
 3. **Bearings, axles and wheels**, each block off the board:
    1. cut each axle 13.9 mm long and deburr both ends (a file or fine sandpaper, a small chamfer): rough ends jam in the bores

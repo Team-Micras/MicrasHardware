@@ -10,7 +10,7 @@ with the profiles in tools/slicing/. Output in build/sliced/:
   <plate>.gcode        Ender 3 V3 SE (copy to its SD card)
 
 Plates: calibration, resin, sensor_caps, drive_<split|solid> (one per drive variant),
-basket. A plate that doesn't fit the build area is split in two (<plate>_1, <plate>_2).
+basket, skirt_guide, skirt_guide_trim. A plate that doesn't fit the build area is split in two (<plate>_1, <plate>_2).
 
 Usage:
   uv run tools/slice.py                          # every plate
