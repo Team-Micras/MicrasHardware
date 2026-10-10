@@ -1,0 +1,32 @@
+[project]
+name = "micras-chassis"
+version = "0.1.0"
+description = "Parametric chassis for the Micras micromouse (build123d)"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "build123d>=0.13",
+    "ocp_vscode>=2.8",
+    "numpy",
+    "zstandard>=0.25.0",
+    "py_gearworks>=0.0.24",  # involute gears with profile shift and generated undercut (printed stand-in gears)
+]
+
+[dependency-groups]
+dev = ["pytest", "pyvista", "magpylib", "matplotlib"]
+# structural checks (tools/fea.py); gmsh from its headless build (the PyPI wheel needs libGLU)
+fea = ["gmsh==4.15.0.dev1+nox", "scikit-fem", "pyamg", "scipy"]
+
+[tool.uv]
+package = false
+default-groups = ["dev", "fea"]
+
+[[tool.uv.index]]
+name = "gmsh-nox"
+url = "https://gmsh.info/python-packages-dev-nox"
+explicit = true
+
+[tool.uv.sources]
+gmsh = { index = "gmsh-nox" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

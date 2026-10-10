@@ -1,0 +1,135 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  OpenFOAM v2512 (opencfd/openfoam-default). Template: tools/cfd/make_case.py fills the @@-placeholders.
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      snappyHexMeshDict;
+}
+castellatedMesh true;
+snap            true;
+addLayers       false;   // no prism layers: 0.3 mm gaps, low Re; Spalding wall functions cover any y+
+
+geometry
+{
+    domain.stl
+    {
+        type triSurfaceMesh;
+        name domain;
+        regions { floor { name floor; } inlet { name inlet; } board { name board; } ambient { name ambient; } }
+    }
+    impeller.stl { type triSurfaceMesh; name impeller; }
+    mount.stl    { type triSurfaceMesh; name mount; }
+    motor.stl    { type triSurfaceMesh; name motor; }
+    sealring.stl { type triSurfaceMesh; name sealring; }
+    rotorRegion  { type searchableCylinder; point1 @@ROTOR_P1@@; point2 @@ROTOR_P2@@; radius @@ROTOR_R@@; }
+    nearRegion   { type searchableCylinder; point1 @@NEAR_P1@@;  point2 @@NEAR_P2@@;  radius @@NEAR_R@@; }
+    jetRegion    { type searchableCylinder; point1 @@JET_P1@@;   point2 @@JET_P2@@;   radius @@JET_R@@; }
+    plateRegion  { type searchableCylinder; point1 @@PLATE_P1@@; point2 @@PLATE_P2@@; radius @@PLATE_R@@; }
+}
+
+castellatedMeshControls
+{
+    maxLocalCells       3000000;
+    maxGlobalCells      20000000;
+    minRefinementCells  10;
+    maxLoadUnbalance    0.10;
+    nCellsBetweenLevels 3;
+
+    features
+    (
+        { file "impeller.eMesh"; level 4; }
+        { file "mount.eMesh";    level 3; }
+        { file "motor.eMesh";    level 2; }
+        { file "domain.eMesh";   level 3; }
+    );
+
+    refinementSurfaces
+    {
+        domain
+        {
+            level (2 2);
+            regions
+            {
+                floor   { level (3 3); patchInfo { type wall; } }
+                inlet   { level (3 3); patchInfo { type patch; } }
+                board   { level (3 3); patchInfo { type wall; } }
+                ambient { level (0 0); patchInfo { type patch; } }
+            }
+        }
+        impeller { level (4 4); patchInfo { type wall; } }
+        mount    { level (3 3); patchInfo { type wall; } }
+        motor    { level (2 3); patchInfo { type wall; } }
+    }
+
+    resolveFeatureAngle 30;
+
+    refinementRegions
+    {
+        sealring    { mode inside; levels ((1e15 5)); }
+        rotorRegion { mode inside; levels ((1e15 4)); }
+        plateRegion { mode inside; levels ((1e15 4)); }
+        nearRegion  { mode inside; levels ((1e15 3)); }
+        jetRegion   { mode inside; levels ((1e15 2)); }
+    }
+
+    locationInMesh @@LOCATION@@;
+    allowFreeStandingZoneFaces true;
+}
+
+snapControls
+{
+    nSmoothPatch    3;
+    tolerance       2.0;
+    nSolveIter      50;
+    nRelaxIter      5;
+    nFeatureSnapIter 10;
+    implicitFeatureSnap false;
+    explicitFeatureSnap true;
+    multiRegionFeatureSnap true;
+}
+
+addLayersControls
+{
+    relativeSizes true;
+    layers {}
+    expansionRatio 1.2;
+    finalLayerThickness 0.4;
+    minThickness 0.1;
+    nGrow 0;
+    featureAngle 60;
+    nRelaxIter 3;
+    nSmoothSurfaceNormals 1;
+    nSmoothNormals 3;
+    nSmoothThickness 10;
+    maxFaceThicknessRatio 0.5;
+    maxThicknessToMedialRatio 0.3;
+    minMedialAxisAngle 90;
+    nBufferCellsNoExtrude 0;
+    nLayerIter 50;
+}
+
+meshQualityControls
+{
+    // OpenFOAM defaults (caseDicts/mesh/generation/meshQualityDict.cfg) but minVol scaled for 0.06-0.1 mm cells
+    maxNonOrtho 65;
+    maxBoundarySkewness 20;
+    maxInternalSkewness 4;
+    maxConcave 80;
+    minVol 1e-20;
+    minTetQuality 1e-15;
+    minArea -1;
+    minTwist 0.02;
+    minDeterminant 0.001;
+    minFaceWeight 0.05;
+    minVolRatio 0.01;
+    minTriangleTwist -1;
+    relaxed { maxNonOrtho 75; }
+    nSmoothScale   4;
+    errorReduction 0.75;
+}
+
+mergeTolerance 1e-6;
