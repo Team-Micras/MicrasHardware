@@ -1,5 +1,4 @@
-"""Check the printed gear pair (micras/gears.py; the alternative to the brass pair), and the printed wheel with the
-brass pinion: no interference through a full tooth pitch, the backlash, how
+"""Check the printed wheel with the brass pinion (the robot's pair), and the all-printed pair (micras/gears.py): no interference through a full tooth pitch, the backlash, how
 much the centre distance may close (print error) before the teeth bind, and the tooth root stress.
 
 Tooth root stress, ISO 6336 style: sigma = Ft / (b m) * Y_F * Y_S, with the form and stress-correction factors
@@ -28,10 +27,10 @@ STALL = 5e-3  # N m, motor stall torque (assumed, generous for a 10 mm coreless 
 RESIN = 35.0  # MPa, printed resin design strength (as tools/fea.py)
 
 
-def pair(da=0.0, h=1.0, brass_pinion=False):
+def pair(da=0.0, h=1.0, brass_pinion=False, wheel=None):
     """(wheel, pinion) as thin slices, at the nominal centre distance + da (pinion on -x): the printed pair, or the
-    brass pinion (standard, unshifted) with the printed wheel."""
-    w = gears.spec(g.wheel_z, h)
+    brass pinion (standard, unshifted) with the printed wheel (wheel: its shift and backlash, as trials.py's)."""
+    w = gears.spec(g.wheel_z, h, **(wheel or {}))
     pn = gears.brass_spec(g.pinion_z, h) if brass_pinion else gears.spec(g.pinion_z, h)
     pn.mesh_to(w, target_dir=np.array([-1.0, 0, 0]))
     shift = g.center_distance + da - np.linalg.norm(pn.center[:2])  # where the blocks put the pinion
@@ -62,7 +61,12 @@ def main():
           f"wheel {g.wheel_z}T: tip d {gears.spec(g.wheel_z, 1).addendum_radius * 2:.3f}, {wh.volume:.1f} mm3 | "
           f"centre distance {g.center_distance:.3f}")
     bad = 0
-    for name, kind in (("printed pair", {}), ("brass pinion + printed wheel", {"brass_pinion": True})):
+    from micras import trials
+    cases = [("printed pair", {}), ("brass pinion + printed wheel", {"brass_pinion": True})]
+    cases += [(f"brass pinion + trial wheel wheel_bl{round(bl * 100):02d} (design {bl:.2f} mm)",
+               {"brass_pinion": True, "wheel": trials.wheel_spec(bl)})
+              for bl in trials.TP.backlash]
+    for name, kind in cases:
         print(name)
         for da in (0.0, -0.05, -0.1, -0.15, -0.2):
             v, gap = sweep(da, **kind)

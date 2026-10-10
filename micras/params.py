@@ -65,11 +65,11 @@ class Gears:
     pinion_bore: float = 0.98
     wheel_bore: float = 1.98
     center_adjust: float = 0.0  # added to the nominal centre distance (fixed-bore tuning)
-    # the wheel's gear: "brass", the bought 36T (a plain 2 mm disc), its bore drilled out to Params.wheel_hole_d and
-    # three countersunk M2 holes drilled (with gear_guide.py's guide), screwed to the printed wheel (the owner's
-    # default since the brass gears arrived; the motors carry the brass 7T pinions) | "printed", the wheel's own
-    # printed gear (gears.py)
-    wheel_gear: str = "brass"
+    # the wheel's gear: "printed", the wheel's own printed gear (gears.py), meshing with the brass 7T pinions on the
+    # motors (the owner's default: round 7 ran both and the printed one was preferred) | "brass", the bought 36T (a
+    # plain 2 mm disc), its bore drilled out to Params.wheel_hole_d and three countersunk M2 holes drilled (with
+    # gear_guide.py's guide), screwed to the printed wheel
+    wheel_gear: str = "printed"
     # printed stand-in pair (gears.py): profile shift +shift on the pinion, -shift on the wheel (same centre
     # distance), pinion addendum cut by tip_cut (module)
     shift: float = 0.45

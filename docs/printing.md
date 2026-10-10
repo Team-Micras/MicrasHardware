@@ -126,13 +126,15 @@ post-processing as the calibration print):
 
 | File | What | Time, resin |
 | --- | --- | --- |
-| `robot.pm4n` | the whole robot's resin parts with the default drive (one-piece blocks): blocks, wheels (for the brass 36T: nut pockets on the outer face), magnet cups (Ø4), fan mount, radial impeller, the brass gear's drill guide (base and lid). No pinions: the motors carry the brass ones | 2.1 h, 25 ml |
+| `robot.pm4n` | the whole robot's resin parts with the default drive (one-piece blocks): blocks, wheels (with their printed 36T), magnet cups (Ø4), fan mount, radial impeller. No pinions: the motors carry the brass ones (the brass 36T's wheels and drill guide are in `alternatives/`). The fan mount prints upside down | 2.1 h, 18 ml |
 | `drive_split.pm4n` | the other drive variant (base + cap blocks) | 2.1 h, 11 ml |
+| `trials.pm4n` | trial parts (`trials.py`): two impellers for the plain Ø1.5 shaft motor (`impeller_d155`, `_d158`: one and two dots), the tire cutting guide (base and ring), four wheel pairs with less backlash (`wheel_bl20/16/12/08`: 0.20 to 0.08 mm with the brass pinion, the value engraved on the gear's face) | 1.8 h, 27 ml |
 
 ```sh
 tools/capped.sh uv run tools/slice.py resin drive_solid --merge robot
 tools/capped.sh uv run tools/slice.py sensor_caps basket   # FDM
 tools/capped.sh uv run tools/slice.py drive_split
+tools/capped.sh uv run tools/slice.py trials
 ```
 
 The parts stand on braced supports (they come off as one piece: cut the tips with flush cutters, don't twist the
@@ -162,7 +164,7 @@ figure-of-eight strokes):
 - Motor rings: clear any nub off the ledge at the bore's outer end (the motor's front face sits on it).
 - Magnet cups: clean the cone's tip (it bears on the inner race); deburr the flange face.
 - Wheels: clean the cone on the end web's inner side (it bears on the outer bearing's inner race).
-- Fan mount: clear the nubs on the tabs' undersides (they set the impeller's 0.3 mm seal gap).
+- Fan mount: it prints upside down, so the tabs' undersides (they seat on the blocks' ears and set the impeller's tilt and its 0.3 mm seal gap) come out clean; don't sand them. Clear the nubs off the tabs' tops so the screw heads seat.
 - Inserts: their holes print sideways in the blocks; dry-fit an insert first, and run a 3.3 mm drill through if
   tight, then glue it with a drop of CA or epoxy (resin is a thermoset: heat-setting cracks it).
 - Impeller: its bore is the 9T pinion's outline with 0.06 mm all round: it slides onto the pinion, the teeth key
@@ -175,7 +177,7 @@ figure-of-eight strokes):
 
 | File | What | Notes |
 | --- | --- | --- |
-| `basket.gcode` | battery basket, PLA, upside down, the floor on supports from the bed | the supports sit inside the box and come out through its open side |
+| `basket.gcode` | battery basket, PLA, upside down, the whole floor on supports from the bed (with a solid interface under it; round 7's left the bridged parts unsupported), 31 min, 4.8 g | the supports sit inside the box and come out through its open side |
 | `sensor_caps.gcode` | the four wall-sensor caps and three test caps (1-3 dots: crush ribs 0 / 0.05 / 0.10), black PLA, front face down, no supports, solid (100 % infill), 0.08 mm layers (`pla_caps.ini`) | trim the brim flush with the hood's mouth; push a spare emitter and receiver into the test caps and keep the grip that holds them firmly without forcing (`FrontParams.rib_interf`) |
 
 **Sensor caps (the resin ones, painted, did not work):** black PLA, and check the filament first. Some black
@@ -225,4 +227,5 @@ Sources: [cross-layer curing and layer bulging](https://blog.honzamrazek.cz/2022
 | layers split, soft or sticky surface | under-exposed or cold resin | warm the room/resin to 25 °C; then +0.3 s exposure (reprint the coupon) |
 | slots closed, holes small, details bloated | over-exposed | -0.3 s exposure (reprint the coupon) |
 | printer won't list the file | the converted .pm4n | open the plate's `.3mf` in Lychee and slice it there with the settings above |
+| Ender stops mid-print and beeps (thermal-runaway protection) | the nozzle cooled below its target: the part fan's air on the heater block, or a loose thermistor or heater cartridge | check the heater block's silicone sock and that the thermistor and heater cartridge are tight; test: heat the nozzle to 215, fan at 100 % from the screen, watch the temperature for 3 min (it should stay within 2-3 °C); `pla_caps.ini` runs the fan at 50-70 % |
 | basket floor sags or strings | bridges | check cooling (100 %) and that the supports printed; lower `bridge_speed` in `pla.ini` |

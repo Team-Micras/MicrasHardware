@@ -729,12 +729,13 @@ def brass_gear(side, p: Params = P, d: DriveParams = D):
     return gear
 
 
-def wheel(side, p: Params = P, w: WheelParams = W):
+def wheel(side, p: Params = P, w: WheelParams = W, gear=None):
     """The wheel: the drum that carries the tire, and the end web at the outer face with the axle boss and the cone
     onto the outer bearing's inner race. The gear is the brass one screwed on (Gears.wheel_gear = "brass": three
     columns inside the drum, one round each screw's nut pocket, run from the gear out to the end web, and their ends
     are all that touches the gear) or printed in one piece with the wheel ("printed", joined to the drum by a web on
-    its outer face); either way its bore clears the tube."""
+    its outer face); either way its bore clears the tube. gear: gears.spec's overrides (shift, backlash, ...) for the printed
+    gear instead of the pair's (trials.py)."""
     from . import gears
     st, g, wh = p.stack, p.gears, p.wheel
     brass = g.wheel_gear == "brass"
@@ -753,7 +754,7 @@ def wheel(side, p: Params = P, w: WheelParams = W):
             part = col if part is None else part + col
         part = part & along_y(r_web - 0.3 + 0.01, y_g1, y_web + 0.01) - along_y(r_hole, 0, 40)
     else:  # the printed gear (gears.py: axis +Z, outer face at z = 0) turned onto +y, and the web
-        part = Pos(0, y_g1, 0) * Rot(-90, 0, 0) * gears.wheel_gear(p=p) + along_y(r_web, y_g1 - 0.01, y_g1 + w.web) - along_y(r_hole, 0, 40)
+        part = Pos(0, y_g1, 0) * Rot(-90, 0, 0) * gears.wheel_gear(p=p, **(gear or {})) + along_y(r_web, y_g1 - 0.01, y_g1 + w.web) - along_y(r_hole, 0, 40)
     # drum and the tire's channel (the seat between two flanges; the tire is stretched over the outer one), clear
     # of the gear face, hollow round the tube
     ya = y_g1 + wh.hub_relief

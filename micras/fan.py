@@ -142,7 +142,10 @@ def _revolved(points):
     return revolve(Plane.XZ * make_face(Polyline(*points, close=True)), Axis.Z)
 
 
-def impeller(p: Params = P, f: FanParams = F):
+def impeller(p: Params = P, f: FanParams = F, shaft=None):
+    """The impeller on the fan motor's 9T pinion, or with shaft = (diameter, bore, length out of the motor's front
+    face) on a plain round shaft instead (trials.py): a blind bore whose bottom stops the shaft where the pinion
+    would put the hub."""
     h = heights(p, f)
     r2, r1, rh = f.d2 / 2, f.eye_d / 2, f.hub_d / 2
     zs, zb, zt, ze = h["shroud"], h["blades"], h["back_tip"], h["back_eye"]
@@ -187,10 +190,20 @@ def impeller(p: Params = P, f: FanParams = F):
     # nose cone turning the inflow, hub boss, shaft bore
     body += _revolved([(0, zb + 0.4), (rh * 0.6, zb + 0.4), (f.nose_d / 2, ze), (0, ze)])
     body += Pos(0, 0, ze) * Cylinder(rh, h["hub_top"] - ze, align=MIN)
-    body -= Pos(0, 0, h["shaft_end"] - 0.3) * pinion_bore(p, f, h["hub_top"] - h["shaft_end"] + 0.3)
+    if shaft is None:
+        z_end = h["shaft_end"] - 0.3
+        body -= Pos(0, 0, z_end) * pinion_bore(p, f, h["hub_top"] - z_end)
+    else:
+        from build123d import Cone
+        _, bore, length = shaft
+        z_end = h["motor"] - length  # the shaft's end bottoms here
+        if z_end - (zb + 0.4) < 0.4:
+            raise ValueError(f"a {length} mm shaft leaves {z_end - zb - 0.4:.2f} mm under the bore (0.4 at least)")
+        body -= Pos(0, 0, z_end) * Cylinder(bore / 2, h["hub_top"] - z_end + 0.01, align=MIN)
+        body -= Pos(0, 0, h["hub_top"] - f.pinion_lead) * Cone(bore / 2, bore / 2 + f.pinion_lead, f.pinion_lead + 0.01, align=MIN)
     # vent from the blind bore's bottom out through the nose: printed hub-side down, the bore would be a suction
-    # cup (the pinion and its glue close it once fitted)
-    body -= Pos(0, 0, zb - 1) * Cylinder(f.vent_d / 2, h["shaft_end"] - zb + 1, align=MIN)
+    # cup (the shaft and its glue close it once fitted)
+    body -= Pos(0, 0, zb - 1) * Cylinder(f.vent_d / 2, z_end - zb + 1.01, align=MIN)
     x, y = centre(p)
     body = Pos(x, y, 0) * body
     body.label, body.color = "impeller", (0.95, 0.4, 0.4)
