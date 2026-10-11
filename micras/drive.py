@@ -672,6 +672,11 @@ class WheelParams:
     # heads flush in 90 deg countersinks drilled in the brass: the gear runs 0.25 mm from the block) into nuts in
     # pockets that open on the wheel's outer face, on the circle halfway between the gear's bore and its tooth roots
     gear_screws: int = 3
+    # the design backlash with the brass pinion, engraved in hundredths of a mm ("25" = 0.25) on the printed gear's
+    # inboard face (it prints on top, clean), read from the robot's middle
+    label_h: float = 3.0  # font size (the digits stand about 2.2 tall)
+    label_r: float = 6.1  # the digits' centre from the axle: between the wheel's hole and the tooth roots
+    engrave: float = 0.3
     gear_screw_hole: float = 2.1  # in the wheel: the screw passes snug, so with the countersunk heads it centres the gear
     gear_boss_wall: float = 0.7  # the columns' wall round the nut pockets' corners
 
@@ -800,7 +805,17 @@ def wheel(side, p: Params = P, w: WheelParams = W, gear=None):
             a = radians(360 * k / w.vents + 45)
             part -= along_y(w.vent_d / 2, y_web - 1, y_out + 1, rv * cos(a), rv * sin(a))
     part -= along_y((wh.axle_d + w.axle_fit) / 2, 0, 40)
-    return _side(Pos(0, 0, p.axle_z) * part, side, "wheel", (0.95, 0.95, 0.95))
+    part = _side(Pos(0, 0, p.axle_z) * part, side, "wheel", (0.95, 0.95, 0.95))
+    if not brass:
+        from build123d import Text
+        g_ = gear or {}
+        tag = f"{round(100 * gears.brass_pinion_backlash(g_.get('shift'), g_.get('backlash'), p=p)):02d}"
+        s = 1 if side > 0 else -1
+        plane = Plane(origin=(0, s * p.gear_y, p.axle_z + w.label_r), x_dir=(s, 0, 0), z_dir=(0, -s, 0))
+        label = part.label
+        part -= plane * Pos(0, 0, -w.engrave) * extrude(Text(tag, font_size=w.label_h), 2 * w.engrave)
+        part.label, part.color = label, (0.95, 0.95, 0.95)
+    return part
 
 
 def _side(part, side, name, color):

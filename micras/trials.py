@@ -1,23 +1,22 @@
 """Trial parts on a plate of their own (build/print/trials, slice plate "trials"): the default design is untouched.
-(Round 8's impellers for the plain Ø1.5 shaft are now the robot's: fan.py.)
 
-- The tire cutting guide: the bought tire tube (16 inside, 2 thick, 10 long) slides onto the base's post until it
-  stands on the shoulder; the ring drops over it onto the base and turns round the shoulder. A #11 blade through
-  the ring's slit, its tip down to the post, rides on the slit's lower edge: turn the ring once and the tire is cut
-  at the channel's width (Params.tire_w) above the shoulder. Take the ring off, slide the cut tire off, push the rest
-  of the tube down to the shoulder, and cut again (three tires from one tube).
-- Wheel pairs with less backlash than the robot's (0.25 mm with the brass pinion): the printed 36T unshifted, to
-  suit the unshifted brass pinion (the robot's is shifted -0.45 for the printed pinion that is no longer made; the
-  tips, Ø18.85, are within the brass 36T's Ø19.0, which the layout clears; 0.2 mm of tip clearance each way
-  instead of the standard 0.125), its teeth thinned by a backlash allowance. Design
-  backlash with the brass pinion, both flanks: 0.025 + 0.5 x allowance (tools/check_gears.py measures it). The
-  value is engraved in hundredths of a mm ("12" = 0.12) on the gear's inboard face, which prints on top (clean).
-  Round 6 showed the print closes the mesh by about 0.06-0.09 mm, so the 0.08 pair may bind.
+- The robot's drive blocks (the default variant, Layout.blocks), two fan mounts and two impellers (fan.py).
+- Wheel pairs with more backlash than round 8's 0.20 (TrialParams.backlash: 0.20, 0.24, 0.28 with the brass
+  pinion): the printed 36T unshifted, to suit the unshifted brass pinion (the robot's is shifted -0.45 for the
+  printed pinion that is no longer made), with 0.2 mm of tip clearance each way instead of the standard 0.125 (tips
+  Ø18.85, within the brass 36T's Ø19.0, which the layout clears), its teeth thinned by a backlash allowance. Design
+  backlash with the brass pinion, both flanks: 0.025 + 0.5 x allowance (tools/check_gears.py measures it).
+  drive.wheel engraves the value in hundredths of a mm ("24" = 0.24) on the gear's inboard face, like every wheel.
+- The tire cutting guide (in build/print/alternatives): the bought tire tube (16 inside, 2 thick, 10 long) slides
+  onto the base's post until it stands on the shoulder; the ring drops over it onto the base and turns round the
+  shoulder. A #11 blade through the ring's slit, its tip down to the post, rides on the slit's lower edge: turn the
+  ring once and the tire is cut at the channel's width (Params.tire_w) above the shoulder. Take the ring off, slide
+  the cut tire off, push the rest of the tube down to the shoulder, and cut again (three tires from one tube).
 """
 
 from dataclasses import dataclass
 
-from build123d import Align, Cylinder, Plane, Pos, Text, extrude
+from build123d import Align, Cylinder, Pos, extrude
 
 from . import drive
 from .params import P, Params
@@ -28,15 +27,13 @@ MIN = (Align.CENTER, Align.CENTER, Align.MIN)
 @dataclass(frozen=True)
 class TrialParams:
     # wheels: design backlash with the brass pinion (mm, both flanks) -> the wheel's allowance (module units)
-    backlash: tuple = (0.20, 0.16, 0.12, 0.08)
+    backlash: tuple = (0.20, 0.24, 0.28)  # round 9 (round 8's 0.20 / 0.16 / 0.12 / 0.08)
+    fan_copies: int = 2
     wheel_shift: float = 0.0
     # 0.2 mm of tip clearance both ways (the standard 0.25 module leaves 0.125: a print error closing the centre
     # distance by about 0.13 would put the tips on the roots before the flanks bind)
     wheel_addendum: float = 0.85
     wheel_dedendum: float = 1.40
-    label_h: float = 3.0  # font size of the engraved value (the digits stand about 2.2 tall)
-    label_r: float = 6.1  # its centre's distance from the axle: between the wheel's hole and the tooth roots
-    engrave: float = 0.3
     # tire cutting guide
     post_fit: float = 0.0  # on the tire's inside diameter (the tube grips the post)
     shoulder_h: float = 1.5
@@ -67,20 +64,25 @@ def wheel_spec(backlash, tp: TrialParams = TP):
 
 
 def wheels(tp: TrialParams = TP, p: Params = P):
-    """{wheel_bl20_L: ..., wheel_bl20_R: ..., ...}: a pair per design backlash, the value engraved."""
+    """{wheel_bl20_L: ..., wheel_bl20_R: ..., ...}: a pair per design backlash (drive.wheel engraves the value)."""
     if p.gears.wheel_gear != "printed":
         raise ValueError("the backlash trial wheels are printed-gear wheels (Gears.wheel_gear = 'printed')")
     out = {}
     for bl in tp.backlash:
-        tag = f"{round(bl * 100):02d}"
         for side in (1, -1):
             part = drive.wheel(side, p, gear=wheel_spec(bl, tp))
-            # the gear's inboard face (|y| = gear_y), read from the robot's middle: the text's plane faces inboard
-            s = 1 if side > 0 else -1
-            plane = Plane(origin=(0, s * p.gear_y, p.axle_z + tp.label_r), x_dir=(s, 0, 0), z_dir=(0, -s, 0))
-            digits = extrude(Text(tag, font_size=tp.label_h), 2 * tp.engrave)
-            part -= plane * Pos(0, 0, -tp.engrave) * digits
-            part.label = f"wheel_bl{tag}_{'L' if side > 0 else 'R'}"
+            part.label = f"wheel_bl{round(bl * 100):02d}_{'L' if side > 0 else 'R'}"
+            out[part.label] = part
+    return out
+
+
+def fan_spares(tp: TrialParams = TP, p: Params = P):
+    """{fan_mount_1, fan_mount_2, impeller_1, impeller_2}: the robot's fan mount and impeller, tp.fan_copies each."""
+    from . import fan
+    out = {}
+    for k in range(1, tp.fan_copies + 1):
+        for part in (fan.mount(p), fan.impeller(p)):
+            part.label = f"{part.label}_{k}"
             out[part.label] = part
     return out
 
@@ -124,7 +126,11 @@ def tire_guide(tp: TrialParams = TP, p: Params = P):
 
 
 def parts(tp: TrialParams = TP, p: Params = P):
-    out = wheels(tp, p)
-    for part in tire_guide(tp, p):
-        out[part.label] = part
-    return out
+    """The trials plate: the robot's drive blocks (Layout.blocks), two fan mounts and impellers, and the backlash
+    wheel pairs."""
+    return {**drive.printed(p), **fan_spares(tp, p), **wheels(tp, p)}
+
+
+def tools(tp: TrialParams = TP, p: Params = P):
+    """The tire cutting guide (build/print/alternatives)."""
+    return {part.label: part for part in tire_guide(tp, p)}

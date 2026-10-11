@@ -49,6 +49,17 @@ def brass_spec(z, height, p: Params = P):
                        backlash=0.05, enable_undercut=True)
 
 
+def brass_pinion_backlash(shift=None, backlash=None, pg_: PrintedGears = PG, p: Params = P):
+    """Design backlash (mm, both flanks, along the line of action) of a printed wheel gear (its shift and backlash
+    allowance, module units; default the pair's) with the brass pinion (unshifted, 0.05 allowance): the
+    allowances, plus what a negative shift thins the wheel's teeth by (tools/check_gears.py measures the same)."""
+    from math import radians, sin
+    g = p.gears
+    x = -g.shift if shift is None else shift
+    b = pg_.backlash_wheel if backlash is None else backlash
+    return g.module * (0.05 + b) - 2 * x * g.module * sin(radians(20))
+
+
 def spec(z, height, pg_: PrintedGears = PG, p: Params = P, backlash=None, shift=None, addendum=None, dedendum=None):
     """py_gearworks gear for one of the two tooth counts (the pinion or the wheel gear); shift, backlash, addendum
     and dedendum (module units) override the pair's."""

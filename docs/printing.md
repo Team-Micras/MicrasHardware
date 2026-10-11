@@ -128,7 +128,7 @@ post-processing as the calibration print):
 | --- | --- | --- |
 | `robot.pm4n` | the whole robot's resin parts with the default drive (one-piece blocks): blocks, wheels (with their printed 36T), magnet cups (Ø4), fan mount, radial impeller (on the motor's Ø1.5 shaft). No pinions: the motors carry the brass ones (the brass 36T's wheels and drill guide are in `alternatives/`). The fan mount prints upside down | 2.1 h, 18 ml |
 | `drive_split.pm4n` | the other drive variant (base + cap blocks) | 2.1 h, 11 ml |
-| `trials.pm4n` | trial parts (`trials.py`): the tire cutting guide (base and ring), four wheel pairs with less backlash (`wheel_bl20/16/12/08`: 0.20 to 0.08 mm with the brass pinion, the value engraved on the gear's face) | 1.8 h, 27 ml |
+| `trials.pm4n` | trial parts (`trials.py`): the robot's drive blocks, two fan mounts and two impellers, three wheel pairs with more backlash (`wheel_bl20/24/28`: 0.20 to 0.28 mm with the brass pinion, the value engraved on the gear's face) | 2.1 h, 30 ml |
 | `skirt_guide_1.pm4n`, `skirt_guide_2.pm4n` | the skirt's placing jig and nose template, then its ring template (`skirt_guide_trim.pm4n`: the templates for acetate, optional) | 0.9 + 0.8 h, 43 ml |
 
 ```sh

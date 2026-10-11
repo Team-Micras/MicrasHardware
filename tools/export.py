@@ -97,10 +97,12 @@ def main():
         part.label = part.label.replace("wheel_", "wheel_brass_gear_")
         write(part, "alternatives", rows)
     override(f"gears.wheel_gear={default_gear}")
-    # trial parts on a plate of their own (trials.py): plain-shaft impellers, the tire cutting guide, wheels with
-    # less backlash
+    # trial parts on a plate of their own (trials.py): two fan mounts and impellers, the backlash wheel pairs; the
+    # tire cutting guide with the optional alternatives
     for part in trials.parts().values():
         write(part, "trials", rows)
+    for part in trials.tools().values():
+        write(part, "alternatives", rows)
     # the sensor caps' grip in FDM (fit_test.led_caps): printed with the caps, on the same plate
     for part in fit_test.led_caps().values():
         write(part, "sensor_caps", rows)
