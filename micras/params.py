@@ -191,9 +191,9 @@ class Layout:
 class Params:
     board: Board = field(default_factory=Board)
     motor: Motor = field(default_factory=Motor)
-    # fan motor (measured): Ø9.97 x 23.08, 54k rpm at 7.6 V; its shaft carries a pressed-on 9T module 0.3 pinion
-    # (4.6 long) that doesn't come off, so the "shaft" here is that pinion (tip Ø3.3) and the impeller mounts on it
-    fan_motor: Motor = field(default_factory=lambda: Motor(d=9.97, body_l=23.08, shaft_d=3.3, shaft_l=4.6))
+    # fan motor (measured): Ø9.97 x 23.08, 54k rpm at 7.6 V, a plain Ø1.5 shaft 6 mm out of its front face (the
+    # first one carried a pressed-on 9T module 0.3 pinion instead: fan.FanParams.bore = "pinion")
+    fan_motor: Motor = field(default_factory=lambda: Motor(d=9.97, body_l=23.08, shaft_d=1.5, shaft_l=6.0))
     gears: Gears = field(default_factory=Gears)
     bearing: Bearing = field(default_factory=Bearing)
     magnet: Magnet = field(default_factory=Magnet)

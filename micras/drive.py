@@ -652,7 +652,12 @@ def printed(p: Params = P, d: DriveParams = D):
 class WheelParams:
     rim: float = 0.8  # tire seat thickness
     web: float = 0.8  # disc joining rim and boss (on the gear side, glued to the gear face)
-    boss_d: float = 4.0
+    boss_d: float = 4.0  # the axle boss's inner end (it faces the outer bearing across lip_gap)
+    # the boss flares from boss_d, boss_neck past its inner end, out to boss_root_d on the end web, and the end web
+    # is web_extra thicker inside the drum (round 8: the boss, 1 mm of wall on a 0.8 mm web, was too weak)
+    boss_neck: float = 0.5
+    boss_root_d: float = 8.0
+    web_extra: float = 0.4
     vents: int = 4  # through the web (3 x 1.5 trips a PrusaSlicer 2.9.4 crash in its support generator)
     vent_d: float = 1.5
     axle_fit: float = 0.04  # diametral, the wheel's bore on the axle: a light push, glued (0.08 was a little loose,
@@ -767,6 +772,13 @@ def wheel(side, p: Params = P, w: WheelParams = W, gear=None):
     # the axle boss runs in from the end web to just past the tube's end (inside the tube's bore radius), and ends
     # in the cone on the race: a long grip on the axle keeps the wheel square to it
     part += along_y(w.boss_d / 2, p.tube_end_y + st.lip_gap, y_out)
+    # its root: the end web thickened inside the drum, and a cone from the boss out onto it
+    y_root = y_web - w.web_extra
+    y_flare = p.tube_end_y + st.lip_gap + w.boss_neck
+    if w.web_extra > 0:
+        part += along_y(r_web - 0.29, y_root, y_web + 0.01)
+    if w.boss_root_d > w.boss_d:
+        part += Pos(0, y_flare, 0) * Rot(-90, 0, 0) * Cone(w.boss_d / 2, w.boss_root_d / 2, y_root - y_flare + 0.01, align=(Align.CENTER, Align.CENTER, Align.MIN))
     inside = st.bearing_play + 0.1  # from the race to 0.1 past the tube's end
     cone = Pos(0, p.bearing_outer_y, 0) * Rot(-90, 0, 0) * race_cone(inside, y_web - p.bearing_outer_y - inside + 0.01, p)
     part += cone & along_y(w.boss_d / 2, p.bearing_outer_y - 1, y_out)

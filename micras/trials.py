@@ -1,12 +1,6 @@
 """Trial parts on a plate of their own (build/print/trials, slice plate "trials"): the default design is untouched.
+(Round 8's impellers for the plain Ø1.5 shaft are now the robot's: fan.py.)
 
-- Impellers for a fan motor with a plain Ø1.5 shaft instead of the 9T pinion: the same body (it fits the same
-  mount) and 6 mm of shaft out of its front face, not cut. The radial impeller with a round blind bore whose bottom
-  stops the shaft's end where the pinion put the hub (0.3 mm below the motor's front boss), so it needs no setting:
-  push it on until it stops and wick in thin CA. Two bores, both tight: holes print about 0.06 small, so 1.55 comes
-  out about 1.49 (a hard press) and 1.58 about 1.52 (a snug push); not under the shaft, or the 2 mm of resin round
-  it splits. One dot on the backplate for the first, two for the second. The impeller prints tilted 45 deg, so the
-  bore comes out a little stepped and oval: if it's too tight, ream it with a Ø1.5 drill turned by hand.
 - The tire cutting guide: the bought tire tube (16 inside, 2 thick, 10 long) slides onto the base's post until it
   stands on the shoulder; the ring drops over it onto the base and turns round the shoulder. A #11 blade through
   the ring's slit, its tip down to the post, rides on the slit's lower edge: turn the ring once and the tire is cut
@@ -25,7 +19,7 @@ from dataclasses import dataclass
 
 from build123d import Align, Cylinder, Plane, Pos, Text, extrude
 
-from . import drive, fan
+from . import drive
 from .params import P, Params
 
 MIN = (Align.CENTER, Align.CENTER, Align.MIN)
@@ -33,11 +27,6 @@ MIN = (Align.CENTER, Align.CENTER, Align.MIN)
 
 @dataclass(frozen=True)
 class TrialParams:
-    # fan motor with a plain shaft: (diameter, length out of the front face); bores to try (glued)
-    shaft_d: float = 1.5
-    shaft_l: float = 6.0
-    shaft_bores: tuple = (1.55, 1.58)  # holes print ~0.06 small: a hard press (~1.49) and a snug push (~1.52)
-    dot_d: float = 1.0  # the marks on the backplate's top, 0.3 deep
     # wheels: design backlash with the brass pinion (mm, both flanks) -> the wheel's allowance (module units)
     backlash: tuple = (0.20, 0.16, 0.12, 0.08)
     wheel_shift: float = 0.0
@@ -75,26 +64,6 @@ def wheel_spec(backlash, tp: TrialParams = TP):
     """gears.spec's overrides for the trial wheel with this design backlash (mm)."""
     return {"shift": tp.wheel_shift, "backlash": allowance(backlash, tp), "addendum": tp.wheel_addendum,
             "dedendum": tp.wheel_dedendum}
-
-
-def impellers(tp: TrialParams = TP, p: Params = P):
-    """{impeller_d155: ..., impeller_d158: ...}: the radial impeller on the plain shaft, one per bore."""
-    from math import cos, radians, sin
-    out = {}
-    h = fan.heights(p)
-    f = fan.F
-    for n, bore in enumerate(tp.shaft_bores, 1):
-        part = fan.impeller(p, shaft=(tp.shaft_d, bore, tp.shaft_l))
-        # n dots on the backplate's top (it slopes: cut from above down to engrave below it)
-        cx, cy = fan.centre(p)
-        r_d = 8.0
-        z_top = h["back_eye"] + f.back_t + (h["back_tip"] - h["back_eye"]) * (r_d - f.eye_d / 2) / (f.d2 / 2 - f.eye_d / 2)
-        for k in range(n):
-            a = radians(-8 + 16 * k)
-            part -= Pos(cx + r_d * cos(a), cy + r_d * sin(a), z_top - tp.engrave) * Cylinder(tp.dot_d / 2, 5, align=MIN)
-        part.label = f"impeller_d{round(bore * 100)}"
-        out[part.label] = part
-    return out
 
 
 def wheels(tp: TrialParams = TP, p: Params = P):
@@ -155,7 +124,7 @@ def tire_guide(tp: TrialParams = TP, p: Params = P):
 
 
 def parts(tp: TrialParams = TP, p: Params = P):
-    out = {**impellers(tp, p), **wheels(tp, p)}
+    out = wheels(tp, p)
     for part in tire_guide(tp, p):
         out[part.label] = part
     return out

@@ -4,15 +4,17 @@ Sized for the fan motor (Ø9.97 x 23.08, 54k rpm at 7.6 V: about 87k rpm with no
 by its power and heat, not its speed) following docs/fan_study.md: a Ø22 impeller (eye 10, twelve straight radial
 blades from hub to tip, the channel tapering from 3 at the eye to 2 at the tip; the CFD found the curved-inlet and
 backward-curved variants no better) run at about 6.3 V average (PWM) for about 1000 Pa, 4 N with
-the skirt; never at full voltage (79k rpm, 17 W). Its hub is glued onto the motor's 9T pinion (it doesn't come
-off), gripping 3.8 of its 4.6 mm.
+the skirt; never at full voltage (79k rpm, 17 W). Its hub is glued onto the motor's plain Ø1.5 shaft (6 mm out,
+not cut): a round blind bore whose bottom stops the shaft's end with the hub 0.3 mm below the motor's front boss.
 
 - Impeller (resin): flat front shroud 0.3 mm above the component-free Ø27 silkscreen ring (face seal),
-  plus a short neck that dips into the board hole with a small radial gap. The hub's bore is the pinion's own
-  9-tooth outline with a small clearance: it slides on, the teeth key it, thin CA wicked in holds it; balance it
-  after.
+  plus a short neck that dips into the board hole with a small radial gap. The hub's bore is a press on the
+  shaft (holes print about 0.06 small); push it on until the shaft bottoms, wick in thin CA (it stays on for
+  good), balance it after. FanParams.bore = "pinion" makes the bore for the first fan motor's 9T pinion instead.
 - Mount (resin): a yoke hung from the drive blocks. The motor sits in a collar, clamped by a split at its
-  top and a crosswise M2 screw into a trapped nut; two arms reach back to ears on the two drive caps (an M2
+  top and a crosswise M2 screw into a trapped nut. The collar's bore runs straight through, so the motor goes in
+  from below with the impeller glued on, pushed up past four small bumps at the bore's foot that then snap in
+  under its front face: they set its height and hold it (seat_bumps); two arms reach back to ears on the two drive caps (an M2
   screw into a trapped nut each). It doesn't touch the board (a front leg on the MCU was dropped: the two
   arms hold it).
 """
@@ -60,11 +62,19 @@ class FanParams:
     neck_id: float = 13.4  # neck under the shroud: OD 14.4 in the Ø15 board hole
     neck_t: float = 0.5
     neck_l: float = 1.2  # dips 0.9 mm into the board hole
-    hub_d: float = 6.0  # round the pinion's Ø3.3 tips, at least 1 mm of wall
+    hub_d: float = 6.0  # 2.2 mm of wall round the shaft (round the first motor's pinion tips, 1.2)
     hub_motor_gap: float = 0.3  # hub top below the motor's front boss (the hub rises through the plate's hole)
     nose_d: float = 6.0  # flow-turning cone under the hub
     vent_d: float = 0.8  # through the nose, from the bore's bottom
-    # bore: the pinion's outline (9T M0.3, standard involute: tips Ø3.30, roots Ø1.98) grown by pinion_fit all
+    # the bore: "round", on the fan motor's plain shaft (Params.fan_motor), or "pinion", on the first fan motor's
+    # pressed-on 9T pinion (pinion_d at its tips, pinion_l out of the motor's face)
+    bore: str = "round"
+    # on the shaft, glued: holes print about 0.06 small, so 1.52 comes out about 1.46, a press (round 8's trial
+    # impellers were 1.55 and 1.58; ream with a Ø1.5 drill by hand if it splits or won't go on)
+    shaft_bore: float = 1.52
+    pinion_d: float = 3.3
+    pinion_l: float = 4.6
+    # pinion bore: the pinion's outline (9T M0.3, standard involute: tips Ø3.30, roots Ø1.98) grown by pinion_fit all
     # round; its ridges stop at pinion_ridge_d, clear of the pinion's roots, and its mouth flares for the lead-in
     pinion_fit: float = 0.06
     pinion_ridge_d: float = 2.3
@@ -81,12 +91,23 @@ class FanParams:
     leg_inner_r: float = 0.5  # radius where the underside meets the foot (the impeller runs 0.55 inside)
     leg_gap: float = 0.5  # the leg's root stays this far below the clamp
     run_gap: float = 0.5  # arm underside above the impeller's backplate
+    # the plate: the collar's foot, a ring round the bore below the motor's front face (the bore runs through it)
     plate_t: float = 1.2
     plate_above: float = 1.9  # plate underside above the backplate at the eye
-    plate_gap: float = 0.4  # radial, round the hub in the plate's hole
+    bore_lead: float = 0.3  # 45 deg lead-in at the bore's foot, where the motor goes in
     collar_wall: float = 1.2
     collar_h: float = 7.0
-    motor_fit: float = 0.10  # slides in, the clamp holds it (0.15 at 2.5 s was a little loose)
+    motor_fit: float = 0.15  # slides in freely (0.10 before the seat's bumps; the bumps and the clamp hold it)
+    # the seat: the motor goes in from below (the impeller glued on), so its height is set by small bumps on the
+    # bore's wall just under its front face: the can is pushed up past them (they stand seat_grip inside its
+    # diameter as drawn, about 0.03 more as printed; four short pads, so the collar gives a little), they snap in
+    # under its face, and their flat tops hold it at its height, hard to pull back out. A ramp under each eases
+    # it in. They catch the face only if the can's front edge is sharp to about 0.1 mm; otherwise they grip it
+    seat_bumps: int = 4
+    seat_arc: float = 20.0  # deg, each
+    seat_grip: float = 0.08  # radial, as drawn
+    seat_land: float = 0.3  # the bump's straight part, under its flat top
+    seat_ramp: float = 0.7
     # clamp: the collar's top is split at the front, over the front leg, and closed by an M2 screw across two
     # ears (head in one, nut trapped in the other)
     clamp_h: float = 6.0  # holds the whole nut, flats up and down, with 0.9 mm walls (at 4.0 the trap broke out of
@@ -120,7 +141,7 @@ def heights(p: Params = P, f: FanParams = F):
     z_hub_top = z_motor - p.fan_motor.boss_l - f.hub_motor_gap
     return dict(shroud=z_shroud, blades=z_blades, back_tip=z_back_tip, back_eye=z_back_eye,
                 hub_top=z_hub_top, plate=z_plate, motor=z_motor, collar_top=z_motor + f.collar_h,
-                shaft_end=z_motor - p.fan_motor.shaft_l, motor_top=z_motor + p.fan_motor.body_l + p.fan_motor.rear_l)
+                shaft_end=z_motor - (p.fan_motor.shaft_l if f.bore == "round" else f.pinion_l), motor_top=z_motor + p.fan_motor.body_l + p.fan_motor.rear_l)
 
 
 def collar_r(p: Params = P, f: FanParams = F):
@@ -142,10 +163,9 @@ def _revolved(points):
     return revolve(Plane.XZ * make_face(Polyline(*points, close=True)), Axis.Z)
 
 
-def impeller(p: Params = P, f: FanParams = F, shaft=None):
-    """The impeller on the fan motor's 9T pinion, or with shaft = (diameter, bore, length out of the motor's front
-    face) on a plain round shaft instead (trials.py): a blind bore whose bottom stops the shaft where the pinion
-    would put the hub."""
+def impeller(p: Params = P, f: FanParams = F):
+    """The impeller; its blind bore's bottom stops the shaft (FanParams.bore) with the hub 0.3 below the motor's
+    boss."""
     h = heights(p, f)
     r2, r1, rh = f.d2 / 2, f.eye_d / 2, f.hub_d / 2
     zs, zb, zt, ze = h["shroud"], h["blades"], h["back_tip"], h["back_eye"]
@@ -190,17 +210,17 @@ def impeller(p: Params = P, f: FanParams = F, shaft=None):
     # nose cone turning the inflow, hub boss, shaft bore
     body += _revolved([(0, zb + 0.4), (rh * 0.6, zb + 0.4), (f.nose_d / 2, ze), (0, ze)])
     body += Pos(0, 0, ze) * Cylinder(rh, h["hub_top"] - ze, align=MIN)
-    if shaft is None:
+    if f.bore == "pinion":
         z_end = h["shaft_end"] - 0.3
         body -= Pos(0, 0, z_end) * pinion_bore(p, f, h["hub_top"] - z_end)
     else:
         from build123d import Cone
-        _, bore, length = shaft
-        z_end = h["motor"] - length  # the shaft's end bottoms here
+        z_end = h["shaft_end"]  # the shaft's end bottoms here
         if z_end - (zb + 0.4) < 0.4:
-            raise ValueError(f"a {length} mm shaft leaves {z_end - zb - 0.4:.2f} mm under the bore (0.4 at least)")
-        body -= Pos(0, 0, z_end) * Cylinder(bore / 2, h["hub_top"] - z_end + 0.01, align=MIN)
-        body -= Pos(0, 0, h["hub_top"] - f.pinion_lead) * Cone(bore / 2, bore / 2 + f.pinion_lead, f.pinion_lead + 0.01, align=MIN)
+            raise ValueError(f"the shaft leaves {z_end - zb - 0.4:.2f} mm under the bore (0.4 at least)")
+        r = f.shaft_bore / 2
+        body -= Pos(0, 0, z_end) * Cylinder(r, h["hub_top"] - z_end + 0.01, align=MIN)
+        body -= Pos(0, 0, h["hub_top"] - f.pinion_lead) * Cone(r, r + f.pinion_lead, f.pinion_lead + 0.01, align=MIN)
     # vent from the blind bore's bottom out through the nose: printed hub-side down, the bore would be a suction
     # cup (the shaft and its glue close it once fitted)
     body -= Pos(0, 0, zb - 1) * Cylinder(f.vent_d / 2, z_end - zb + 1.01, align=MIN)
@@ -211,14 +231,14 @@ def impeller(p: Params = P, f: FanParams = F, shaft=None):
 
 
 def pinion_bore(p: Params = P, f: FanParams = F, depth=5.0):
-    """The hub's bore from z = 0 up to depth: the fan motor's 9T pinion grown by pinion_fit, with a lead-in at
-    the top."""
+    """The hub's bore from z = 0 up to depth: the first fan motor's 9T pinion grown by pinion_fit, with a lead-in
+    at the top."""
     import py_gearworks as pg
     from build123d import Cone, offset
-    gear = pg.SpurGear(number_of_teeth=9, module=p.fan_motor.shaft_d / 11, height=1.0, enable_undercut=True)
+    gear = pg.SpurGear(number_of_teeth=9, module=f.pinion_d / 11, height=1.0, enable_undercut=True)
     outline = gear.build_part().faces().sort_by(Axis.Z)[0]
     bore = extrude(offset(outline, f.pinion_fit), depth, dir=(0, 0, 1)) + Cylinder(f.pinion_ridge_d / 2, depth, align=MIN)
-    r_tip = p.fan_motor.shaft_d / 2 + f.pinion_fit
+    r_tip = f.pinion_d / 2 + f.pinion_fit
     lead = Pos(0, 0, depth - f.pinion_lead) * Cone(r_tip - f.pinion_lead, r_tip + f.pinion_lead, f.pinion_lead + 0.01,
                                                    align=MIN)
     return bore + lead
@@ -324,14 +344,36 @@ def mount(p: Params = P, f: FanParams = F, d=None):
     body -= Pos(rc - 2, 0, z0) * Box(10, f.clamp_slit, 10, align=(Align.MIN, Align.CENTER, Align.MIN))
     body -= Pos(ex, -f.clamp_slit / 2 - t1, ez) * Rot(90, 0, 0) * countersunk(d, depth=10, up=5)
     body -= Pos(ex, f.clamp_slit / 2 + t2 + 0.01, ez) * Rot(90, 0, 0) * nut_trap(d, d.nut_t + 0.01)  # flats up and down
-    # motor bore, boss hole
-    body -= Pos(0, 0, h["motor"]) * Cylinder((p.fan_motor.d + f.motor_fit) / 2, 30, align=MIN)
-    # clearance around the spinning impeller: its rim and backplate, and the hub boss
+    # the motor's bore, straight through the plate: the impeller is glued on for good, so the motor goes in from
+    # below with it, past the seat's bumps (FanParams.seat_*), a lead-in at the bottom
+    from build123d import Cone
+    rb = (p.fan_motor.d + f.motor_fit) / 2
+    body -= Pos(0, 0, top) * Cylinder(rb, 40, align=MIN)
+    body -= Pos(0, 0, h["plate"] - 0.01) * Cone(rb + f.bore_lead, rb, f.bore_lead + 0.01, align=MIN)
+    body += seat_bumps(p, f)
+    # clearance around the spinning impeller: its rim and backplate
     body -= Pos(0, 0, top) * Cylinder(f.d2 / 2 + 0.5, h["back_tip"] + f.back_t + f.run_gap - top, align=MIN)
-    body -= Pos(0, 0, top) * Cylinder(f.hub_d / 2 + f.plate_gap, h["motor"] - top, align=MIN)  # through the plate
     body = Pos(cx, cy, 0) * body
     body.label, body.color = "fan_mount", (0.9, 0.55, 0.2)
     return body
+
+
+def seat_bumps(p: Params = P, f: FanParams = F):
+    """The seat's bumps on the collar's bore, in the fan's frame: each a ramp up from the wall to seat_grip inside the
+    can, a short straight land, and a flat top at the motor's front face."""
+    h = heights(p, f)
+    rb = (p.fan_motor.d + f.motor_fit) / 2
+    ri = p.fan_motor.d / 2 - f.seat_grip
+    zm = h["motor"]
+    z_land = zm - f.seat_land
+    prof = Polygon((rb + 0.3, z_land - f.seat_ramp), (rb, z_land - f.seat_ramp), (ri, z_land), (ri, zm),
+                   (rb + 0.3, zm), align=None)
+    pad = revolve(Plane.XZ * prof, Axis.Z, f.seat_arc)
+    out = None
+    for k in range(f.seat_bumps):
+        b = Rot(0, 0, 45 + 360 * k / f.seat_bumps - f.seat_arc / 2) * pad
+        out = b if out is None else out + b
+    return out
 
 
 def fan_motor(p: Params = P, f: FanParams = F):
