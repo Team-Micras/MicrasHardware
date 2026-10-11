@@ -1,0 +1,19 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  OpenFOAM v2512 (opencfd/openfoam-default). Template: tools/cfd/make_case.py fills the @@-placeholders.
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    location    "0";
+    object      omega;
+}
+dimensions      [0 0 -1 0 0 0 0];
+internalField   uniform 1e4;
+boundaryField
+{
+    #includeEtc "caseDicts/setConstraintTypes"
+    "(inlet|ambient)" { type inletOutlet; inletValue uniform 50; value uniform 50; }
+    "(floor|board|impeller|mount|motor)" { type omegaWallFunction; value uniform 1e4; }
+}

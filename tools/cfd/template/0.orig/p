@@ -1,0 +1,26 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  OpenFOAM v2512 (opencfd/openfoam-default). Template: tools/cfd/make_case.py fills the @@-placeholders.
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    location    "0";
+    object      p;
+}
+dimensions      [0 2 -2 0 0 0 0];   // kinematic: p / rho
+internalField   uniform 0;
+boundaryField
+{
+    #includeEtc "caseDicts/setConstraintTypes"
+    // -suction / 1.2 against the iteration count: run_case.sh appends one step per stage to constant/p0Table
+    inlet
+    {
+        type            uniformTotalPressure;
+        p0              { type tableFile; file "$FOAM_CASE/constant/p0Table"; outOfBounds clamp; interpolationScheme linear; }
+        value           uniform @@P0_INLET@@;
+    }
+    ambient  { type totalPressure; p0 uniform 0; value uniform 0; }
+    "(floor|board|impeller|mount|motor)" { type zeroGradient; }
+}

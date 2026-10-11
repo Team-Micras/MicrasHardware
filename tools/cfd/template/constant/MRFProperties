@@ -1,0 +1,21 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  OpenFOAM v2512 (opencfd/openfoam-default). Template: tools/cfd/make_case.py fills the @@-placeholders.
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      MRFProperties;
+}
+impellerMRF
+{
+    cellZone        rotor;
+    active          yes;
+    // patches in the zone that do not turn (all but the impeller); they are axisymmetric where the zone touches them
+    nonRotatingPatches (floor inlet board ambient mount motor);
+    origin          (0 0 0);
+    axis            (0 0 1);      // counter-clockwise seen from +z (above)
+    omega           @@OMEGA@@;    // rad/s = @@RPM@@ rpm
+}
